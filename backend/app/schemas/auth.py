@@ -1,0 +1,36 @@
+from pydantic import BaseModel, Field
+
+from app.models.enums import UserRole
+from app.schemas.types import AppEmail
+
+
+class RegisterRequest(BaseModel):
+    email: AppEmail
+    password: str = Field(min_length=6)
+    full_name: str = Field(min_length=2)
+    role: UserRole = UserRole.STUDENT
+    phone: str | None = None
+    student_id: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: AppEmail
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: UserRole
+    phone: str | None
+    student_id: str | None
+    avatar_url: str | None
+    email_verified: bool
+    is_blocked: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class TokenResponse(BaseModel):
+    user: UserResponse

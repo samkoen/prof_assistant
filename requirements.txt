@@ -1,0 +1,2 @@
+# Dépendances Python : voir backend/requirements.txt
+-r backend/requirements.txt
