@@ -30,6 +30,14 @@ class QuestionCreate(BaseModel):
     options: list[QuestionOptionCreate]
 
 
+class QuestionUpdate(BaseModel):
+    text: str
+    question_type: QuestionType
+    points: float = 1.0
+    multiple_scoring_mode: MultipleScoringMode | None = None
+    options: list[QuestionOptionCreate]
+
+
 class QuestionResponse(BaseModel):
     id: int
     text: str
@@ -65,6 +73,10 @@ class ExamUpdate(BaseModel):
     warning_minutes: int | None = None
     auto_submit_on_timeout: bool | None = None
     default_multiple_scoring: MultipleScoringMode | None = None
+    scope_teacher_id: int | None = None
+    scope_academic_year: int | None = Field(default=None, ge=2000, le=2100)
+    scope_semester: int | None = Field(default=None, ge=1, le=3)
+    scope_group_name: str | None = Field(default=None, max_length=255)
 
 
 class ExamDuplicateRequest(BaseModel):
@@ -134,6 +146,48 @@ class AttemptResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class StudentExamResultRow(BaseModel):
+    student_id: int
+    student_name: str
+    student_number: str | None
+    attempt_id: int | None
+    started_at: datetime | None
+    submitted_at: datetime | None
+    score: float | None
+    max_score: float | None
+    status: str
+
+
+class ExamSessionResultsResponse(BaseModel):
+    session_id: int
+    exam_id: int
+    exam_title: str
+    offering_label: str
+    results: list[StudentExamResultRow]
+
+
+class StudentOfferingExamResultRow(BaseModel):
+    session_id: int
+    exam_id: int
+    exam_title: str
+    session_status: ExamStatus
+    attempt_id: int | None
+    started_at: datetime | None
+    submitted_at: datetime | None
+    score: float | None
+    max_score: float | None
+    status: str
+
+
+class StudentOfferingExamResultsResponse(BaseModel):
+    student_id: int
+    student_name: str
+    student_number: str | None
+    offering_id: int
+    offering_label: str
+    results: list[StudentOfferingExamResultRow]
+
+
 class QuestionsImportRequest(BaseModel):
     questions: list[QuestionCreate] = Field(min_length=1)
 
@@ -141,6 +195,10 @@ class QuestionsImportRequest(BaseModel):
 class QuestionsImportResponse(BaseModel):
     imported_count: int
     questions: list[QuestionResponse]
+
+
+class QuestionsReorderRequest(BaseModel):
+    question_ids: list[int] = Field(min_length=1)
 
 
 class ExamDetailResponse(ExamResponse):

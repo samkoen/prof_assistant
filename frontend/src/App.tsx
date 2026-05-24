@@ -27,6 +27,8 @@ import TeacherCourseStudentsPage from "./pages/teacher/TeacherCourseStudentsPage
 
 import TeacherCourseExamsPage from "./pages/teacher/TeacherCourseExamsPage";
 
+import TeacherExamResultsPage from "./pages/teacher/TeacherExamResultsPage";
+
 import TeacherEnrollmentsPage from "./pages/teacher/TeacherEnrollmentsPage";
 
 import TeacherCatalogCoursesPage from "./pages/teacher/TeacherCatalogCoursesPage";
@@ -122,6 +124,11 @@ export default function App() {
           <Route path="/teacher/courses/:courseId/students" element={<TeacherCourseStudentsPage />} />
 
           <Route path="/teacher/courses/:courseId/exams" element={<TeacherCourseExamsPage />} />
+
+          <Route
+            path="/teacher/courses/:courseId/exams/sessions/:sessionId/results"
+            element={<TeacherExamResultsPage />}
+          />
 
           <Route path="/teacher/enrollments" element={<TeacherEnrollmentsPage />} />
 

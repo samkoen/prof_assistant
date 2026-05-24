@@ -25,10 +25,14 @@ from app.schemas.exam import (
     ExamUpdate,
     ExamSessionActivate,
     ExamSessionResponse,
+    ExamSessionResultsResponse,
     QuestionCreate,
     QuestionResponse,
+    QuestionUpdate,
     QuestionsImportRequest,
     QuestionsImportResponse,
+    QuestionsReorderRequest,
+    StudentExamResultRow,
     SubmitExamRequest,
     StudentQuestionOptionResponse,
     StudentQuestionResponse,
@@ -39,9 +43,12 @@ from app.services.exam_lifecycle import (
     exam_has_non_draft_sessions,
 )
 from app.services.exam_questions import (
+    delete_question,
     exam_has_active_sessions,
     next_question_order_index,
     persist_question,
+    reorder_questions,
+    update_question,
     validate_question_body,
 )
 from app.services.catalog_item_response import scope_to_response
@@ -52,6 +59,7 @@ from app.services.catalog_scope import (
     load_scope_teacher_names,
     scope_teacher_filter,
     teacher_can_edit_catalog_item,
+    widen_scope_for_offering,
 )
 
 from app.services.scoring import score_question
@@ -393,9 +401,16 @@ async def update_exam(
     data = body.model_dump(exclude_unset=True)
     if not data:
         raise HTTPException(status_code=400, detail="אין שדות לעדכון")
+    scope_keys = {"scope_teacher_id", "scope_academic_year", "scope_semester", "scope_group_name"}
     non_title = [k for k in data if k != "title"]
     if non_title and await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    if (
+        data.get("scope_teacher_id") is not None
+        and user.role == UserRole.TEACHER
+        and data["scope_teacher_id"] != user.id
+    ):
+        raise HTTPException(status_code=403, detail="לא ניתן להגביל למורה אחר")
     for key, value in data.items():
         setattr(exam, key, value)
     await db.commit()
@@ -425,6 +440,43 @@ async def copy_exam(
     )
     names = await load_scope_teacher_names(db, [copy])
     return _exam_response(copy, cnt or 0, names)
+
+
+@router.post("/{exam_id}/attach-offering", response_model=ExamResponse)
+async def attach_exam_to_offering(
+    exam_id: int,
+    body: ExamSessionActivate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    offering = await db.get(CourseOffering, body.offering_id)
+    if not offering:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    if user.role == UserRole.TEACHER and offering.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    if offering.catalog_course_id != exam.catalog_course_id:
+        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
+    if not catalog_item_visible_to_teacher(exam, offering.teacher_id):
+        raise HTTPException(status_code=403, detail="אין הרשאה למבחן זה")
+    if catalog_item_matches_offering(exam, offering):
+        cnt = await db.scalar(
+            select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
+        )
+        names = await load_scope_teacher_names(db, [exam])
+        return _exam_response(exam, cnt or 0, names)
+    widen_scope_for_offering(exam, offering)
+    if not catalog_item_matches_offering(exam, offering):
+        raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
+    await db.commit()
+    await db.refresh(exam)
+    cnt = await db.scalar(
+        select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
+    )
+    names = await load_scope_teacher_names(db, [exam])
+    return _exam_response(exam, cnt or 0, names)
 
 
 @router.delete("/{exam_id}", status_code=204)
@@ -514,6 +566,57 @@ async def add_question(
     return QuestionResponse.model_validate(q)
 
 
+@router.put("/{exam_id}/questions/reorder", response_model=ExamDetailResponse)
+async def reorder_exam_questions(
+    exam_id: int,
+    body: QuestionsReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    await reorder_questions(exam_id, body.question_ids, db)
+    await db.commit()
+    return await get_exam_detail(exam_id, db, user)
+
+
+@router.patch("/{exam_id}/questions/{question_id}", response_model=QuestionResponse)
+async def edit_question(
+    exam_id: int,
+    question_id: int,
+    body: QuestionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    await update_question(exam_id, question_id, body, db)
+    await db.commit()
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.id == question_id)
+    )
+    q = result.scalar_one()
+    return QuestionResponse.model_validate(q)
+
+
+@router.delete("/{exam_id}/questions/{question_id}", status_code=204)
+async def remove_question(
+    exam_id: int,
+    question_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    await delete_question(exam_id, question_id, db)
+    await db.commit()
+
+
 @router.post("/{exam_id}/activate", response_model=ExamSessionResponse)
 async def activate_exam(
     exam_id: int,
@@ -592,6 +695,86 @@ async def activate_exam(
         .where(ExamSession.id == session.id)
     )
     return _session_response(result.scalar_one(), cnt or 0)
+
+
+@router.get("/sessions/{session_id}/results", response_model=ExamSessionResultsResponse)
+async def get_session_results(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    if user.role == UserRole.TEACHER:
+        session = await _get_teacher_session(session_id, user, db)
+    else:
+        result = await db.execute(
+            select(ExamSession)
+            .options(
+                selectinload(ExamSession.exam),
+                selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
+            )
+            .where(ExamSession.id == session_id)
+        )
+        session = result.scalar_one_or_none()
+        if not session:
+            raise HTTPException(status_code=404, detail="מפגש מבחן לא נמצא")
+
+    enrollments = (
+        await db.execute(
+            select(CourseEnrollment)
+            .options(selectinload(CourseEnrollment.student))
+            .where(
+                CourseEnrollment.offering_id == session.offering_id,
+                CourseEnrollment.status == EnrollmentStatus.APPROVED,
+            )
+            .order_by(CourseEnrollment.id)
+        )
+    ).scalars().all()
+
+    attempts = (
+        await db.execute(
+            select(StudentExamAttempt).where(StudentExamAttempt.exam_session_id == session_id)
+        )
+    ).scalars().all()
+    attempt_by_student = {a.student_id: a for a in attempts}
+
+    rows: list[StudentExamResultRow] = []
+    for enr in enrollments:
+        student = enr.student
+        attempt = attempt_by_student.get(student.id)
+        if attempt is None:
+            status = "not_started"
+        elif attempt.submitted_at is not None:
+            status = "submitted"
+        elif attempt.started_at is not None:
+            status = "in_progress"
+        else:
+            status = "not_started"
+        rows.append(
+            StudentExamResultRow(
+                student_id=student.id,
+                student_name=student.full_name,
+                student_number=student.student_id,
+                attempt_id=attempt.id if attempt else None,
+                started_at=attempt.started_at if attempt else None,
+                submitted_at=attempt.submitted_at if attempt else None,
+                score=attempt.score if attempt else None,
+                max_score=attempt.max_score if attempt else None,
+                status=status,
+            )
+        )
+
+    rows.sort(key=lambda r: (r.status != "submitted", r.student_name))
+    offering = session.offering
+    catalog_name = offering.catalog_course.name if offering.catalog_course else ""
+    offering_label = f"{catalog_name} — {offering.group_name} ({offering.academic_year}, סמסטר {offering.semester})"
+
+    return ExamSessionResultsResponse(
+        session_id=session.id,
+        exam_id=session.exam_id,
+        exam_title=session.exam.title,
+        offering_label=offering_label,
+        results=rows,
+    )
 
 
 @router.post("/sessions/{session_id}/close", response_model=ExamSessionResponse)

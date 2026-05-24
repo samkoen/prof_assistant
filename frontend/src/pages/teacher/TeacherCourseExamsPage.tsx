@@ -17,8 +17,11 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import GradingIcon from "@mui/icons-material/Grading";
 import AddIcon from "@mui/icons-material/Add";
+import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import { ExamActionButtons, ExamEditLink } from "../../components/ExamActionButtons";
+import AddExistingExamDialog from "../../components/AddExistingExamDialog";
 import {
   api,
   ApiError,
@@ -53,6 +56,7 @@ export default function TeacherCourseExamsPage() {
   const [activatingId, setActivatingId] = useState<number | null>(null);
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
   const [confirmSession, setConfirmSession] = useState<ExamSession | null>(null);
+  const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -161,14 +165,23 @@ export default function TeacherCourseExamsPage() {
             variant="contained"
             startIcon={<AddIcon />}
             size="small"
-            sx={{ mb: 2 }}
+            sx={{ mb: 1, mr: 1 }}
             onClick={() =>
               navigate(
-                `/teacher/exams/new?catalog_course_id=${offering.catalog_course_id}&return=${encodeURIComponent(`/teacher/courses/${id}/exams`)}`
+                `/teacher/exams/new?catalog_course_id=${offering.catalog_course_id}&offering_id=${offering.id}&return=${encodeURIComponent(`/teacher/courses/${id}/exams`)}`
               )
             }
           >
             {he.createExam}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<PlaylistAddIcon />}
+            size="small"
+            sx={{ mb: 2 }}
+            onClick={() => setAddExistingOpen(true)}
+          >
+            {he.addExistingExam}
           </Button>
         </>
       )}
@@ -226,6 +239,17 @@ export default function TeacherCourseExamsPage() {
                 <Box sx={{ display: "flex", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
                   <ExamEditLink examId={exam.id} returnTo={`/teacher/courses/${id}/exams`} />
                   <ExamActionButtons exam={exam} onChanged={load} onError={setError} />
+                  {session && session.status !== "draft" && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      component={RouterLink}
+                      to={`/teacher/courses/${id}/exams/sessions/${session.id}/results`}
+                      startIcon={<GradingIcon />}
+                    >
+                      {he.viewExamGrades}
+                    </Button>
+                  )}
                   {canStart && (
                     <Button
                       size="small"
@@ -255,6 +279,19 @@ export default function TeacherCourseExamsPage() {
             </Card>
           );
         })
+      )}
+
+      {offering && (
+        <AddExistingExamDialog
+          open={addExistingOpen}
+          offering={offering}
+          visibleExamIds={exams.map((e) => e.id)}
+          onClose={() => setAddExistingOpen(false)}
+          onAttached={async () => {
+            setSuccess(he.examAddedToGroup);
+            await load();
+          }}
+        />
       )}
 
       <Dialog open={!!confirmSession} onClose={() => setConfirmSession(null)} fullWidth maxWidth="xs">

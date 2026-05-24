@@ -36,6 +36,19 @@ def catalog_item_matches_offering(item, offering: CourseOffering) -> bool:
     return True
 
 
+def widen_scope_for_offering(item, offering: CourseOffering) -> None:
+    """Efface les restrictions de portée qui empêchent l'utilisation pour cette offering."""
+    year = _scope_value(item, "scope_academic_year")
+    if year is not None and year != offering.academic_year:
+        item.scope_academic_year = None
+    semester = _scope_value(item, "scope_semester")
+    if semester is not None and semester != offering.semester:
+        item.scope_semester = None
+    group = _scope_value(item, "scope_group_name")
+    if group is not None and group != offering.group_name:
+        item.scope_group_name = None
+
+
 def teacher_can_edit_catalog_item(item, user: User, catalog_creator_id: int) -> bool:
     if user.role == UserRole.ADMIN:
         return True

@@ -1,0 +1,167 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link as RouterLink, useParams } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { api, ApiError, type ExamSessionResults } from "../../api/client";
+import { he } from "../../i18n/he";
+
+const statusLabel: Record<ExamSessionResults["results"][0]["status"], string> = {
+  not_started: he.resultNotStarted,
+  in_progress: he.resultInProgress,
+  submitted: he.resultSubmitted,
+};
+
+const statusColor: Record<
+  ExamSessionResults["results"][0]["status"],
+  "default" | "warning" | "success"
+> = {
+  not_started: "default",
+  in_progress: "warning",
+  submitted: "success",
+};
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("he-IL");
+}
+
+export default function TeacherExamResultsPage() {
+  const { courseId, sessionId } = useParams<{ courseId: string; sessionId: string }>();
+  const sid = Number(sessionId);
+  const [data, setData] = useState<ExamSessionResults | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const backTo = `/teacher/courses/${courseId}/exams`;
+
+  const load = useCallback(async () => {
+    if (!sid || Number.isNaN(sid)) return;
+    setLoading(true);
+    setError("");
+    try {
+      setData(await api<ExamSessionResults>(`/api/exams/sessions/${sid}/results`));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setLoading(false);
+    }
+  }, [sid]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const summary = useMemo(() => {
+    if (!data) return null;
+    const submitted = data.results.filter((r) => r.status === "submitted").length;
+    return { total: data.results.length, submitted };
+  }, [data]);
+
+  if (loading && !data) {
+    return (
+      <Box display="flex" justifyContent="center" py={8}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!data) {
+    return <Alert severity="error">{error || he.errorGeneric}</Alert>;
+  }
+
+  return (
+    <Box sx={{ width: "100%", maxWidth: 960 }}>
+      <Button
+        component={RouterLink}
+        to={backTo}
+        startIcon={<ArrowBackIcon />}
+        size="small"
+        sx={{ mb: 2 }}
+      >
+        {he.backToExams}
+      </Button>
+
+      <Typography variant="h5" fontWeight={700} gutterBottom>
+        {he.examResults}
+      </Typography>
+      <Typography variant="h6" gutterBottom>
+        {data.exam_title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {data.offering_label}
+      </Typography>
+
+      {summary && (
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {he.resultsSummary}: {summary.submitted} / {summary.total}
+        </Typography>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+          {error}
+        </Alert>
+      )}
+
+      <Card>
+        <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
+          {data.results.length === 0 ? (
+            <Box p={3}>
+              <Typography color="text.secondary">{he.noResultsYet}</Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{he.fullName}</TableCell>
+                    <TableCell>{he.studentId}</TableCell>
+                    <TableCell>{he.status}</TableCell>
+                    <TableCell align="left">{he.score}</TableCell>
+                    <TableCell align="left">{he.submittedAt}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {data.results.map((row) => (
+                    <TableRow key={row.student_id}>
+                      <TableCell>{row.student_name}</TableCell>
+                      <TableCell>{row.student_number || "—"}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={statusLabel[row.status]}
+                          color={statusColor[row.status]}
+                        />
+                      </TableCell>
+                      <TableCell align="left">
+                        {row.score != null && row.max_score != null
+                          ? `${row.score} / ${row.max_score}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell align="left">{formatDateTime(row.submitted_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}

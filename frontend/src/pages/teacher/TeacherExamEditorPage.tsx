@@ -8,15 +8,27 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  IconButton,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadIcon from "@mui/icons-material/Upload";
-import { api, ApiError, type Exam, type ExamDetail } from "../../api/client";
+import QuestionEditDialog from "../../components/QuestionEditDialog";
+import ExamScopeEditor from "../../components/ExamScopeEditor";
+import { api, ApiError, type Exam, type ExamDetail, type Question } from "../../api/client";
 import {
   parseQcmText,
   QCM_FORMAT_EXAMPLE,
@@ -46,6 +58,10 @@ export default function TeacherExamEditorPage() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
+  const [questionToEdit, setQuestionToEdit] = useState<Question | null>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -126,6 +142,44 @@ export default function TeacherExamEditorPage() {
     if (ok) navigate(returnTo);
   };
 
+  const moveQuestion = async (index: number, direction: -1 | 1) => {
+    if (!exam) return;
+    const target = index + direction;
+    if (target < 0 || target >= exam.questions.length) return;
+    const ids = exam.questions.map((q) => q.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    setReordering(true);
+    setError("");
+    try {
+      const data = await api<ExamDetail>(`/api/exams/${id}/questions/reorder`, {
+        method: "PUT",
+        body: JSON.stringify({ question_ids: ids }),
+      });
+      setExam(data);
+      setSuccess(he.questionsReordered);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const deleteQuestion = async () => {
+    if (!questionToDelete) return;
+    setDeletingQuestionId(questionToDelete.id);
+    setError("");
+    try {
+      await api(`/api/exams/${id}/questions/${questionToDelete.id}`, { method: "DELETE" });
+      setQuestionToDelete(null);
+      setSuccess(he.questionDeleted);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setDeletingQuestionId(null);
+    }
+  };
+
   if (loading && !exam) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -181,6 +235,13 @@ export default function TeacherExamEditorPage() {
         </CardContent>
       </Card>
 
+      <ExamScopeEditor
+        exam={exam}
+        editable={exam.is_editable}
+        onSaved={(updated) => setExam((prev) => (prev ? { ...prev, ...updated } : prev))}
+        onError={setError}
+      />
+
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {exam.question_count} {he.questionsInExam}
         {!exam.is_editable && (
@@ -205,24 +266,96 @@ export default function TeacherExamEditorPage() {
             <Typography variant="h6" gutterBottom>
               {he.existingQuestions}
             </Typography>
+            {exam.is_editable && exam.questions.length > 1 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {he.reorderQuestionsHint}
+              </Typography>
+            )}
             {exam.questions.map((q, i) => (
-              <Box key={q.id} sx={{ mb: 2 }}>
-                <Typography fontWeight={600}>
-                  {i + 1}. {q.text}{" "}
-                  <Chip size="small" label={typeLabel[q.question_type] ?? q.question_type} />
-                  <Chip size="small" variant="outlined" label={`${q.points} נק'`} sx={{ ml: 0.5 }} />
-                </Typography>
-                {q.options.map((o) => (
-                  <Typography
-                    key={o.id}
-                    variant="body2"
-                    color={o.is_correct ? "success.main" : "text.secondary"}
-                    sx={{ pr: 2 }}
-                  >
-                    {o.is_correct ? "✓ " : "○ "}
-                    {o.text}
+              <Box
+                key={q.id}
+                sx={{
+                  mb: 2,
+                  p: 1.5,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "flex-start",
+                }}
+              >
+                <Box flex={1} minWidth={0}>
+                  <Typography fontWeight={600}>
+                    {i + 1}. {q.text}{" "}
+                    <Chip size="small" label={typeLabel[q.question_type] ?? q.question_type} />
+                    <Chip size="small" variant="outlined" label={`${q.points} נק'`} sx={{ ml: 0.5 }} />
                   </Typography>
-                ))}
+                  {q.options.map((o) => (
+                    <Typography
+                      key={o.id}
+                      variant="body2"
+                      color={o.is_correct ? "success.main" : "text.secondary"}
+                      sx={{ pr: 2 }}
+                    >
+                      {o.is_correct ? "✓ " : "○ "}
+                      {o.text}
+                    </Typography>
+                  ))}
+                </Box>
+                {exam.is_editable && (
+                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    {exam.questions.length > 1 && (
+                      <>
+                        <Tooltip title={he.moveQuestionUp}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={i === 0 || reordering}
+                              onClick={() => moveQuestion(i, -1)}
+                              aria-label={he.moveQuestionUp}
+                            >
+                              <KeyboardArrowUpIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title={he.moveQuestionDown}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={i === exam.questions.length - 1 || reordering}
+                              onClick={() => moveQuestion(i, 1)}
+                              aria-label={he.moveQuestionDown}
+                            >
+                              <KeyboardArrowDownIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </>
+                    )}
+                    <Tooltip title={he.editQuestion}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => setQuestionToEdit(q)}
+                        aria-label={he.editQuestion}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={he.deleteQuestion}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      disabled={deletingQuestionId === q.id}
+                      onClick={() => setQuestionToDelete(q)}
+                      aria-label={he.deleteQuestion}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                    </Tooltip>
+                  </Box>
+                )}
               </Box>
             ))}
           </CardContent>
@@ -235,9 +368,42 @@ export default function TeacherExamEditorPage() {
             <ContentPasteIcon color="primary" />
             <Typography variant="h6">{he.pasteQcm}</Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {he.pasteQcmHint}
-          </Typography>
+          <Box sx={{ mb: 2 }} dir="rtl">
+            <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 1 }}>
+              {he.pasteQcmHintIntro}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2.5, color: "text.secondary" }}>
+              <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                {he.pasteQcmHintRule1}
+              </Typography>
+              <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
+                {he.pasteQcmHintRule2}
+              </Typography>
+              <Typography component="li" variant="body2">
+                {he.pasteQcmHintRule3}
+              </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+              {he.pasteQcmHintFormatLabel}
+            </Typography>
+            <Typography
+              variant="caption"
+              component="div"
+              dir="ltr"
+              sx={{
+                mt: 1.5,
+                px: 1.5,
+                py: 0.75,
+                bgcolor: "action.hover",
+                borderRadius: 1,
+                fontFamily: "monospace",
+                textAlign: "left",
+                color: "text.secondary",
+              }}
+            >
+              {he.pasteQcmHintFormatExample}
+            </Typography>
+          </Box>
 
           <Button size="small" variant="outlined" onClick={copyPrompt} sx={{ mb: 1, mr: 1 }}>
             {he.copyGeminiPrompt}
@@ -303,6 +469,40 @@ export default function TeacherExamEditorPage() {
           {savingTitle ? he.loading : he.saveExamDone}
         </Button>
       </Box>
+
+      <QuestionEditDialog
+        examId={id}
+        question={questionToEdit}
+        open={!!questionToEdit}
+        onClose={() => setQuestionToEdit(null)}
+        onSaved={async () => {
+          setSuccess(he.questionSaved);
+          await load();
+        }}
+      />
+
+      <Dialog open={!!questionToDelete} onClose={() => setQuestionToDelete(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{he.deleteQuestion}</DialogTitle>
+        <DialogContent>
+          <Typography>{he.deleteQuestionConfirm}</Typography>
+          {questionToDelete && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {questionToDelete.text}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuestionToDelete(null)}>{he.cancel}</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={deleteQuestion}
+            disabled={deletingQuestionId != null}
+          >
+            {deletingQuestionId != null ? he.loading : he.deleteQuestion}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

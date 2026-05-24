@@ -171,6 +171,48 @@ export interface ExamAttempt {
   can_resubmit: boolean;
 }
 
+export interface StudentExamResult {
+  student_id: number;
+  student_name: string;
+  student_number: string | null;
+  attempt_id: number | null;
+  started_at: string | null;
+  submitted_at: string | null;
+  score: number | null;
+  max_score: number | null;
+  status: "not_started" | "in_progress" | "submitted";
+}
+
+export interface ExamSessionResults {
+  session_id: number;
+  exam_id: number;
+  exam_title: string;
+  offering_label: string;
+  results: StudentExamResult[];
+}
+
+export interface StudentOfferingExamResult {
+  session_id: number;
+  exam_id: number;
+  exam_title: string;
+  session_status: "draft" | "active" | "closed";
+  attempt_id: number | null;
+  started_at: string | null;
+  submitted_at: string | null;
+  score: number | null;
+  max_score: number | null;
+  status: "not_started" | "in_progress" | "submitted";
+}
+
+export interface StudentOfferingExamResults {
+  student_id: number;
+  student_name: string;
+  student_number: string | null;
+  offering_id: number;
+  offering_label: string;
+  results: StudentOfferingExamResult[];
+}
+
 export interface ExamTake {
   session_id: number;
   offering_id: number;

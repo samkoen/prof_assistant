@@ -213,6 +213,7 @@ Q3 [true_false]
 ---`;
 
 export const QCM_GEMINI_PROMPT = `צור מבחן בפורמט הבא בדיוק (הפרד בין שאלות עם שורה ---):
+- כתוב את השאלות בבלוק plaintext
 - כותרת שאלה: Q<num> [single|multiple|true_false] (נקודות pt)
 - טקסט השאלה
 - אפשרויות: A) ... B) ... עם * אחרי התשובה הנכונה

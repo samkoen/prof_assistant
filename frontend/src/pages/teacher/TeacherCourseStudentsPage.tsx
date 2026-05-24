@@ -15,11 +15,12 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
+import GradingIcon from "@mui/icons-material/Grading";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
+import StudentGradesDialog from "../../components/StudentGradesDialog";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
 import {
   api,
@@ -41,6 +42,7 @@ export default function TeacherCourseStudentsPage() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [gradesStudent, setGradesStudent] = useState<Enrollment | null>(null);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -181,24 +183,20 @@ export default function TeacherCourseStudentsPage() {
           loading={loading}
           emptyMessage={he.noStudents}
           getRowId={(e) => e.id}
-          toolbarExtra={
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setOpen(true)}
-              disabled={availableStudents.length === 0}
-            >
-              {he.addStudentToCourse}
-            </Button>
-          }
           renderActions={(e) =>
             e.status === "approved" ? (
-              <Tooltip title={he.removeFromCourse}>
-                <IconButton size="small" color="error" onClick={() => removeFromCourse(e.id)}>
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
+              <>
+                <Tooltip title={he.viewStudentGrades}>
+                  <IconButton size="small" color="primary" onClick={() => setGradesStudent(e)}>
+                    <GradingIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title={he.removeFromCourse}>
+                  <IconButton size="small" color="error" onClick={() => removeFromCourse(e.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+              </>
             ) : null
           }
         />
@@ -232,6 +230,16 @@ export default function TeacherCourseStudentsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {gradesStudent && (
+        <StudentGradesDialog
+          open={!!gradesStudent}
+          offeringId={id}
+          studentId={gradesStudent.student_id}
+          studentName={gradesStudent.student_name}
+          onClose={() => setGradesStudent(null)}
+        />
+      )}
     </Box>
   );
 }

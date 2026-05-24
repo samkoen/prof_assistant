@@ -1,9 +1,10 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.enums import ExamStatus, QuestionType
 from app.models.exam import ExamSession, Question, QuestionOption
-from app.schemas.exam import QuestionCreate
+from app.schemas.exam import QuestionCreate, QuestionUpdate
 
 
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
@@ -68,3 +69,80 @@ async def persist_question(
             )
         )
     return question
+
+
+async def delete_question(exam_id: int, question_id: int, db: AsyncSession) -> None:
+    result = await db.execute(
+        select(Question).where(Question.id == question_id, Question.exam_id == exam_id)
+    )
+    question = result.scalar_one_or_none()
+    if not question:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="שאלה לא נמצאה")
+    for opt in (
+        await db.execute(select(QuestionOption).where(QuestionOption.question_id == question_id))
+    ).scalars():
+        await db.delete(opt)
+    await db.delete(question)
+
+
+async def update_question(
+    exam_id: int,
+    question_id: int,
+    body: QuestionUpdate,
+    db: AsyncSession,
+) -> Question:
+    from fastapi import HTTPException
+
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.id == question_id, Question.exam_id == exam_id)
+    )
+    question = result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="שאלה לא נמצאה")
+
+    create_body = QuestionCreate(
+        text=body.text,
+        question_type=body.question_type,
+        order_index=question.order_index,
+        points=body.points,
+        multiple_scoring_mode=body.multiple_scoring_mode,
+        options=body.options,
+    )
+    validate_question_body(create_body, 0)
+
+    question.text = body.text.strip()
+    question.question_type = body.question_type
+    question.points = body.points
+    question.multiple_scoring_mode = body.multiple_scoring_mode
+
+    for opt in list(question.options):
+        await db.delete(opt)
+    await db.flush()
+
+    for i, opt in enumerate(body.options):
+        db.add(
+            QuestionOption(
+                question_id=question.id,
+                text=opt.text.strip(),
+                is_correct=opt.is_correct,
+                order_index=opt.order_index if opt.order_index else i,
+            )
+        )
+    return question
+
+
+async def reorder_questions(exam_id: int, question_ids: list[int], db: AsyncSession) -> None:
+    from fastapi import HTTPException
+
+    result = await db.execute(select(Question).where(Question.exam_id == exam_id))
+    questions = {q.id: q for q in result.scalars().all()}
+    if not questions:
+        raise HTTPException(status_code=400, detail="אין שאלות במבחן")
+    if set(question_ids) != set(questions.keys()) or len(question_ids) != len(questions):
+        raise HTTPException(status_code=400, detail="רשימת השאלות אינה תואמת")
+    for index, qid in enumerate(question_ids):
+        questions[qid].order_index = index
