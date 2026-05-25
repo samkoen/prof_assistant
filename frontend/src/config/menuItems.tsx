@@ -35,9 +35,20 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
     ];
   }
   return [
-    { text: he.dashboard, icon: <DashboardIcon />, path: "/student", matchPathPrefix: "/student" },
-    { text: he.myCourses, icon: <MenuBookIcon />, path: "/student/courses", matchPathPrefix: "/student/courses" },
-    { text: he.exams, icon: <QuizIcon />, path: "/student/exams", matchPathPrefix: "/student/exams" },
+    { text: he.dashboard, icon: <DashboardIcon />, path: "/student" },
+    {
+      text: he.myCourses,
+      icon: <MenuBookIcon />,
+      path: "/student/courses",
+      matchPathPrefix: "/student/courses",
+    },
+    { text: he.openCourses, icon: <SchoolIcon />, path: "/student/open-courses" },
+    {
+      text: he.exams,
+      icon: <QuizIcon />,
+      path: "/student/exams",
+      matchPathPrefix: "/student/exams",
+    },
     { text: he.notifications, icon: <NotificationsIcon />, path: "/student/notifications" },
   ];
 }
@@ -45,7 +56,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
 export function getHomePath(role: UserRole): string {
   if (role === "admin") return "/admin";
   if (role === "teacher") return "/teacher";
-  return "/student/courses";
+  return "/student";
 }
 
 export function roleLabel(role: UserRole): string {

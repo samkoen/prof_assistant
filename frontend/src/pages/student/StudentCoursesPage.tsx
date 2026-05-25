@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { Alert, Box, Chip, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, IconButton, Tooltip, Typography } from "@mui/material";
+import SchoolIcon from "@mui/icons-material/School";
 import QuizIcon from "@mui/icons-material/Quiz";
 import { OfferingCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
 import ListPageToolbar from "../../components/ListPageToolbar";
@@ -41,11 +42,33 @@ export default function StudentCoursesPage() {
     load();
   }, [load]);
 
-  const goToExams = (offeringId: number) => navigate(`/student/courses/${offeringId}`);
+  useEffect(() => {
+    if (!offerings.some((o) => o.enrollment_status === "pending")) return;
+    const t = window.setInterval(load, 15000);
+    return () => window.clearInterval(t);
+  }, [load, offerings]);
+
+  const goToExams = (offering: CourseOffering) => {
+    if (offering.enrollment_status === "pending") return;
+    navigate(`/student/courses/${offering.id}`);
+  };
+  const isApproved = (o: CourseOffering) =>
+    !o.enrollment_status || o.enrollment_status === "approved";
 
   return (
     <Box sx={{ width: "100%" }}>
       <ListPageToolbar title={he.myCourses} subtitle={he.doubleClickCourseHint} />
+      <Box sx={{ mb: 2 }}>
+        <Button
+          component={RouterLink}
+          to="/student/open-courses"
+          variant="outlined"
+          startIcon={<SchoolIcon />}
+          size="small"
+        >
+          {he.openCourses}
+        </Button>
+      </Box>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -55,32 +78,43 @@ export default function StudentCoursesPage() {
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
         </Box>
+      ) : offerings.length === 0 ? (
+        <Box textAlign="center" py={6}>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            {he.noCoursesJoinHint}
+          </Typography>
+          <Button component={RouterLink} to="/student/open-courses" variant="contained" startIcon={<SchoolIcon />}>
+            {he.browseOpenCourses}
+          </Button>
+        </Box>
       ) : (
         <OfferingCardGrid
           offerings={offerings}
-          onCardDoubleClick={(o) => goToExams(o.id)}
-          renderActions={(o) => (
-            <>
-              {(activeByOffering[o.id] ?? 0) > 0 && (
-                <Chip
-                  size="small"
-                  color="success"
-                  label={`${activeByOffering[o.id]} ${he.exams}`}
-                  sx={{ height: 24, fontSize: "0.7rem" }}
-                />
-              )}
-              <Tooltip title={he.viewCourseExams}>
-                <IconButton
-                  component={RouterLink}
-                  to={`/student/courses/${o.id}`}
-                  size="small"
-                  sx={{ color: "primary.main" }}
-                >
-                  <QuizIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
+          onCardDoubleClick={(o) => goToExams(o)}
+          renderActions={(o) =>
+            isApproved(o) ? (
+              <>
+                {(activeByOffering[o.id] ?? 0) > 0 && (
+                  <Chip
+                    size="small"
+                    color="success"
+                    label={`${activeByOffering[o.id]} ${he.exams}`}
+                    sx={{ height: 24, fontSize: "0.7rem" }}
+                  />
+                )}
+                <Tooltip title={he.viewCourseExams}>
+                  <IconButton
+                    component={RouterLink}
+                    to={`/student/courses/${o.id}`}
+                    size="small"
+                    sx={{ color: "primary.main" }}
+                  >
+                    <QuizIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ) : null
+          }
         />
       )}
     </Box>

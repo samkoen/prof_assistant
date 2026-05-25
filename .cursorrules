@@ -1,0 +1,10 @@
+# Standards du projet exam (référence — règle détaillée : .cursor/rules/project-standards.mdc)
+
+## 1. Fonctions : 25–30 lignes maximum
+Découper en sous-fonctions, helpers ou méthodes privées au-delà de 30 lignes.
+
+## 2. RTL
+Thème MUI `direction: "rtl"`, `dir="rtl"` sur tableaux/formulaires/texte hébreu ; `dir="ltr"` pour email/code/URL.
+
+## 3. Modules OOP par entité (front + back)
+Une entité = model + schema + router + services (back) ; api + components + pages minces (front). Logique métier dans les services, pas dans les routers ni god-components.

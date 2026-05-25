@@ -12,6 +12,7 @@ import {
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import QuizIcon from "@mui/icons-material/Quiz";
 import SchoolIcon from "@mui/icons-material/School";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import { api, type CourseOffering, type ExamSession } from "../../api/client";
 import { he } from "../../i18n/he";
 
@@ -90,16 +91,20 @@ export default function StudentOverviewPage() {
                   ? `${activeExams} ${he.activeExams}`
                   : he.noActiveExamsHint}
               </Typography>
-              <Button
-                component={RouterLink}
-                to="/student/exams"
-                variant="contained"
-                color="success"
-                fullWidth
+              <DisabledActionTooltip
                 disabled={activeExams === 0}
+                disabledReason={activeExams === 0 ? he.noActiveExamsToView : undefined}
               >
-                {he.startExam}
-              </Button>
+                <Button
+                  component={RouterLink}
+                  to="/student/exams"
+                  variant="contained"
+                  color="success"
+                  fullWidth
+                >
+                  {he.startExam}
+                </Button>
+              </DisabledActionTooltip>
             </CardContent>
           </Card>
         </Grid>

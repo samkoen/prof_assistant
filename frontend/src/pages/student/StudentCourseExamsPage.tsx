@@ -45,6 +45,10 @@ export default function StudentCourseExamsPage() {
         setError("קורס לא נמצא");
         return;
       }
+      if (found.enrollment_status === "pending") {
+        setSessions([]);
+        return;
+      }
       const list = await api<ExamSession[]>(`/api/exams/sessions/offering/${id}`);
       const active = list.filter((s) => s.status === "active");
       const withAttempts = await Promise.all(
@@ -112,7 +116,13 @@ export default function StudentCourseExamsPage() {
         </Alert>
       )}
 
-      {sessions.length === 0 && !error && (
+      {offering?.enrollment_status === "pending" && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {he.enrollmentPendingHint}
+        </Alert>
+      )}
+
+      {sessions.length === 0 && !error && offering?.enrollment_status !== "pending" && (
         <Alert severity="info">{he.noActiveExamsHint}</Alert>
       )}
 

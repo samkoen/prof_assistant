@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user, require_roles
+from app.dependencies import get_current_user, get_optional_current_user, require_roles
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.enums import EnrollmentStatus, ExamStatus, UserRole
 from app.models.exam import ExamSession, StudentExamAttempt
@@ -14,14 +14,29 @@ from app.models.enums import NotificationType
 from app.models.user import User
 from app.schemas.course import (
     CourseOfferingCreate,
+    CourseOfferingEnrollmentSettingsUpdate,
     CourseOfferingResponse,
     EnrollmentRequest,
     EnrollmentResponse,
     EnrollmentReview,
+    JoinPreviewResponse,
 )
 from app.schemas.student import AddStudentToCourseRequest, CourseEnrollmentDetail
 from app.schemas.exam import StudentOfferingExamResultRow, StudentOfferingExamResultsResponse
 from app.services.course_helpers import offering_to_response
+from app.services.enrollment_service import (
+    create_student_enrollment,
+    enrollment_to_response,
+    enrollment_to_response_with_offering,
+    find_existing_enrollment,
+    load_offering_for_join,
+)
+from app.services.join_preview import (
+    build_join_preview,
+    ensure_no_existing_enrollment,
+    ensure_offering_open_for_join,
+    join_preview_for_student,
+)
 
 router = APIRouter(tags=["courses"])
 
@@ -64,6 +79,7 @@ async def create_offering(
         semester=body.semester,
         description=body.description,
         is_open_enrollment=body.is_open_enrollment,
+        auto_approve_enrollment=body.auto_approve_enrollment,
     )
     db.add(offering)
     try:
@@ -74,6 +90,41 @@ async def create_offering(
             status_code=400,
             detail="הרצה זו כבר קיימת (אותו קורס, שנה, סמסטר וקבוצה)",
         )
+    result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
+    return offering_to_response(result.scalar_one())
+
+
+@router.get("/courses/{offering_id}/join-preview", response_model=JoinPreviewResponse)
+async def join_course_preview(
+    offering_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_current_user),
+):
+    offering = await load_offering_for_join(offering_id, db)
+    if not offering:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    if user and user.role == UserRole.STUDENT:
+        return await join_preview_for_student(offering, user, db)
+    return build_join_preview(offering, None)
+
+
+@router.patch("/courses/{offering_id}/enrollment-settings", response_model=CourseOfferingResponse)
+async def update_enrollment_settings(
+    offering_id: int,
+    body: CourseOfferingEnrollmentSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    if user.role == UserRole.TEACHER:
+        offering = await _teacher_owns_offering(offering_id, user.id, db)
+    else:
+        offering = await db.get(CourseOffering, offering_id)
+        if not offering:
+            raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(offering, key, value)
+    await db.commit()
     result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
     return offering_to_response(result.scalar_one())
 
@@ -319,10 +370,25 @@ async def my_offerings(
     if user.role == UserRole.TEACHER:
         q = q.where(CourseOffering.teacher_id == user.id)
     elif user.role == UserRole.STUDENT:
-        q = q.join(CourseEnrollment).where(
-            CourseEnrollment.student_id == user.id,
-            CourseEnrollment.status == EnrollmentStatus.APPROVED,
+        result = await db.execute(
+            select(CourseOffering, CourseEnrollment.status)
+            .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
+            .options(
+                selectinload(CourseOffering.catalog_course),
+                selectinload(CourseOffering.teacher),
+            )
+            .where(
+                CourseEnrollment.student_id == user.id,
+                CourseEnrollment.status.in_(
+                    (EnrollmentStatus.APPROVED, EnrollmentStatus.PENDING)
+                ),
+            )
+            .order_by(CourseOffering.created_at.desc())
         )
+        return [
+            offering_to_response(offering, enrollment_status=status)
+            for offering, status in result.unique().all()
+        ]
     else:
         q = q.order_by(CourseOffering.created_at.desc())
     result = await db.execute(q)
@@ -343,34 +409,14 @@ async def request_enrollment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
 ):
-    offering = await db.get(CourseOffering, body.offering_id)
-    if not offering or not offering.is_open_enrollment:
-        raise HTTPException(status_code=404, detail="הקורס לא זמין")
-    existing = await db.execute(
-        select(CourseEnrollment).where(
-            CourseEnrollment.offering_id == body.offering_id,
-            CourseEnrollment.student_id == user.id,
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="כבר נרשמת לקורס")
-    enrollment = CourseEnrollment(
-        offering_id=body.offering_id,
-        student_id=user.id,
-        status=EnrollmentStatus.PENDING,
-    )
-    db.add(enrollment)
+    offering = await load_offering_for_join(body.offering_id, db)
+    ensure_offering_open_for_join(offering)
+    existing = await find_existing_enrollment(body.offering_id, user.id, db)
+    ensure_no_existing_enrollment(existing)
+    enrollment = await create_student_enrollment(db, user, offering)
     await db.commit()
     await db.refresh(enrollment)
-    return EnrollmentResponse(
-        id=enrollment.id,
-        offering_id=enrollment.offering_id,
-        student_id=user.id,
-        student_name=user.full_name,
-        student_email=user.email,
-        status=enrollment.status,
-        created_at=enrollment.created_at,
-    )
+    return enrollment_to_response(enrollment, user)
 
 
 @router.get("/enrollments/pending", response_model=list[EnrollmentResponse])
@@ -381,7 +427,10 @@ async def pending_enrollments(
     result = await db.execute(
         select(CourseEnrollment)
         .join(CourseOffering)
-        .options(selectinload(CourseEnrollment.student))
+        .options(
+            selectinload(CourseEnrollment.student),
+            selectinload(CourseEnrollment.offering).selectinload(CourseOffering.catalog_course),
+        )
         .where(
             CourseOffering.teacher_id == user.id,
             CourseEnrollment.status == EnrollmentStatus.PENDING,
@@ -389,15 +438,7 @@ async def pending_enrollments(
     )
     enrollments = result.scalars().all()
     return [
-        EnrollmentResponse(
-            id=e.id,
-            offering_id=e.offering_id,
-            student_id=e.student_id,
-            student_name=e.student.full_name,
-            student_email=e.student.email,
-            status=e.status,
-            created_at=e.created_at,
-        )
+        enrollment_to_response_with_offering(e, e.student, e.offering)
         for e in enrollments
     ]
 
@@ -412,7 +453,10 @@ async def review_enrollment(
     result = await db.execute(
         select(CourseEnrollment)
         .join(CourseOffering)
-        .options(selectinload(CourseEnrollment.student))
+        .options(
+            selectinload(CourseEnrollment.student),
+            selectinload(CourseEnrollment.offering).selectinload(CourseOffering.catalog_course),
+        )
         .where(CourseEnrollment.id == enrollment_id, CourseOffering.teacher_id == user.id)
     )
     enrollment = result.scalar_one_or_none()
@@ -434,12 +478,4 @@ async def review_enrollment(
     )
     await db.commit()
     await db.refresh(enrollment)
-    return EnrollmentResponse(
-        id=enrollment.id,
-        offering_id=enrollment.offering_id,
-        student_id=enrollment.student_id,
-        student_name=enrollment.student.full_name,
-        student_email=enrollment.student.email,
-        status=enrollment.status,
-        created_at=enrollment.created_at,
-    )
+    return enrollment_to_response_with_offering(enrollment, enrollment.student, enrollment.offering)

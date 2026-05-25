@@ -33,6 +33,7 @@ class MultipleScoringMode(str, enum.Enum):
 class NotificationType(str, enum.Enum):
     ENROLLMENT_APPROVED = "enrollment_approved"
     ENROLLMENT_REJECTED = "enrollment_rejected"
+    ENROLLMENT_REQUESTED = "enrollment_requested"
     EXAM_AVAILABLE = "exam_available"
     EXAM_RESULTS = "exam_results"
     TIME_WARNING = "time_warning"

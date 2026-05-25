@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -14,6 +14,8 @@ import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
 
 export default function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const joinOfferingId = searchParams.get("join");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -54,7 +56,11 @@ export default function RegisterPage() {
       <Box maxWidth={420} mx="auto" mt={6}>
         <Alert severity="success">
           נרשמת בהצלחה! בדוק את האימייל לאימות החשבון.
-          <Link component={RouterLink} to="/login" sx={{ mr: 1 }}>
+          <Link
+            component={RouterLink}
+            to={joinOfferingId ? `/login?join=${joinOfferingId}` : "/login"}
+            sx={{ mr: 1 }}
+          >
             {he.login}
           </Link>
         </Alert>
@@ -81,7 +87,12 @@ export default function RegisterPage() {
             </Button>
           </Box>
           <Typography variant="body2" sx={{ mt: 2 }}>
-            <Link component={RouterLink} to="/login">{he.login}</Link>
+            <Link
+              component={RouterLink}
+              to={joinOfferingId ? `/login?join=${joinOfferingId}` : "/login"}
+            >
+              {he.login}
+            </Link>
           </Typography>
         </CardContent>
       </Card>

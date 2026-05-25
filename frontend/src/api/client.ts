@@ -69,8 +69,24 @@ export interface CourseOffering {
   semester: number;
   description: string | null;
   is_open_enrollment: boolean;
+  auto_approve_enrollment: boolean;
   teacher_name: string;
   created_at: string;
+  enrollment_status?: "pending" | "approved" | "rejected" | null;
+}
+
+export interface JoinPreview {
+  offering_id: number;
+  catalog_name: string;
+  group_name: string;
+  academic_year: number;
+  semester: number;
+  teacher_name: string;
+  description: string | null;
+  is_open_enrollment: boolean;
+  auto_approve_enrollment: boolean;
+  already_enrolled: boolean;
+  enrollment_status: "pending" | "approved" | "rejected" | null;
 }
 
 export interface CatalogItemScope {
@@ -103,6 +119,7 @@ export interface Exam extends CatalogItemScope {
   auto_submit_on_timeout: boolean;
   default_multiple_scoring: string;
   question_count: number;
+  can_delete?: boolean;
 }
 
 export interface ExamSession {
@@ -118,6 +135,7 @@ export interface ExamSession {
   activated_at: string | null;
   closed_at: string | null;
   results_published: boolean;
+  integrity_mode_enabled: boolean;
   question_count: number;
 }
 
@@ -169,6 +187,9 @@ export interface ExamAttempt {
   max_score: number | null;
   progress_index: number;
   can_resubmit: boolean;
+  rules_accepted_at?: string | null;
+  focus_loss_count?: number;
+  total_hidden_seconds?: number;
 }
 
 export interface StudentExamResult {
@@ -181,6 +202,8 @@ export interface StudentExamResult {
   score: number | null;
   max_score: number | null;
   status: "not_started" | "in_progress" | "submitted";
+  focus_loss_count?: number | null;
+  total_hidden_seconds?: number | null;
 }
 
 export interface ExamSessionResults {
@@ -188,6 +211,7 @@ export interface ExamSessionResults {
   exam_id: number;
   exam_title: string;
   offering_label: string;
+  integrity_mode_enabled: boolean;
   results: StudentExamResult[];
 }
 
@@ -220,6 +244,7 @@ export interface ExamTake {
   description: string | null;
   duration_minutes: number;
   warning_minutes: number;
+  integrity_mode_enabled: boolean;
   attempt: ExamAttempt;
   questions: StudentQuestion[];
 }
@@ -232,6 +257,10 @@ export interface Enrollment {
   student_email: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+  catalog_name?: string | null;
+  group_name?: string | null;
+  academic_year?: number | null;
+  semester?: number | null;
 }
 
 export interface StudentAccount {
@@ -251,6 +280,25 @@ export function semesterLabel(semester: number): string {
 
 export function offeringLabel(o: CourseOffering): string {
   return `${o.catalog_name} — ${o.group_name} (${o.academic_year}, ${semesterLabel(o.semester)})`;
+}
+
+export function enrollmentOfferingLabel(e: Enrollment): string | null {
+  if (!e.catalog_name || !e.group_name || e.academic_year == null || e.semester == null) {
+    return null;
+  }
+  return offeringLabel({
+    id: e.offering_id,
+    catalog_course_id: 0,
+    catalog_name: e.catalog_name,
+    group_name: e.group_name,
+    academic_year: e.academic_year,
+    semester: e.semester,
+    description: null,
+    is_open_enrollment: true,
+    auto_approve_enrollment: false,
+    teacher_name: "",
+    created_at: "",
+  });
 }
 
 export function examMatchesOffering(exam: CatalogItemScope, offering: CourseOffering): boolean {

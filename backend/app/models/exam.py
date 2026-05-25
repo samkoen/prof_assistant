@@ -58,6 +58,7 @@ class ExamSession(Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     results_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    integrity_mode_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     exam = relationship("Exam", back_populates="sessions")
@@ -107,10 +108,26 @@ class StudentExamAttempt(Base):
     session_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     can_resubmit: Mapped[bool] = mapped_column(Boolean, default=False)
     warning_sent: Mapped[bool] = mapped_column(Boolean, default=False)
+    rules_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    focus_loss_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_hidden_seconds: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     exam_session = relationship("ExamSession", back_populates="attempts")
     answers = relationship("Answer", back_populates="attempt")
+    integrity_events = relationship("AttemptIntegrityEvent", back_populates="attempt")
+
+
+class AttemptIntegrityEvent(Base):
+    __tablename__ = "attempt_integrity_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    attempt = relationship("StudentExamAttempt", back_populates="integrity_events")
 
 
 class Answer(Base):

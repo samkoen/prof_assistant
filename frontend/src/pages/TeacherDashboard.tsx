@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import {
   api,
+  enrollmentOfferingLabel,
   offeringLabel,
   type CatalogCourse,
   type CourseOffering,
@@ -93,7 +94,9 @@ export default function TeacherDashboard() {
       <Typography variant="h6" gutterBottom>
         {he.pendingApprovals}
       </Typography>
-      {pending.map((p) => (
+      {pending.map((p) => {
+        const courseLabel = enrollmentOfferingLabel(p);
+        return (
         <Card key={p.id} sx={{ mb: 1 }}>
           <CardContent sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             <Box flex={1}>
@@ -101,6 +104,11 @@ export default function TeacherDashboard() {
               <Typography variant="body2" color="text.secondary">
                 {p.student_email}
               </Typography>
+              {courseLabel && (
+                <Typography variant="body2" sx={{ mt: 0.5 }}>
+                  {courseLabel}
+                </Typography>
+              )}
             </Box>
             <Button size="small" onClick={() => review(p.id, "approved")}>
               {he.approve}
@@ -110,7 +118,8 @@ export default function TeacherDashboard() {
             </Button>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
 
       <Typography variant="h6" sx={{ mt: 3 }} gutterBottom>
         {he.myCourses}

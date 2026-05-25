@@ -96,6 +96,7 @@ class ExamResponse(CatalogItemScopeResponse):
     auto_submit_on_timeout: bool
     default_multiple_scoring: MultipleScoringMode
     question_count: int = 0
+    can_delete: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -113,6 +114,7 @@ class ExamSessionResponse(BaseModel):
     activated_at: datetime | None
     closed_at: datetime | None
     results_published: bool
+    integrity_mode_enabled: bool = False
     question_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -120,6 +122,17 @@ class ExamSessionResponse(BaseModel):
 
 class ExamSessionActivate(BaseModel):
     offering_id: int
+    integrity_mode_enabled: bool = False
+
+
+class IntegrityEventItem(BaseModel):
+    event_type: str = Field(pattern="^(tab_hidden|tab_visible)$")
+    occurred_at: datetime | None = None
+    duration_seconds: int | None = Field(default=None, ge=0, le=86400)
+
+
+class IntegrityEventsRequest(BaseModel):
+    events: list[IntegrityEventItem] = Field(min_length=1, max_length=50)
 
 
 class SubmitAnswerItem(BaseModel):
@@ -142,6 +155,9 @@ class AttemptResponse(BaseModel):
     max_score: float | None
     progress_index: int
     can_resubmit: bool
+    rules_accepted_at: datetime | None = None
+    focus_loss_count: int = 0
+    total_hidden_seconds: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -156,6 +172,8 @@ class StudentExamResultRow(BaseModel):
     score: float | None
     max_score: float | None
     status: str
+    focus_loss_count: int | None = None
+    total_hidden_seconds: int | None = None
 
 
 class ExamSessionResultsResponse(BaseModel):
@@ -163,6 +181,7 @@ class ExamSessionResultsResponse(BaseModel):
     exam_id: int
     exam_title: str
     offering_label: str
+    integrity_mode_enabled: bool = False
     results: list[StudentExamResultRow]
 
 
@@ -230,5 +249,6 @@ class ExamTakeResponse(BaseModel):
     description: str | None
     duration_minutes: int
     warning_minutes: int
+    integrity_mode_enabled: bool = False
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]

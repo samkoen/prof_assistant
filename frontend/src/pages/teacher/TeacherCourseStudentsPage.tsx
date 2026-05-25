@@ -18,6 +18,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import GradingIcon from "@mui/icons-material/Grading";
+import OfferingEnrollmentSettings from "../../components/OfferingEnrollmentSettings";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import StudentGradesDialog from "../../components/StudentGradesDialog";
@@ -169,6 +170,14 @@ export default function TeacherCourseStudentsPage() {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+
+      {course && (
+        <OfferingEnrollmentSettings
+          offering={course}
+          onUpdated={setCourse}
+          onError={setError}
+        />
       )}
 
       {loading && enrollments.length === 0 ? (

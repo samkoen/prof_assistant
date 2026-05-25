@@ -51,6 +51,8 @@ import StudentAllExamsPage from "./pages/student/StudentAllExamsPage";
 
 import StudentOpenCoursesPage from "./pages/student/StudentOpenCoursesPage";
 
+import StudentJoinCoursePage from "./pages/StudentJoinCoursePage";
+
 import { useAuth } from "./context/AuthContext";
 
 
@@ -78,6 +80,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/register" element={<RegisterPage />} />
+
+      <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 
 
 

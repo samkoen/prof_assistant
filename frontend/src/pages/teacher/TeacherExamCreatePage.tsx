@@ -15,6 +15,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { api, ApiError, offeringLabel, type CatalogCourse, type CourseOffering } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import { he } from "../../i18n/he";
 
 const emptyForm = {
@@ -221,9 +222,14 @@ export default function TeacherExamCreatePage() {
 
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
           <Button onClick={cancel}>{he.cancel}</Button>
-          <Button variant="contained" onClick={submit} disabled={saving || catalogs.length === 0}>
-            {saving ? he.loading : he.submit}
-          </Button>
+          <DisabledActionTooltip
+            disabled={saving || catalogs.length === 0}
+            disabledReason={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+          >
+            <Button variant="contained" onClick={submit}>
+              {saving ? he.loading : he.submit}
+            </Button>
+          </DisabledActionTooltip>
         </Box>
       </Box>
     </Box>

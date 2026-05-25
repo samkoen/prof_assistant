@@ -37,15 +37,15 @@ export default function StudentOpenCoursesPage() {
     load();
   }, [load]);
 
-  const join = async (offeringId: number) => {
+  const join = async (offering: CourseOffering) => {
     setMessage("");
     setError("");
     try {
-      await api("/api/enrollments/request", {
+      const res = await api<{ status: string }>("/api/enrollments/request", {
         method: "POST",
-        body: JSON.stringify({ offering_id: offeringId }),
+        body: JSON.stringify({ offering_id: offering.id }),
       });
-      setMessage(he.enrollmentRequestSent);
+      setMessage(res.status === "approved" ? he.enrollmentApproved : he.enrollmentRequestSent);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -85,7 +85,7 @@ export default function StudentOpenCoursesPage() {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     {o.teacher_name}
                   </Typography>
-                  <Button variant="outlined" onClick={() => join(o.id)}>
+                  <Button variant="outlined" onClick={() => join(o)}>
                     {he.joinCourse}
                   </Button>
                 </CardContent>

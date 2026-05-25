@@ -23,6 +23,10 @@ import {
   type ExamTake,
   type StudentQuestion,
 } from "../../api/client";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
+import ExamFocusOverlay from "../../components/ExamFocusOverlay";
+import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
+import { useExamIntegrity } from "../../hooks/useExamIntegrity";
 import { he } from "../../i18n/he";
 
 function formatRemaining(expiresAt: string | null): string {
@@ -42,10 +46,12 @@ export default function StudentExamTakePage() {
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [acceptingRules, setAcceptingRules] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
+  const [tabHidden, setTabHidden] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -69,6 +75,22 @@ export default function StudentExamTakePage() {
     load();
   }, [load]);
 
+  const integrityActive = !!paper?.integrity_mode_enabled;
+  const rulesPending =
+    integrityActive && paper && !paper.attempt.rules_accepted_at && !paper.attempt.submitted_at;
+  const submitted = !!attempt?.submitted_at;
+  const examInProgress = integrityActive && !!attempt?.started_at && !submitted;
+
+  useExamIntegrity(examInProgress, attempt?.id ?? null, submitted);
+
+  useEffect(() => {
+    if (!examInProgress) return;
+    const sync = () => setTabHidden(document.hidden);
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [examInProgress]);
+
   useEffect(() => {
     if (!attempt?.expires_at || attempt.submitted_at) return;
     const tick = () => setTimeLeft(formatRemaining(attempt.expires_at));
@@ -77,26 +99,21 @@ export default function StudentExamTakePage() {
     return () => window.clearInterval(t);
   }, [attempt?.expires_at, attempt?.submitted_at]);
 
-  useEffect(() => {
-    if (!paper || !attempt?.expires_at || attempt.submitted_at || submitting) return;
-    const ms = new Date(attempt.expires_at).getTime() - Date.now();
-    if (ms <= 0) {
-      submit(true);
-      return;
+  const acceptRules = async () => {
+    setAcceptingRules(true);
+    setError("");
+    try {
+      const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/accept-rules`, {
+        method: "POST",
+      });
+      setAttempt(res);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setAcceptingRules(false);
     }
-    const t = window.setTimeout(() => submit(true), ms);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit stable enough for timeout
-  }, [attempt?.expires_at, attempt?.submitted_at, submitting, paper?.session_id]);
-
-  const showTimeWarning =
-    paper &&
-    attempt?.expires_at &&
-    !attempt.submitted_at &&
-    (() => {
-      const remainingMin = (new Date(attempt.expires_at).getTime() - Date.now()) / 60000;
-      return remainingMin > 0 && remainingMin <= paper.warning_minutes;
-    })();
+  };
 
   const allAnswered = useMemo(() => {
     if (!paper) return false;
@@ -130,13 +147,37 @@ export default function StudentExamTakePage() {
         }),
       });
       setAttempt(res);
-      setSuccess(force && !allAnswered ? he.examSubmitted : he.examSubmitted);
+      setSuccess(he.examSubmitted);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!paper || !attempt?.expires_at || attempt.submitted_at || submitting || rulesPending) {
+      return;
+    }
+    const ms = new Date(attempt.expires_at).getTime() - Date.now();
+    if (ms <= 0) {
+      submit(true);
+      return;
+    }
+    const t = window.setTimeout(() => submit(true), ms);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt?.expires_at, attempt?.submitted_at, submitting, paper?.session_id, rulesPending]);
+
+  const showTimeWarning =
+    paper &&
+    attempt?.expires_at &&
+    !attempt.submitted_at &&
+    !rulesPending &&
+    (() => {
+      const remainingMin = (new Date(attempt.expires_at).getTime() - Date.now()) / 60000;
+      return remainingMin > 0 && remainingMin <= paper.warning_minutes;
+    })();
 
   if (loading && !paper) {
     return (
@@ -150,19 +191,27 @@ export default function StudentExamTakePage() {
     return <Alert severity="error">{error || he.errorGeneric}</Alert>;
   }
 
-  const submitted = !!attempt?.submitted_at;
-
   return (
     <Box sx={{ width: "100%", maxWidth: 800 }}>
-      <Button
-        component={RouterLink}
-        to={`/student/courses/${paper.offering_id}`}
-        startIcon={<ArrowBackIcon />}
-        size="small"
-        sx={{ mb: 2 }}
-      >
-        {he.backToCourse}
-      </Button>
+      <ExamFocusOverlay visible={examInProgress && tabHidden} />
+      <ExamIntegrityRulesDialog
+        open={!!rulesPending}
+        examTitle={paper.exam_title}
+        loading={acceptingRules}
+        onAccept={acceptRules}
+      />
+
+      {!submitted && !integrityActive && (
+        <Button
+          component={RouterLink}
+          to={`/student/courses/${paper.offering_id}`}
+          startIcon={<ArrowBackIcon />}
+          size="small"
+          sx={{ mb: 2 }}
+        >
+          {he.backToCourse}
+        </Button>
+      )}
 
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={2}>
         <Box>
@@ -175,7 +224,7 @@ export default function StudentExamTakePage() {
             </Typography>
           )}
         </Box>
-        {!submitted && (
+        {!submitted && attempt?.started_at && (
           <Typography variant="h6" color="primary" fontWeight={700}>
             {he.timeRemaining}: {timeLeft}
           </Typography>
@@ -184,7 +233,7 @@ export default function StudentExamTakePage() {
 
       {showTimeWarning && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          {he.timeWarning} {paper!.warning_minutes} {he.minutes}
+          {he.timeWarning} {paper.warning_minutes} {he.minutes}
         </Alert>
       )}
 
@@ -208,7 +257,7 @@ export default function StudentExamTakePage() {
         <Button component={RouterLink} to="/student/courses" variant="outlined">
           {he.backToCourses}
         </Button>
-      ) : (
+      ) : rulesPending ? null : (
         <>
           {paper.questions.map((q, i) => (
             <QuestionBlock
@@ -220,15 +269,14 @@ export default function StudentExamTakePage() {
               onToggle={toggleMultiple}
             />
           ))}
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => submit()}
+          <DisabledActionTooltip
             disabled={!allAnswered || submitting}
-            sx={{ mt: 2 }}
+            disabledReason={!allAnswered ? he.answerAllQuestions : undefined}
           >
-            {submitting ? he.loading : he.submitExam}
-          </Button>
+            <Button variant="contained" size="large" onClick={() => submit()} sx={{ mt: 2 }}>
+              {submitting ? he.loading : he.submitExam}
+            </Button>
+          </DisabledActionTooltip>
           {!allAnswered && (
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
               {he.answerAllQuestions}

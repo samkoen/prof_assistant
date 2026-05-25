@@ -26,6 +26,7 @@ from app.schemas.exam import (
     ExamSessionActivate,
     ExamSessionResponse,
     ExamSessionResultsResponse,
+    IntegrityEventsRequest,
     QuestionCreate,
     QuestionResponse,
     QuestionUpdate,
@@ -38,9 +39,11 @@ from app.schemas.exam import (
     StudentQuestionResponse,
 )
 from app.services.exam_lifecycle import (
+    delete_attempt_records,
     delete_exam_cascade,
     duplicate_exam,
     exam_has_non_draft_sessions,
+    exams_can_delete_map,
 )
 from app.services.exam_questions import (
     delete_question,
@@ -63,11 +66,24 @@ from app.services.catalog_scope import (
 )
 
 from app.services.scoring import score_question
+from app.services.integrity_service import (
+    accept_rules,
+    ensure_attempt_record,
+    get_owned_attempt,
+    record_events,
+    rules_blocking,
+)
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
 
-def _exam_response(exam: Exam, question_count: int = 0, names: dict[int, str] | None = None) -> ExamResponse:
+def _exam_response(
+    exam: Exam,
+    question_count: int = 0,
+    names: dict[int, str] | None = None,
+    *,
+    can_delete: bool = True,
+) -> ExamResponse:
     names = names or {}
     return ExamResponse(
         id=exam.id,
@@ -82,6 +98,7 @@ def _exam_response(exam: Exam, question_count: int = 0, names: dict[int, str] | 
         auto_submit_on_timeout=exam.auto_submit_on_timeout,
         default_multiple_scoring=exam.default_multiple_scoring,
         question_count=question_count,
+        can_delete=can_delete,
         **scope_to_response(exam, names),
     )
 
@@ -101,6 +118,7 @@ def _session_response(session: ExamSession, question_count: int = 0) -> ExamSess
         activated_at=session.activated_at,
         closed_at=session.closed_at,
         results_published=session.results_published,
+        integrity_mode_enabled=session.integrity_mode_enabled,
         question_count=question_count,
     )
 
@@ -224,6 +242,8 @@ async def _ensure_attempt_started(
         db.add(attempt)
     if attempt.submitted_at and not attempt.can_resubmit:
         raise HTTPException(status_code=400, detail="כבר הוגש")
+    if session.integrity_mode_enabled and not attempt.rules_accepted_at:
+        raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     if not attempt.started_at or attempt.can_resubmit:
         attempt.started_at = now
         attempt.expires_at = now + timedelta(minutes=exam.duration_minutes)
@@ -267,7 +287,7 @@ async def create_exam(
     await db.commit()
     await db.refresh(exam)
     names = await load_scope_teacher_names(db, [exam])
-    return _exam_response(exam, 0, names)
+    return _exam_response(exam, 0, names, can_delete=True)
 
 
 @router.get("/catalog/{catalog_course_id}", response_model=list[ExamResponse])
@@ -294,12 +314,15 @@ async def list_catalog_exams(
             exams = [e for e in exams if catalog_item_matches_offering(e, offering)]
 
     names = await load_scope_teacher_names(db, exams)
+    delete_map = await exams_can_delete_map([e.id for e in exams], db)
     out = []
     for exam in exams:
         cnt = await db.scalar(
             select(func.count()).select_from(Question).where(Question.exam_id == exam.id)
         )
-        out.append(_exam_response(exam, cnt or 0, names))
+        out.append(
+            _exam_response(exam, cnt or 0, names, can_delete=delete_map.get(exam.id, True))
+        )
     return out
 
 
@@ -419,7 +442,8 @@ async def update_exam(
         select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
     )
     names = await load_scope_teacher_names(db, [exam])
-    return _exam_response(exam, cnt or 0, names)
+    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
 
 
 @router.post("/{exam_id}/duplicate", response_model=ExamResponse)
@@ -439,7 +463,7 @@ async def copy_exam(
         select(func.count()).select_from(Question).where(Question.exam_id == copy.id)
     )
     names = await load_scope_teacher_names(db, [copy])
-    return _exam_response(copy, cnt or 0, names)
+    return _exam_response(copy, cnt or 0, names, can_delete=True)
 
 
 @router.post("/{exam_id}/attach-offering", response_model=ExamResponse)
@@ -466,7 +490,8 @@ async def attach_exam_to_offering(
             select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
         )
         names = await load_scope_teacher_names(db, [exam])
-        return _exam_response(exam, cnt or 0, names)
+        can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+        return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
     widen_scope_for_offering(exam, offering)
     if not catalog_item_matches_offering(exam, offering):
         raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
@@ -476,7 +501,8 @@ async def attach_exam_to_offering(
         select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
     )
     names = await load_scope_teacher_names(db, [exam])
-    return _exam_response(exam, cnt or 0, names)
+    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
 
 
 @router.delete("/{exam_id}", status_code=204)
@@ -508,8 +534,9 @@ async def get_exam_detail(
     questions = q_result.scalars().all()
     names = await load_scope_teacher_names(db, [exam])
     editable = not await exam_has_active_sessions(exam_id, db)
+    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
     return ExamDetailResponse(
-        **_exam_response(exam, len(questions), names).model_dump(),
+        **_exam_response(exam, len(questions), names, can_delete=can_delete).model_dump(),
         questions=[QuestionResponse.model_validate(q) for q in questions],
         is_editable=editable,
     )
@@ -662,6 +689,7 @@ async def activate_exam(
         raise HTTPException(status_code=400, detail="המבחן כבר הופעל")
     session.status = ExamStatus.ACTIVE
     session.activated_at = datetime.now(timezone.utc)
+    session.integrity_mode_enabled = body.integrity_mode_enabled
     await db.flush()
 
     enrollments = await db.execute(
@@ -749,6 +777,9 @@ async def get_session_results(
             status = "in_progress"
         else:
             status = "not_started"
+        integrity_stats = None
+        if session.integrity_mode_enabled and attempt:
+            integrity_stats = (attempt.focus_loss_count, attempt.total_hidden_seconds)
         rows.append(
             StudentExamResultRow(
                 student_id=student.id,
@@ -760,6 +791,8 @@ async def get_session_results(
                 score=attempt.score if attempt else None,
                 max_score=attempt.max_score if attempt else None,
                 status=status,
+                focus_loss_count=integrity_stats[0] if integrity_stats else None,
+                total_hidden_seconds=integrity_stats[1] if integrity_stats else None,
             )
         )
 
@@ -773,6 +806,7 @@ async def get_session_results(
         exam_id=session.exam_id,
         exam_title=session.exam.title,
         offering_label=offering_label,
+        integrity_mode_enabled=session.integrity_mode_enabled,
         results=rows,
     )
 
@@ -784,6 +818,8 @@ async def close_exam_session(
     user: User = Depends(require_roles(UserRole.TEACHER)),
 ):
     session = await _get_teacher_session(session_id, user, db)
+    if session.status != ExamStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="המבחן אינו פעיל")
     session.status = ExamStatus.CLOSED
     session.closed_at = datetime.now(timezone.utc)
     session.results_published = True
@@ -803,18 +839,18 @@ async def deactivate_exam_session(
     session = await _get_teacher_session(session_id, user, db)
     if session.status != ExamStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="המבחן אינו פעיל")
-    started = await db.scalar(
+    submitted = await db.scalar(
         select(func.count())
         .select_from(StudentExamAttempt)
         .where(
             StudentExamAttempt.exam_session_id == session_id,
-            StudentExamAttempt.started_at.isnot(None),
+            StudentExamAttempt.submitted_at.isnot(None),
         )
     )
-    if (started or 0) > 0:
+    if (submitted or 0) > 0:
         raise HTTPException(
             status_code=400,
-            detail="לא ניתן לבטל — תלמיד כבר התחיל את המבחן",
+            detail="לא ניתן לבטל — תלמיד כבר הגיש את המבחן",
         )
     attempts = (
         await db.execute(
@@ -822,11 +858,7 @@ async def deactivate_exam_session(
         )
     ).scalars().all()
     for attempt in attempts:
-        for answer in (
-            await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
-        ).scalars():
-            await db.delete(answer)
-        await db.delete(attempt)
+        await delete_attempt_records(attempt, db)
     session.status = ExamStatus.DRAFT
     session.activated_at = None
     session.closed_at = None
@@ -874,7 +906,24 @@ async def take_exam_session(
             description=exam.description,
             duration_minutes=exam.duration_minutes,
             warning_minutes=exam.warning_minutes,
+            integrity_mode_enabled=session.integrity_mode_enabled,
             attempt=_attempt_response(existing, exam.id),
+            questions=[],
+        )
+
+    if rules_blocking(session, existing):
+        attempt = await ensure_attempt_record(session, user, db)
+        await db.commit()
+        await db.refresh(attempt)
+        return ExamTakeResponse(
+            session_id=session.id,
+            offering_id=session.offering_id,
+            exam_title=exam.title,
+            description=exam.description,
+            duration_minutes=exam.duration_minutes,
+            warning_minutes=exam.warning_minutes,
+            integrity_mode_enabled=True,
+            attempt=_attempt_response(attempt, exam.id),
             questions=[],
         )
 
@@ -895,9 +944,40 @@ async def take_exam_session(
         description=exam.description,
         duration_minutes=exam.duration_minutes,
         warning_minutes=exam.warning_minutes,
+        integrity_mode_enabled=session.integrity_mode_enabled,
         attempt=_attempt_response(attempt, exam.id),
         questions=_student_paper(exam, questions, attempt.id),
     )
+
+
+@router.post("/sessions/{session_id}/accept-rules", response_model=AttemptResponse)
+async def accept_exam_rules(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_active_session(session_id, user, db)
+    attempt = await accept_rules(session, user, db)
+    await db.commit()
+    await db.refresh(attempt)
+    return _attempt_response(attempt, session.exam_id)
+
+
+@router.post("/attempts/{attempt_id}/integrity-events", response_model=AttemptResponse)
+async def log_integrity_events(
+    attempt_id: int,
+    body: IntegrityEventsRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    attempt = await get_owned_attempt(attempt_id, user, db)
+    session = await db.get(ExamSession, attempt.exam_session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+    attempt = await record_events(attempt, session, body.events, db)
+    await db.commit()
+    await db.refresh(attempt)
+    return _attempt_response(attempt, session.exam_id)
 
 
 @router.post("/sessions/{session_id}/submit", response_model=AttemptResponse)
@@ -925,6 +1005,8 @@ async def submit_exam_session(
     attempt = attempt_result.scalar_one_or_none()
     if not attempt or not attempt.started_at:
         raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
+    if session.integrity_mode_enabled and not attempt.rules_accepted_at:
+        raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     now = datetime.now(timezone.utc)
     if attempt.expires_at and now > attempt.expires_at and not attempt.can_resubmit:
         if not exam.auto_submit_on_timeout:

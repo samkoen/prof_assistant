@@ -2,14 +2,19 @@ import { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DisabledActionTooltip from "./DisabledActionTooltip";
 import { api, ApiError, type Exam } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -18,12 +23,20 @@ interface ExamActionButtonsProps {
   onChanged: () => void;
   onError: (message: string) => void;
   size?: "small" | "medium";
+  iconOnly?: boolean;
 }
 
-export function ExamActionButtons({ exam, onChanged, onError, size = "small" }: ExamActionButtonsProps) {
+export function ExamActionButtons({
+  exam,
+  onChanged,
+  onError,
+  size = "small",
+  iconOnly = false,
+}: ExamActionButtonsProps) {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState<"duplicate" | "delete" | null>(null);
+  const canDelete = exam.can_delete !== false;
 
   const duplicate = async () => {
     setBusy("duplicate");
@@ -53,27 +66,70 @@ export function ExamActionButtons({ exam, onChanged, onError, size = "small" }: 
     }
   };
 
-  return (
-    <>
-      <Button
-        size={size}
-        variant="outlined"
-        startIcon={<ContentCopyIcon />}
-        disabled={busy != null}
-        onClick={duplicate}
+  const deleteBtn = iconOnly ? (
+    <DisabledActionTooltip
+      disabled={busy != null || !canDelete}
+      disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
+    >
+      <IconButton
+        size="small"
+        color="error"
+        aria-label={he.deleteExam}
+        onClick={() => setConfirmDelete(true)}
       >
-        {busy === "duplicate" ? he.loading : he.duplicateExam}
-      </Button>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </DisabledActionTooltip>
+  ) : (
+    <DisabledActionTooltip
+      disabled={busy != null || !canDelete}
+      disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
+    >
       <Button
         size={size}
         variant="outlined"
         color="error"
         startIcon={<DeleteIcon />}
-        disabled={busy != null}
         onClick={() => setConfirmDelete(true)}
       >
         {he.deleteExam}
       </Button>
+    </DisabledActionTooltip>
+  );
+
+  const duplicateBtn = iconOnly ? (
+    <Tooltip title={busy === "duplicate" ? he.loading : he.duplicateExam}>
+      <span>
+        <IconButton
+          size="small"
+          aria-label={he.duplicateExam}
+          disabled={busy != null}
+          onClick={duplicate}
+        >
+          {busy === "duplicate" ? (
+            <CircularProgress size={18} />
+          ) : (
+            <ContentCopyIcon fontSize="small" />
+          )}
+        </IconButton>
+      </span>
+    </Tooltip>
+  ) : (
+    <Button
+      size={size}
+      variant="outlined"
+      startIcon={<ContentCopyIcon />}
+      disabled={busy != null}
+      onClick={duplicate}
+    >
+      {busy === "duplicate" ? he.loading : he.duplicateExam}
+    </Button>
+  );
+
+  return (
+    <>
+      {duplicateBtn}
+      {deleteBtn}
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs">
         <DialogTitle>{he.deleteExam}</DialogTitle>
@@ -98,14 +154,31 @@ export function ExamEditLink({
   examId,
   size = "small",
   returnTo,
+  iconOnly = false,
 }: {
   examId: number;
   size?: "small" | "medium";
   returnTo?: string;
+  iconOnly?: boolean;
 }) {
   const to = returnTo
     ? `/teacher/exams/${examId}/edit?return=${encodeURIComponent(returnTo)}`
     : `/teacher/exams/${examId}/edit`;
+  if (iconOnly) {
+    return (
+      <Tooltip title={he.editExam}>
+        <IconButton
+          component={RouterLink}
+          to={to}
+          size="small"
+          color="primary"
+          aria-label={he.editExam}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    );
+  }
   return (
     <Button size={size} variant="outlined" component={RouterLink} to={to}>
       {he.editExam}

@@ -102,20 +102,35 @@ export function OfferingCardGrid({
               </Box>
 
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                  {he.enrollment}:
-                </Typography>
-                <Chip
-                  size="small"
-                  label={offering.is_open_enrollment ? he.open : he.closed}
-                  sx={{
-                    height: 22,
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    bgcolor: offering.is_open_enrollment ? "#c8e6c9" : "#ffcdd2",
-                    color: offering.is_open_enrollment ? "#1b5e20" : "#b71c1c",
-                  }}
-                />
+                {offering.enrollment_status ? (
+                  <Chip
+                    size="small"
+                    color={offering.enrollment_status === "approved" ? "success" : "warning"}
+                    label={
+                      offering.enrollment_status === "approved"
+                        ? he.enrollmentApprovedStatus
+                        : he.enrollmentPendingApproval
+                    }
+                    sx={{ height: 22, fontSize: "0.75rem", fontWeight: 600 }}
+                  />
+                ) : (
+                  <>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      {he.enrollment}:
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={offering.is_open_enrollment ? he.open : he.closed}
+                      sx={{
+                        height: 22,
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        bgcolor: offering.is_open_enrollment ? "#c8e6c9" : "#ffcdd2",
+                        color: offering.is_open_enrollment ? "#1b5e20" : "#b71c1c",
+                      }}
+                    />
+                  </>
+                )}
               </Box>
 
               {offering.description ? (

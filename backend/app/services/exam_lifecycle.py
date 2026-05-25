@@ -3,7 +3,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import ExamStatus
-from app.models.exam import Answer, Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
+from app.models.exam import (
+    Answer,
+    AttemptIntegrityEvent,
+    Exam,
+    ExamSession,
+    Question,
+    QuestionOption,
+    StudentExamAttempt,
+)
+
+
+async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) -> None:
+    for answer in (
+        await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
+    ).scalars():
+        await db.delete(answer)
+    for event in (
+        await db.execute(
+            select(AttemptIntegrityEvent).where(AttemptIntegrityEvent.attempt_id == attempt.id)
+        )
+    ).scalars():
+        await db.delete(event)
+    await db.delete(attempt)
+
+
+async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[int, bool]:
+    if not exam_ids:
+        return {}
+    rows = await db.execute(
+        select(ExamSession.exam_id)
+        .where(ExamSession.exam_id.in_(exam_ids), ExamSession.status != ExamStatus.DRAFT)
+        .distinct()
+    )
+    blocked = set(rows.scalars().all())
+    return {exam_id: exam_id not in blocked for exam_id in exam_ids}
 
 
 async def exam_has_non_draft_sessions(exam_id: int, db: AsyncSession) -> bool:
@@ -79,11 +113,7 @@ async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
             )
         ).scalars().all()
         for attempt in attempts:
-            for answer in (
-                await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
-            ).scalars():
-                await db.delete(answer)
-            await db.delete(attempt)
+            await delete_attempt_records(attempt, db)
         await db.delete(session)
 
     questions = (

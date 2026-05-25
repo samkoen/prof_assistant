@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { api, ApiError, type ExamSessionResults } from "../../api/client";
 import { he } from "../../i18n/he";
+import { formatHiddenDuration } from "../../utils/formatHiddenDuration";
 
 const statusLabel: Record<ExamSessionResults["results"][0]["status"], string> = {
   not_started: he.resultNotStarted,
@@ -105,6 +106,11 @@ export default function TeacherExamResultsPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {data.offering_label}
       </Typography>
+      {data.integrity_mode_enabled && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {he.integrityMode}: {he.integrityModeHint}
+        </Alert>
+      )}
 
       {summary && (
         <Typography variant="body2" sx={{ mb: 2 }}>
@@ -134,6 +140,12 @@ export default function TeacherExamResultsPage() {
                     <TableCell>{he.status}</TableCell>
                     <TableCell align="left">{he.score}</TableCell>
                     <TableCell align="left">{he.submittedAt}</TableCell>
+                    {data.integrity_mode_enabled && (
+                      <>
+                        <TableCell align="left">{he.integrityTabLeaves}</TableCell>
+                        <TableCell align="left">{he.integrityHiddenTime}</TableCell>
+                      </>
+                    )}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -154,6 +166,18 @@ export default function TeacherExamResultsPage() {
                           : "—"}
                       </TableCell>
                       <TableCell align="left">{formatDateTime(row.submitted_at)}</TableCell>
+                      {data.integrity_mode_enabled && (
+                        <>
+                          <TableCell align="left">
+                            {row.focus_loss_count != null ? row.focus_loss_count : he.integrityNotApplicable}
+                          </TableCell>
+                          <TableCell align="left">
+                            {row.total_hidden_seconds != null
+                              ? formatHiddenDuration(row.total_hidden_seconds)
+                              : he.integrityNotApplicable}
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

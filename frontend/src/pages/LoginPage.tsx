@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -13,18 +13,23 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 import { ApiError } from "../api/client";
+import { joinRedirectPath } from "../utils/joinCourse";
 
 export default function LoginPage() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const joinOfferingId = searchParams.get("join");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/", { replace: true });
-  }, [user, navigate]);
+    if (user) {
+      navigate(joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/", { replace: true });
+    }
+  }, [user, navigate, joinOfferingId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +37,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/", { replace: true });
+      navigate(
+        joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/",
+        { replace: true }
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : he.errorGeneric);
     } finally {
@@ -61,7 +69,10 @@ export default function LoginPage() {
           </Box>
           <Typography variant="body2" sx={{ mt: 2 }}>
             אין לך חשבון?{" "}
-            <Link component={RouterLink} to="/register">
+            <Link
+              component={RouterLink}
+              to={joinOfferingId ? `/register?join=${joinOfferingId}` : "/register"}
+            >
               {he.register}
             </Link>
           </Typography>

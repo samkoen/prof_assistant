@@ -27,6 +27,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadIcon from "@mui/icons-material/Upload";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamScopeEditor from "../../components/ExamScopeEditor";
 import { api, ApiError, type Exam, type ExamDetail, type Question } from "../../api/client";
 import {
@@ -307,30 +308,32 @@ export default function TeacherExamEditorPage() {
                   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                     {exam.questions.length > 1 && (
                       <>
-                        <Tooltip title={he.moveQuestionUp}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={i === 0 || reordering}
-                              onClick={() => moveQuestion(i, -1)}
-                              aria-label={he.moveQuestionUp}
-                            >
-                              <KeyboardArrowUpIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title={he.moveQuestionDown}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={i === exam.questions.length - 1 || reordering}
-                              onClick={() => moveQuestion(i, 1)}
-                              aria-label={he.moveQuestionDown}
-                            >
-                              <KeyboardArrowDownIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
+                        <DisabledActionTooltip
+                          disabled={i === 0 || reordering}
+                          disabledReason={i === 0 ? he.moveUpDisabled : undefined}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() => moveQuestion(i, -1)}
+                            aria-label={he.moveQuestionUp}
+                          >
+                            <KeyboardArrowUpIcon fontSize="small" />
+                          </IconButton>
+                        </DisabledActionTooltip>
+                        <DisabledActionTooltip
+                          disabled={i === exam.questions.length - 1 || reordering}
+                          disabledReason={
+                            i === exam.questions.length - 1 ? he.moveDownDisabled : undefined
+                          }
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() => moveQuestion(i, 1)}
+                            aria-label={he.moveQuestionDown}
+                          >
+                            <KeyboardArrowDownIcon fontSize="small" />
+                          </IconButton>
+                        </DisabledActionTooltip>
                       </>
                     )}
                     <Tooltip title={he.editQuestion}>
@@ -417,17 +420,23 @@ export default function TeacherExamEditorPage() {
             {he.loadExample}
           </Button>
 
-          <TextField
-            multiline
-            minRows={12}
-            fullWidth
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            placeholder={QCM_FORMAT_EXAMPLE}
+          <Box sx={{ width: "100%" }}>
+          <DisabledActionTooltip
             disabled={!exam.is_editable}
-            dir="rtl"
-            sx={{ fontFamily: "monospace", mb: 2 }}
-          />
+            disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
+          >
+            <TextField
+              multiline
+              minRows={12}
+              fullWidth
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              placeholder={QCM_FORMAT_EXAMPLE}
+              dir="rtl"
+              sx={{ fontFamily: "monospace", mb: 2 }}
+            />
+          </DisabledActionTooltip>
+          </Box>
 
           {parseResult.errors.length > 0 && (
             <Alert severity="warning" sx={{ mb: 2 }}>
@@ -448,14 +457,14 @@ export default function TeacherExamEditorPage() {
                 <PreviewQuestion key={i} index={i + 1} question={q} />
               ))}
               <Divider sx={{ my: 2 }} />
-              <Button
-                variant="contained"
-                startIcon={<UploadIcon />}
-                onClick={importQuestions}
+              <DisabledActionTooltip
                 disabled={!exam.is_editable || importing}
+                disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
               >
-                {importing ? he.loading : he.importQuestions}
-              </Button>
+                <Button variant="contained" startIcon={<UploadIcon />} onClick={importQuestions}>
+                  {importing ? he.loading : he.importQuestions}
+                </Button>
+              </DisabledActionTooltip>
             </>
           )}
         </CardContent>
@@ -465,9 +474,14 @@ export default function TeacherExamEditorPage() {
         <Button variant="outlined" onClick={() => navigate(returnTo)}>
           {he.cancel}
         </Button>
-        <Button variant="contained" onClick={finishEditing} disabled={savingTitle || !titleValid}>
-          {savingTitle ? he.loading : he.saveExamDone}
-        </Button>
+        <DisabledActionTooltip
+          disabled={savingTitle || !titleValid}
+          disabledReason={!titleValid ? he.examTitleRequired : undefined}
+        >
+          <Button variant="contained" onClick={finishEditing}>
+            {savingTitle ? he.loading : he.saveExamDone}
+          </Button>
+        </DisabledActionTooltip>
       </Box>
 
       <QuestionEditDialog

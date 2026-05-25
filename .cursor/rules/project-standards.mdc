@@ -1,0 +1,71 @@
+---
+description: Standards du projet — taille des fonctions, RTL hébreu, modules OOP par entité
+alwaysApply: true
+---
+
+# Standards du projet exam
+
+## 1. Taille des fonctions (25–30 lignes max)
+
+- Chaque fonction, méthode ou handler ne doit pas dépasser **30 lignes** (cible **25–30**).
+- Au-delà : extraire des sous-fonctions privées, des helpers ou des méthodes de classe dédiées.
+- Une page/composant volumineux reste acceptable si la logique est découpée en petites fonctions nommées explicitement.
+- Éviter les blocs imbriqués profonds ; préférer retours anticipés et early returns.
+
+```typescript
+// ❌ MAUVAIS — une seule fonction de 80 lignes
+async function handleSubmit() { /* tout le flux */ }
+
+// ✅ BON — orchestration courte
+async function handleSubmit() {
+  const payload = buildPayload(form);
+  await validatePayload(payload);
+  await api.submit(payload);
+  resetForm();
+}
+```
+
+## 2. RTL — tableaux, texte hébreu, UI
+
+- L’interface est en **hébreu** : respecter **RTL** partout (pas seulement les libellés).
+- **Global** : conserver `direction: "rtl"` dans le thème MUI et `stylis-plugin-rtl` dans `main.tsx`.
+- **Composants** : `dir="rtl"` sur conteneurs de formulaires, dialogues, tableaux et zones de texte hébreu.
+- **Tableaux** : `DataListTable` et colonnes doivent rester cohérents RTL ; utiliser `theme.direction === "rtl"` pour positionnement (resize, icônes, ancres drawer).
+- **Exceptions LTR** : champs techniques (email, code, URLs, JSON) → `dir="ltr"` explicitement.
+- **CSS** : préférer propriétés logiques (`marginInlineStart`, `paddingInlineEnd`) plutôt que `left`/`right` fixes quand c’est pertinent.
+
+## 3. Architecture modulaire — OOP par entité (front + back)
+
+### Principe
+
+- **Une entité = un module (ou dossier) dédié** : Course, Exam, Student, User, Notification, Catalog, etc.
+- Appliquer les **techniques OOP classiques** : encapsulation, responsabilité unique, composition, séparation interface / implémentation.
+- Ne pas mélanger la logique de plusieurs entités dans un même fichier « fourre-tout ».
+
+### Backend (Python / FastAPI)
+
+Structure type par entité :
+
+- `app/models/<entity>.py` — modèle ORM
+- `app/schemas/<entity>.py` — DTO Pydantic
+- `app/routers/<entity>.py` — routes HTTP (minces)
+- `app/services/<entity>_*.py` ou `app/services/<entity>/` — logique métier, classes de service si utile
+
+Les routers délèguent aux services ; pas de logique métier lourde dans les endpoints.
+
+### Frontend (React / TypeScript)
+
+Structure type par entité :
+
+- `api/<entity>.ts` ou méthodes groupées dans le client API
+- `components/<Entity>/` ou fichiers `Entity*.tsx` pour UI liée à l’entité
+- `pages/...` — pages minces qui composent modules et hooks
+- Types/interfaces colocalisés avec le module de l’entité
+
+Préférer **classes de service** ou **modules avec fonctions exportées** pour la logique réutilisable (parsing, validation, mapping) plutôt que des god-components.
+
+### Règles transverses
+
+- Réutiliser les modules existants (`services/`, `schemas/`, `components/DataListTable/`) avant d’en créer de nouveaux.
+- Nouvelle entité → créer le trio model / schema / router (back) et api / composants (front) dès le départ.
+- i18n hébreu : chaînes dans `frontend/src/i18n/he.ts`, pas de texte hébreu en dur dispersé dans le code.

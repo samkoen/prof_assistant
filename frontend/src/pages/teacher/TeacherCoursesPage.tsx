@@ -9,13 +9,16 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   MenuItem,
+  Switch,
   TextField,
   Tooltip,
 } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
 import QuizIcon from "@mui/icons-material/Quiz";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { OfferingCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
 import { api, ApiError, type CatalogCourse, type CourseOffering } from "../../api/client";
@@ -35,6 +38,8 @@ export default function TeacherCoursesPage() {
     academic_year: String(CURRENT_YEAR),
     semester: "1",
     description: "",
+    is_open_enrollment: true,
+    auto_approve_enrollment: false,
   });
 
   const load = useCallback(async () => {
@@ -72,6 +77,8 @@ export default function TeacherCoursesPage() {
           academic_year: Number(form.academic_year),
           semester: Number(form.semester),
           description: form.description || null,
+          is_open_enrollment: form.is_open_enrollment,
+          auto_approve_enrollment: form.auto_approve_enrollment,
         }),
       });
       setOpen(false);
@@ -81,6 +88,8 @@ export default function TeacherCoursesPage() {
         academic_year: String(CURRENT_YEAR),
         semester: "1",
         description: "",
+        is_open_enrollment: true,
+        auto_approve_enrollment: false,
       });
       await load();
     } catch (e) {
@@ -184,12 +193,46 @@ export default function TeacherCoursesPage() {
             multiline
             rows={2}
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.is_open_enrollment}
+                onChange={(e) => setForm({ ...form, is_open_enrollment: e.target.checked })}
+              />
+            }
+            label={he.openEnrollmentLabel}
+          />
+          <Tooltip
+            title={!form.is_open_enrollment ? he.autoApproveRequiresOpen : ""}
+            disableHoverListener={form.is_open_enrollment}
+            arrow
+          >
+            <span style={{ display: "inline-block" }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.auto_approve_enrollment}
+                    onChange={(e) =>
+                      setForm({ ...form, auto_approve_enrollment: e.target.checked })
+                    }
+                    disabled={!form.is_open_enrollment}
+                  />
+                }
+                label={he.autoApproveEnrollment}
+              />
+            </span>
+          </Tooltip>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>{he.cancel}</Button>
-          <Button variant="contained" onClick={createOffering} disabled={catalogs.length === 0}>
-            {he.submit}
-          </Button>
+          <DisabledActionTooltip
+            disabled={catalogs.length === 0}
+            disabledReason={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+          >
+            <Button variant="contained" onClick={createOffering}>
+              {he.submit}
+            </Button>
+          </DisabledActionTooltip>
         </DialogActions>
       </Dialog>
     </Box>

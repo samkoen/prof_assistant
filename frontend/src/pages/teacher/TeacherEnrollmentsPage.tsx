@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import ListPageToolbar from "../../components/ListPageToolbar";
-import { api, ApiError, type Enrollment } from "../../api/client";
+import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
 import { he } from "../../i18n/he";
 
 export default function TeacherEnrollmentsPage() {
@@ -62,7 +62,9 @@ export default function TeacherEnrollmentsPage() {
       ) : pending.length === 0 ? (
         <Typography color="text.secondary">{he.pending} — 0</Typography>
       ) : (
-        pending.map((p) => (
+        pending.map((p) => {
+          const courseLabel = enrollmentOfferingLabel(p);
+          return (
           <Card key={p.id} sx={{ mb: 1 }}>
             <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
               <Box flex={1} minWidth={200}>
@@ -70,6 +72,11 @@ export default function TeacherEnrollmentsPage() {
                 <Typography variant="body2" color="text.secondary">
                   {p.student_email}
                 </Typography>
+                {courseLabel && (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {courseLabel}
+                  </Typography>
+                )}
               </Box>
               <Button size="small" variant="contained" onClick={() => review(p.id, "approved")}>
                 {he.approve}
@@ -79,7 +86,8 @@ export default function TeacherEnrollmentsPage() {
               </Button>
             </CardContent>
           </Card>
-        ))
+          );
+        })
       )}
     </Box>
   );

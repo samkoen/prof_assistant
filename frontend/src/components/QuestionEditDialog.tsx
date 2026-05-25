@@ -20,6 +20,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { api, ApiError, type Question } from "../api/client";
+import DisabledActionTooltip from "./DisabledActionTooltip";
 import { he } from "../i18n/he";
 import type { QuestionType } from "../utils/qcmImportParser";
 
@@ -251,9 +252,14 @@ export default function QuestionEditDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{he.cancel}</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !!validationError}>
-          {saving ? he.loading : he.saveQuestion}
-        </Button>
+        <DisabledActionTooltip
+          disabled={saving || !!validationError}
+          disabledReason={validationError || undefined}
+        >
+          <Button variant="contained" onClick={save}>
+            {saving ? he.loading : he.saveQuestion}
+          </Button>
+        </DisabledActionTooltip>
       </DialogActions>
     </Dialog>
   );

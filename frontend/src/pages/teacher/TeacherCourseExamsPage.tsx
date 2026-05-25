@@ -12,16 +12,22 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Checkbox,
+  IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
 import GradingIcon from "@mui/icons-material/Grading";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import { ExamActionButtons, ExamEditLink } from "../../components/ExamActionButtons";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import {
   api,
   ApiError,
@@ -33,17 +39,16 @@ import {
 } from "../../api/client";
 import { he } from "../../i18n/he";
 
-const statusLabel: Record<ExamSession["status"], string> = {
-  active: "פעיל",
-  draft: "טיוטה",
-  closed: "סגור",
-};
-
-const statusColor: Record<ExamSession["status"], "success" | "default" | "warning"> = {
-  active: "success",
-  draft: "warning",
-  closed: "default",
-};
+/** Statut affiché prof : actif / fermé / sinon tout regroupé sous « לא פעיל ». */
+function examDisplayStatus(session: ExamSession | undefined) {
+  if (session?.status === "active") {
+    return { color: "success" as const, label: he.examAlreadyActive };
+  }
+  if (session?.status === "closed") {
+    return { color: "default" as const, label: he.examClosed };
+  }
+  return { color: "warning" as const, label: he.examNotActive };
+}
 
 export default function TeacherCourseExamsPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -56,6 +61,10 @@ export default function TeacherCourseExamsPage() {
   const [activatingId, setActivatingId] = useState<number | null>(null);
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
   const [confirmSession, setConfirmSession] = useState<ExamSession | null>(null);
+  const [closeSession, setCloseSession] = useState<ExamSession | null>(null);
+  const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
+  const [activateExam, setActivateExam] = useState<Exam | null>(null);
+  const [activateIntegrity, setActivateIntegrity] = useState(false);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -97,22 +106,43 @@ export default function TeacherCourseExamsPage() {
     return map;
   }, [sessions]);
 
-  const startExam = async (exam: Exam) => {
-    if (!offering) return;
-    setActivatingId(exam.id);
+  const confirmStartExam = async () => {
+    if (!offering || !activateExam) return;
+    setActivatingId(activateExam.id);
     setError("");
     setSuccess("");
     try {
-      await api(`/api/exams/${exam.id}/activate`, {
+      await api(`/api/exams/${activateExam.id}/activate`, {
         method: "POST",
-        body: JSON.stringify({ offering_id: offering.id }),
+        body: JSON.stringify({
+          offering_id: offering.id,
+          integrity_mode_enabled: activateIntegrity,
+        }),
       });
-      setSuccess(`${he.examActivated}: ${exam.title}`);
+      setSuccess(`${he.examActivated}: ${activateExam.title}`);
+      setActivateExam(null);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
       setActivatingId(null);
+    }
+  };
+
+  const closeExamSession = async () => {
+    if (!closeSession) return;
+    setClosingSessionId(closeSession.id);
+    setError("");
+    setSuccess("");
+    try {
+      await api(`/api/exams/sessions/${closeSession.id}/close`, { method: "POST" });
+      setSuccess(`${he.examClosedSuccess}: ${closeSession.exam_title}`);
+      setCloseSession(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setClosingSessionId(null);
     }
   };
 
@@ -203,9 +233,9 @@ export default function TeacherCourseExamsPage() {
         exams.map((exam) => {
           const session = sessionByExamId.get(exam.id);
           const isActive = session?.status === "active";
-          const isClosed = session?.status === "closed";
           const canStart = !session || session.status === "draft";
           const hasQuestions = exam.question_count > 0;
+          const statusChip = examDisplayStatus(session);
 
           return (
             <Card key={exam.id} sx={{ mb: 2 }}>
@@ -213,19 +243,7 @@ export default function TeacherCourseExamsPage() {
                 <Box flex={1} minWidth={220}>
                   <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mb={0.5}>
                     <Typography fontWeight={600}>{exam.title}</Typography>
-                    {session && (
-                      <Chip
-                        size="small"
-                        color={statusColor[session.status]}
-                        label={
-                          isActive
-                            ? he.examAlreadyActive
-                            : isClosed
-                              ? he.examClosed
-                              : statusLabel[session.status]
-                        }
-                      />
-                    )}
+                    <Chip size="small" color={statusChip.color} label={statusChip.label} />
                   </Box>
                   <Typography variant="body2" color="text.secondary">
                     {exam.question_count} {he.questionsInExam} · {formatScopeSummary(exam)}
@@ -236,43 +254,98 @@ export default function TeacherCourseExamsPage() {
                     </Typography>
                   )}
                 </Box>
-                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
-                  <ExamEditLink examId={exam.id} returnTo={`/teacher/courses/${id}/exams`} />
-                  <ExamActionButtons exam={exam} onChanged={load} onError={setError} />
+                <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0, alignItems: "center" }}>
+                  <ExamEditLink
+                    examId={exam.id}
+                    returnTo={`/teacher/courses/${id}/exams`}
+                    iconOnly
+                  />
+                  <ExamActionButtons
+                    exam={exam}
+                    onChanged={load}
+                    onError={setError}
+                    iconOnly
+                  />
                   {session && session.status !== "draft" && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      component={RouterLink}
-                      to={`/teacher/courses/${id}/exams/sessions/${session.id}/results`}
-                      startIcon={<GradingIcon />}
-                    >
-                      {he.viewExamGrades}
-                    </Button>
+                    <Tooltip title={he.viewExamGrades}>
+                      <IconButton
+                        component={RouterLink}
+                        to={`/teacher/courses/${id}/exams/sessions/${session.id}/results`}
+                        size="small"
+                        color="primary"
+                        aria-label={he.viewExamGrades}
+                      >
+                        <GradingIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
                   {canStart && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="success"
-                      startIcon={<PlayArrowIcon />}
+                    <DisabledActionTooltip
                       disabled={!hasQuestions || activatingId === exam.id}
-                      onClick={() => startExam(exam)}
+                      disabledReason={!hasQuestions ? he.noQuestionsYet : undefined}
                     >
-                      {activatingId === exam.id ? he.loading : he.startExamNow}
-                    </Button>
+                      <IconButton
+                        size="small"
+                        color="success"
+                        aria-label={he.startExamNow}
+                        onClick={() => {
+                          setActivateIntegrity(false);
+                          setActivateExam(exam);
+                        }}
+                      >
+                        {activatingId === exam.id ? (
+                          <CircularProgress size={18} color="inherit" />
+                        ) : (
+                          <PlayArrowIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </DisabledActionTooltip>
                   )}
                   {isActive && session && (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="warning"
-                      startIcon={<StopIcon />}
-                      disabled={deactivatingSessionId === session.id}
-                      onClick={() => setConfirmSession(session)}
-                    >
-                      {deactivatingSessionId === session.id ? he.loading : he.cancelActivation}
-                    </Button>
+                    <>
+                      <Tooltip
+                        title={closingSessionId === session.id ? he.loading : he.closeExam}
+                      >
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            aria-label={he.closeExam}
+                            disabled={closingSessionId === session.id}
+                            onClick={() => setCloseSession(session)}
+                          >
+                            {closingSessionId === session.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <DoneAllIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip
+                        title={
+                          deactivatingSessionId === session.id
+                            ? he.loading
+                            : he.cancelActivation
+                        }
+                      >
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="warning"
+                            aria-label={he.cancelActivation}
+                            disabled={deactivatingSessionId === session.id}
+                            onClick={() => setConfirmSession(session)}
+                          >
+                            {deactivatingSessionId === session.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <StopIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
                   )}
                 </Box>
               </CardContent>
@@ -293,6 +366,63 @@ export default function TeacherCourseExamsPage() {
           }}
         />
       )}
+
+      <Dialog open={!!activateExam} onClose={() => setActivateExam(null)} fullWidth maxWidth="sm">
+        <DialogTitle>{he.activateExam}</DialogTitle>
+        <DialogContent>
+          {activateExam && (
+            <Typography fontWeight={600} gutterBottom>
+              {activateExam.title}
+            </Typography>
+          )}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={activateIntegrity}
+                onChange={(e) => setActivateIntegrity(e.target.checked)}
+              />
+            }
+            label={he.integrityMode}
+          />
+          <Typography variant="caption" color="text.secondary" display="block">
+            {he.integrityModeHint}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActivateExam(null)}>{he.cancel}</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={confirmStartExam}
+            disabled={activatingId != null}
+          >
+            {activatingId != null ? he.loading : he.startExamNow}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!closeSession} onClose={() => setCloseSession(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{he.closeExam}</DialogTitle>
+        <DialogContent>
+          <Typography>{he.closeExamConfirm}</Typography>
+          {closeSession && (
+            <Typography fontWeight={600} sx={{ mt: 1 }}>
+              {closeSession.exam_title}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCloseSession(null)}>{he.cancel}</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={closeExamSession}
+            disabled={closingSessionId != null}
+          >
+            {closingSessionId != null ? he.loading : he.closeExam}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!confirmSession} onClose={() => setConfirmSession(null)} fullWidth maxWidth="xs">
         <DialogTitle>{he.cancelActivation}</DialogTitle>

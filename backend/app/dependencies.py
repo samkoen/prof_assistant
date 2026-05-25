@@ -33,3 +33,19 @@ def require_roles(*roles: UserRole):
         return user
 
     return checker
+
+
+async def get_optional_current_user(
+    db: AsyncSession = Depends(get_db),
+    assistant_session: str | None = Cookie(default=None, alias=COOKIE_NAME),
+) -> User | None:
+    if not assistant_session:
+        return None
+    payload = decode_access_token(assistant_session)
+    if not payload or "sub" not in payload:
+        return None
+    result = await db.execute(select(User).where(User.id == int(payload["sub"])))
+    user = result.scalar_one_or_none()
+    if not user or user.is_blocked:
+        return None
+    return user

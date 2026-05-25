@@ -2,13 +2,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import CourseCatalog, CourseOffering
+from app.models.enums import EnrollmentStatus
 from app.models.exam import Exam
 from app.models.exercise import Exercise
 from app.schemas.catalog import CatalogCourseResponse
 from app.schemas.course import CourseOfferingResponse
 
 
-def offering_to_response(offering: CourseOffering) -> CourseOfferingResponse:
+def offering_to_response(
+    offering: CourseOffering,
+    enrollment_status: EnrollmentStatus | None = None,
+) -> CourseOfferingResponse:
     return CourseOfferingResponse(
         id=offering.id,
         catalog_course_id=offering.catalog_course_id,
@@ -18,8 +22,10 @@ def offering_to_response(offering: CourseOffering) -> CourseOfferingResponse:
         semester=offering.semester,
         description=offering.description,
         is_open_enrollment=offering.is_open_enrollment,
+        auto_approve_enrollment=offering.auto_approve_enrollment,
         teacher_name=offering.teacher.full_name,
         created_at=offering.created_at,
+        enrollment_status=enrollment_status,
     )
 
 

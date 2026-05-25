@@ -11,11 +11,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Checkbox,
   MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
 import StopIcon from "@mui/icons-material/Stop";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { ExamActionButtons, ExamEditLink } from "../../components/ExamActionButtons";
 import {
@@ -42,8 +46,11 @@ export default function TeacherExamsPage() {
   const [activateOpen, setActivateOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [activateOfferingId, setActivateOfferingId] = useState("");
+  const [activateIntegrity, setActivateIntegrity] = useState(false);
   const [confirmDeactivateSession, setConfirmDeactivateSession] = useState<ExamSession | null>(null);
+  const [confirmCloseSession, setConfirmCloseSession] = useState<ExamSession | null>(null);
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
+  const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
   const [examsRefreshKey, setExamsRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
@@ -77,6 +84,7 @@ export default function TeacherExamsPage() {
   const openActivate = (exam: Exam) => {
     setSelectedExam(exam);
     setActivateOfferingId("");
+    setActivateIntegrity(false);
     setActivateOpen(true);
   };
 
@@ -85,12 +93,29 @@ export default function TeacherExamsPage() {
     try {
       await api(`/api/exams/${selectedExam.id}/activate`, {
         method: "POST",
-        body: JSON.stringify({ offering_id: Number(activateOfferingId) }),
+        body: JSON.stringify({
+          offering_id: Number(activateOfferingId),
+          integrity_mode_enabled: activateIntegrity,
+        }),
       });
       setActivateOpen(false);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    }
+  };
+
+  const closeSession = async () => {
+    if (!confirmCloseSession) return;
+    setClosingSessionId(confirmCloseSession.id);
+    try {
+      await api(`/api/exams/sessions/${confirmCloseSession.id}/close`, { method: "POST" });
+      setConfirmCloseSession(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setClosingSessionId(null);
     }
   };
 
@@ -148,16 +173,28 @@ export default function TeacherExamsPage() {
                 </Typography>
               </Box>
               {s.status === "active" && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<StopIcon />}
-                  disabled={deactivatingSessionId === s.id}
-                  onClick={() => setConfirmDeactivateSession(s)}
-                >
-                  {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
-                </Button>
+                <>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    startIcon={<DoneAllIcon />}
+                    disabled={closingSessionId === s.id}
+                    onClick={() => setConfirmCloseSession(s)}
+                  >
+                    {closingSessionId === s.id ? he.loading : he.closeExam}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    startIcon={<StopIcon />}
+                    disabled={deactivatingSessionId === s.id}
+                    onClick={() => setConfirmDeactivateSession(s)}
+                  >
+                    {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
+                  </Button>
+                </>
               )}
             </CardContent>
           </Card>
@@ -191,11 +228,56 @@ export default function TeacherExamsPage() {
               </MenuItem>
             ))}
           </TextField>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={activateIntegrity}
+                onChange={(e) => setActivateIntegrity(e.target.checked)}
+              />
+            }
+            label={he.integrityMode}
+          />
+          <Typography variant="caption" color="text.secondary" display="block">
+            {he.integrityModeHint}
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActivateOpen(false)}>{he.cancel}</Button>
-          <Button variant="contained" onClick={activate} disabled={!activateOfferingId}>
-            {he.activateExam}
+          <DisabledActionTooltip
+            disabled={!activateOfferingId}
+            disabledReason={!activateOfferingId ? he.selectOfferingToActivate : undefined}
+          >
+            <Button variant="contained" onClick={activate}>
+              {he.activateExam}
+            </Button>
+          </DisabledActionTooltip>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!confirmCloseSession}
+        onClose={() => setConfirmCloseSession(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{he.closeExam}</DialogTitle>
+        <DialogContent>
+          <Typography>{he.closeExamConfirm}</Typography>
+          {confirmCloseSession && (
+            <Typography fontWeight={600} sx={{ mt: 1 }}>
+              {confirmCloseSession.exam_title}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmCloseSession(null)}>{he.cancel}</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={closeSession}
+            disabled={closingSessionId != null}
+          >
+            {closingSessionId != null ? he.loading : he.closeExam}
           </Button>
         </DialogActions>
       </Dialog>
