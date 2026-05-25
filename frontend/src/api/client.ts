@@ -272,6 +272,12 @@ export interface StudentAccount {
   email_verified: boolean;
 }
 
+export function verifyStudentEmailBypass(studentId: number): Promise<{ ok: boolean }> {
+  return api<{ ok: boolean }>(`/api/students/${studentId}/verify-email-bypass`, {
+    method: "POST",
+  });
+}
+
 export function semesterLabel(semester: number): string {
   if (semester === 1) return "סמסטר א";
   if (semester === 2) return "סמסטר ב";

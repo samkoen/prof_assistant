@@ -57,21 +57,14 @@ async def create_student(
 async def verify_without_email(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    teacher: User = Depends(require_roles(UserRole.TEACHER)),
+    _: User = Depends(require_roles(UserRole.TEACHER)),
 ):
     """המורה מאשר תלמיד ללא אימות אימייל."""
     student = await db.get(User, student_id)
     if not student or student.role != UserRole.STUDENT:
         raise HTTPException(status_code=404, detail="תלמיד לא נמצא")
-    from app.models.course import CourseEnrollment, CourseOffering
-
-    enrolled = await db.execute(
-        select(CourseEnrollment)
-        .join(CourseOffering)
-        .where(CourseEnrollment.student_id == student_id, CourseOffering.teacher_id == teacher.id)
-    )
-    if not enrolled.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="התלמיד לא בקורס שלך")
+    if student.email_verified:
+        return {"ok": True}
     student.email_verified_by_teacher = True
     student.email_verified = True
     await db.commit()

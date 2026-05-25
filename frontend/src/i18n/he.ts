@@ -179,6 +179,8 @@ export const he = {
   actions: "פעולות",
   verified: "מאומת",
   pending: "ממתין",
+  verifyStudentEmail: "אימות תלמיד ללא אימייל",
+  verifyStudentEmailSuccess: "התלמיד אומת — ניתן להתחבר",
   blocked: "חסום",
   blockUser: "חסימת משתמש",
   unblockUser: "ביטול חסימה",

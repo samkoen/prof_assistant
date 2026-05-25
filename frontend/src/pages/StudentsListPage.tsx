@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, CircularProgress } from "@mui/material";
+import { Alert, Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import MarkEmailReadIcon from "@mui/icons-material/MarkEmailRead";
 import ListPageToolbar from "../components/ListPageToolbar";
 import DataListTable from "../components/DataListTable/DataListTable";
 import StudentFormDialog, { type StudentFormValues } from "../components/StudentFormDialog";
 import { getStudentTableColumns } from "../config/studentTableColumns";
-import { api, ApiError, type StudentAccount } from "../api/client";
+import { api, ApiError, verifyStudentEmailBypass, type StudentAccount } from "../api/client";
 import { he } from "../i18n/he";
 
 const emptyForm = (): StudentFormValues => ({
@@ -18,14 +19,21 @@ const emptyForm = (): StudentFormValues => ({
 interface StudentsListPageProps {
   /** Clé localStorage pour colonnes/largeurs du tableau */
   tableViewKey: string;
+  /** Bouton « אימות תלמיד » pour les comptes en attente (prof uniquement) */
+  allowEmailVerifyBypass?: boolean;
 }
 
-export default function StudentsListPage({ tableViewKey }: StudentsListPageProps) {
+export default function StudentsListPage({
+  tableViewKey,
+  allowEmailVerifyBypass = false,
+}: StudentsListPageProps) {
   const [students, setStudents] = useState<StudentAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [verifyingId, setVerifyingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const columns = useMemo(() => getStudentTableColumns(), []);
@@ -49,6 +57,7 @@ export default function StudentsListPage({ tableViewKey }: StudentsListPageProps
   const createStudent = async () => {
     setSubmitting(true);
     setError("");
+    setSuccess("");
     try {
       await api("/api/students", {
         method: "POST",
@@ -70,6 +79,21 @@ export default function StudentsListPage({ tableViewKey }: StudentsListPageProps
     }
   };
 
+  const verifyEmail = async (student: StudentAccount) => {
+    setVerifyingId(student.id);
+    setError("");
+    setSuccess("");
+    try {
+      await verifyStudentEmailBypass(student.id);
+      setSuccess(he.verifyStudentEmailSuccess);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <ListPageToolbar
@@ -85,6 +109,12 @@ export default function StudentsListPage({ tableViewKey }: StudentsListPageProps
         </Alert>
       )}
 
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>
+          {success}
+        </Alert>
+      )}
+
       {loading && students.length === 0 ? (
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
@@ -97,6 +127,25 @@ export default function StudentsListPage({ tableViewKey }: StudentsListPageProps
           loading={loading}
           emptyMessage={he.noStudents}
           getRowId={(s) => s.id}
+          renderActions={
+            allowEmailVerifyBypass
+              ? (s) =>
+                  !s.email_verified ? (
+                    <Tooltip title={he.verifyStudentEmail}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="success"
+                          disabled={verifyingId === s.id}
+                          onClick={() => verifyEmail(s)}
+                        >
+                          <MarkEmailReadIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                  ) : null
+              : undefined
+          }
         />
       )}
 
