@@ -169,9 +169,9 @@ export default function QuestionEditDialog({
           onChange={(e) => setText(e.target.value)}
           fullWidth
           multiline
-          minRows={2}
+          minRows={4}
           dir="rtl"
-          sx={{ mb: 2, mt: 1 }}
+          sx={{ mb: 2, mt: 1, "& textarea": { fontFamily: "inherit", whiteSpace: "pre-wrap" } }}
         />
 
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
@@ -223,8 +223,11 @@ export default function QuestionEditDialog({
               }
               fullWidth
               size="small"
+              multiline
+              minRows={opt.text.includes("\n") ? 3 : 1}
               dir="rtl"
               disabled={questionType === "true_false"}
+              sx={{ "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
             />
             {questionType !== "true_false" && options.length > 2 && (
               <IconButton

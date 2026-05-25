@@ -287,11 +287,17 @@ export default function TeacherExamEditorPage() {
                 }}
               >
                 <Box flex={1} minWidth={0}>
-                  <Typography fontWeight={600}>
-                    {i + 1}. {q.text}{" "}
-                    <Chip size="small" label={typeLabel[q.question_type] ?? q.question_type} />
-                    <Chip size="small" variant="outlined" label={`${q.points} נק'`} sx={{ ml: 0.5 }} />
+                  <Typography
+                    fontWeight={600}
+                    component="div"
+                    sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", mb: 0.5 }}
+                  >
+                    {i + 1}. {q.text}
                   </Typography>
+                  <Box display="flex" gap={0.5} flexWrap="wrap" sx={{ mb: 0.5 }}>
+                    <Chip size="small" label={typeLabel[q.question_type] ?? q.question_type} />
+                    <Chip size="small" variant="outlined" label={`${q.points} נק'`} />
+                  </Box>
                   {q.options.map((o) => (
                     <Typography
                       key={o.id}

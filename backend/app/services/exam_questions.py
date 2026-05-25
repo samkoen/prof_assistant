@@ -6,6 +6,13 @@ from app.models.enums import ExamStatus, QuestionType
 from app.models.exam import ExamSession, Question, QuestionOption
 from app.schemas.exam import QuestionCreate, QuestionUpdate
 
+_TRIM_EDGES = "\n\r\t "
+
+
+def normalize_question_text(text: str) -> str:
+    """Supprime espaces en tête/fin du bloc sans aplatir les retours à la ligne internes."""
+    return text.strip(_TRIM_EDGES)
+
 
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
     count = await db.scalar(
@@ -51,7 +58,7 @@ async def persist_question(
 ) -> Question:
     question = Question(
         exam_id=exam_id,
-        text=body.text.strip(),
+        text=normalize_question_text(body.text),
         question_type=body.question_type,
         order_index=order_index,
         points=body.points,
@@ -63,7 +70,7 @@ async def persist_question(
         db.add(
             QuestionOption(
                 question_id=question.id,
-                text=opt.text.strip(),
+                text=normalize_question_text(opt.text),
                 is_correct=opt.is_correct,
                 order_index=opt.order_index,
             )
@@ -114,7 +121,7 @@ async def update_question(
     )
     validate_question_body(create_body, 0)
 
-    question.text = body.text.strip()
+    question.text = normalize_question_text(body.text)
     question.question_type = body.question_type
     question.points = body.points
     question.multiple_scoring_mode = body.multiple_scoring_mode
@@ -127,7 +134,7 @@ async def update_question(
         db.add(
             QuestionOption(
                 question_id=question.id,
-                text=opt.text.strip(),
+                text=normalize_question_text(opt.text),
                 is_correct=opt.is_correct,
                 order_index=opt.order_index if opt.order_index else i,
             )
