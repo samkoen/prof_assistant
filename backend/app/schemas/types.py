@@ -15,7 +15,11 @@ def _normalize_email(value: str) -> str:
         raise ValueError("כתובת אימייל לא תקינה")
 
     if settings.environment == "development":
-        # En dev : autorise admin@assistant-ai.local, etc.
+        return value
+
+    # Domaines réservés utilisés en seed local (.local) — acceptés aussi en prod
+    domain = value.rsplit("@", 1)[-1]
+    if domain in ("assistant-ai.local", "localhost"):
         return value
 
     from email_validator import EmailNotValidError, validate_email

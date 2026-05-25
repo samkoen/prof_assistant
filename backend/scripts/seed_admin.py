@@ -15,7 +15,7 @@ from app.security import hash_password
 
 
 async def main() -> None:
-    email = os.environ.get("ADMIN_EMAIL", "admin@assistant-ai.local")
+    email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
     password = os.environ.get("ADMIN_PASSWORD", "admin123")
     name = os.environ.get("ADMIN_NAME", "מנהל מערכת")
 

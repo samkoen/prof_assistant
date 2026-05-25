@@ -8,6 +8,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from app.migration_utils import has_column
+
 revision: str = "003"
 down_revision: Union[str, None] = "002"
 branch_labels: Union[str, Sequence[str], None] = None
@@ -23,7 +25,9 @@ _SCOPE_COLUMNS = (
 
 
 def _add_scope_columns(table: str) -> None:
-    for name, col_type, required in _SCOPE_COLUMNS:
+    if has_column(table, "created_by_id"):
+        return
+    for name, col_type, _required in _SCOPE_COLUMNS:
         op.add_column(table, sa.Column(name, col_type, nullable=True))
     op.execute(
         f"""

@@ -1,19 +1,48 @@
 from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from pydantic import field_validator
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _PROJECT_DIR = _BACKEND_DIR.parent
 
+_ASYNCPG_STRIP_QUERY = frozenset({"sslmode", "channel_binding"})
+_SSL_REQUIRED_MODES = frozenset({"require", "verify-ca", "verify-full", "prefer"})
 
-def _normalize_async_db_url(url: str) -> str:
+
+def _normalize_asyncpg_driver(url: str) -> str:
     """Force le driver asyncpg (évite psycopg2 si l'URL est postgresql://)."""
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+asyncpg://", 1)
     return url
+
+
+def prepare_database_url(raw: str) -> tuple[str, bool]:
+    """Nettoie l'URL pour asyncpg ; sslmode → connect_args ssl (Neon, etc.)."""
+    url = _normalize_asyncpg_driver(raw.strip())
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+
+    ssl_required = False
+    if "sslmode" in qs:
+        mode = (qs["sslmode"][0] or "").lower()
+        ssl_required = mode in _SSL_REQUIRED_MODES
+
+    host = (parsed.hostname or "").lower()
+    if not ssl_required and host.endswith(".neon.tech"):
+        ssl_required = True
+
+    for key in _ASYNCPG_STRIP_QUERY:
+        qs.pop(key, None)
+
+    flat_qs = {k: v[0] if len(v) == 1 else v for k, v in qs.items()}
+    query = urlencode(flat_qs) if flat_qs else ""
+    cleaned = urlunparse(parsed._replace(query=query))
+    return cleaned, ssl_required
 
 
 class Settings(BaseSettings):
@@ -24,6 +53,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/assistant_ai"
+    database_ssl: bool = False
     secret_key: str = "dev-secret-change-in-production"
     cookie_secure: bool = False
     cookie_domain: str | None = None
@@ -39,10 +69,18 @@ class Settings(BaseSettings):
     password_min_length: int = 6
     warning_minutes_default: int = 10
 
-    @field_validator("database_url", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def ensure_asyncpg_driver(cls, v: str) -> str:
-        return _normalize_async_db_url(v)
+    def normalize_database_connection(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        raw = data.get("database_url")
+        if raw is None:
+            return data
+        url, ssl = prepare_database_url(str(raw))
+        data["database_url"] = url
+        data["database_ssl"] = ssl
+        return data
 
 
 settings = Settings()
