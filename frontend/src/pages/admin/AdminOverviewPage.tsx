@@ -1,8 +1,18 @@
-import { Box, Button, Card, CardContent, Grid, Typography } from "@mui/material";
+import { useCallback, useState } from "react";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Grid,
+  Typography,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import { Link, useNavigate } from "react-router-dom";
+import UnverifiedStudentsPanel from "../../components/UnverifiedStudentsPanel";
 import { he } from "../../i18n/he";
 
 const cards = [
@@ -28,6 +38,13 @@ const cards = [
 
 export default function AdminOverviewPage() {
   const navigate = useNavigate();
+  const [unverifiedCount, setUnverifiedCount] = useState(0);
+  const [unverifiedLoaded, setUnverifiedLoaded] = useState(false);
+
+  const handleUnverifiedCount = useCallback((count: number) => {
+    setUnverifiedCount(count);
+    setUnverifiedLoaded(true);
+  }, []);
 
   return (
     <Box>
@@ -61,6 +78,29 @@ export default function AdminOverviewPage() {
         >
           {he.newCourse}
         </Button>
+        {unverifiedCount > 0 && (
+          <Chip
+            label={`${he.pendingApprovals}: ${unverifiedCount}`}
+            color="warning"
+            onClick={() => {
+              document.getElementById("admin-pending-requests")?.scrollIntoView({
+                behavior: "smooth",
+              });
+            }}
+            sx={{ cursor: "pointer" }}
+          />
+        )}
+      </Box>
+
+      <Box id="admin-pending-requests" sx={{ mb: 3 }}>
+        <Typography variant="h6" fontWeight={600} gutterBottom>
+          {he.pendingApprovals}
+        </Typography>
+        {unverifiedLoaded && unverifiedCount === 0 ? (
+          <Typography color="text.secondary">{he.noPendingRequests}</Typography>
+        ) : (
+          <UnverifiedStudentsPanel onCountChange={handleUnverifiedCount} />
+        )}
       </Box>
 
       <Grid container spacing={2}>

@@ -1,8 +1,6 @@
 """Routes élèves : création et liste."""
 
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +10,7 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.student import StudentCreate, StudentResponse
 from app.security import hash_password
+from app.services.student_service import delete_student_account
 
 router = APIRouter(prefix="/students", tags=["students"])
 
@@ -57,9 +56,9 @@ async def create_student(
 async def verify_without_email(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.TEACHER)),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
-    """המורה מאשר תלמיד ללא אימות אימייל."""
+    """מורה או מנהל מאשרים תלמיד ללא אימות אימייל."""
     student = await db.get(User, student_id)
     if not student or student.role != UserRole.STUDENT:
         raise HTTPException(status_code=404, detail="תלמיד לא נמצא")
@@ -69,3 +68,16 @@ async def verify_without_email(
     student.email_verified = True
     await db.commit()
     return {"ok": True}
+
+
+@router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_student(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
+):
+    student = await db.get(User, student_id)
+    if not student or student.role != UserRole.STUDENT:
+        raise HTTPException(status_code=404, detail="תלמיד לא נמצא")
+    await delete_student_account(db, student)
+    await db.commit()

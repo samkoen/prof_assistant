@@ -62,7 +62,6 @@ class Settings(BaseSettings):
     email_from: str = "noreply@assistant-ai.local"
     app_name: str = "Assistant AI"
     environment: str = "development"
-    dev_auto_verify_email: bool = True
 
     access_token_expire_days_student: int = 7
     access_token_expire_days_staff: int = 30

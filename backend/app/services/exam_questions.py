@@ -6,11 +6,11 @@ from app.models.enums import ExamStatus, QuestionType
 from app.models.exam import ExamSession, Question, QuestionOption
 from app.schemas.exam import QuestionCreate, QuestionUpdate
 
-_TRIM_EDGES = "\n\r\t "
+_TRIM_EDGES = "\n\r\t"
 
 
 def normalize_question_text(text: str) -> str:
-    """Supprime espaces en tête/fin du bloc sans aplatir les retours à la ligne internes."""
+    """Supprime sauts de ligne / tabulations en tête/fin — conserve les espaces (schémas ASCII)."""
     return text.strip(_TRIM_EDGES)
 
 

@@ -20,6 +20,9 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailResponse,
     ExamDuplicateRequest,
+    ExamReviewCorrectOption,
+    ExamReviewQuestion,
+    ExamReviewResponse,
     ExamResponse,
     ExamTakeResponse,
     ExamUpdate,
@@ -175,6 +178,21 @@ async def _get_student_active_session(session_id: int, user: User, db: AsyncSess
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     if session.status != ExamStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
+    if not await _student_approved_for_offering(session.offering_id, user, db):
+        raise HTTPException(status_code=403, detail="אין גישה")
+    return session
+
+
+async def _get_student_session(session_id: int, user: User, db: AsyncSession) -> ExamSession:
+    """Session accessible à l'élève inscrit (active ou fermée)."""
+    result = await db.execute(
+        select(ExamSession)
+        .options(selectinload(ExamSession.exam))
+        .where(ExamSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
     return session
@@ -889,7 +907,7 @@ async def take_exam_session(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
 ):
-    session = await _get_student_active_session(session_id, user, db)
+    session = await _get_student_session(session_id, user, db)
     exam = session.exam
     attempt_result = await db.execute(
         select(StudentExamAttempt).where(
@@ -910,6 +928,9 @@ async def take_exam_session(
             attempt=_attempt_response(existing, exam.id),
             questions=[],
         )
+
+    if session.status != ExamStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="המבחן לא פעיל")
 
     if rules_blocking(session, existing):
         attempt = await ensure_attempt_record(session, user, db)
@@ -1080,6 +1101,81 @@ async def _check_all_submitted(session_id: int, db: AsyncSession) -> bool:
         )
     )
     return enrolled > 0 and submitted >= enrolled
+
+
+@router.get("/sessions/{session_id}/review", response_model=ExamReviewResponse)
+async def get_session_review(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    exam = session.exam
+    attempt_result = await db.execute(
+        select(StudentExamAttempt).where(
+            StudentExamAttempt.exam_session_id == session.id,
+            StudentExamAttempt.student_id == user.id,
+        )
+    )
+    attempt = attempt_result.scalar_one_or_none()
+    if not attempt or not attempt.submitted_at:
+        raise HTTPException(status_code=400, detail="המבחן טרם הוגש")
+
+    attempt_resp = _attempt_response(attempt, exam.id)
+    if not exam.show_detailed_correction:
+        return ExamReviewResponse(
+            session_id=session.id,
+            exam_title=exam.title,
+            show_correction=False,
+            attempt=attempt_resp,
+            questions=[],
+        )
+
+    q_result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.exam_id == exam.id)
+        .order_by(Question.order_index, Question.id)
+    )
+    questions_list = list(q_result.scalars().all())
+    questions_by_id = {q.id: q for q in questions_list}
+
+    answers_result = await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
+    answers_by_q = {a.question_id: a for a in answers_result.scalars().all()}
+
+    paper = _student_paper(exam, questions_list, attempt.id)
+    review_rows: list[ExamReviewQuestion] = []
+    for sq in paper:
+        q = questions_by_id[sq.id]
+        answer = answers_by_q.get(q.id)
+        selected = list(answer.selected_option_ids) if answer else []
+        earned, max_pts = score_question(q, selected)
+        is_fully_correct = earned >= max_pts - 1e-9
+        correct_opts = sorted(
+            [o for o in q.options if o.is_correct],
+            key=lambda o: o.order_index,
+        )
+        review_rows.append(
+            ExamReviewQuestion(
+                id=q.id,
+                text=q.text,
+                question_type=q.question_type,
+                order_index=sq.order_index,
+                points=q.points,
+                is_correct=is_fully_correct,
+                correct_options=[
+                    ExamReviewCorrectOption(text=o.text) for o in correct_opts
+                ],
+            )
+        )
+
+    return ExamReviewResponse(
+        session_id=session.id,
+        exam_title=exam.title,
+        show_correction=True,
+        attempt=attempt_resp,
+        questions=review_rows,
+    )
 
 
 @router.get("/sessions/{session_id}/my-attempt", response_model=AttemptResponse | None)

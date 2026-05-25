@@ -55,7 +55,7 @@ export default function RegisterPage() {
     return (
       <Box maxWidth={420} mx="auto" mt={6}>
         <Alert severity="success">
-          נרשמת בהצלחה! בדוק את האימייל לאימות החשבון.
+          {he.registerSuccessAwaitVerification}
           <Link
             component={RouterLink}
             to={joinOfferingId ? `/login?join=${joinOfferingId}` : "/login"}

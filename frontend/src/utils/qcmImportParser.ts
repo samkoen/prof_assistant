@@ -88,7 +88,7 @@ function parseLetterOptions(lines: string[]): ParsedQuestionOption[] {
       if (marked) is_correct = true;
       return text;
     });
-    const text = parts.join("\n").trim();
+    const text = trimEdgeBlankLines(parts).join("\n");
     if (text) options.push({ text, is_correct });
     chunk = [];
   };

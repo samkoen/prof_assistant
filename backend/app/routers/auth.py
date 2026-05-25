@@ -50,7 +50,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         role=UserRole.STUDENT,
         phone=body.phone,
         student_id=body.student_id,
-        email_verified=settings.environment == "development" and settings.dev_auto_verify_email,
+        email_verified=False,
     )
     db.add(user)
     await db.commit()

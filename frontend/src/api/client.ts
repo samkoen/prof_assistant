@@ -249,6 +249,28 @@ export interface ExamTake {
   questions: StudentQuestion[];
 }
 
+export interface ExamReviewCorrectOption {
+  text: string;
+}
+
+export interface ExamReviewQuestion {
+  id: number;
+  text: string;
+  question_type: "single" | "multiple" | "true_false";
+  order_index: number;
+  points: number;
+  is_correct: boolean;
+  correct_options: ExamReviewCorrectOption[];
+}
+
+export interface ExamReview {
+  session_id: number;
+  exam_title: string;
+  show_correction: boolean;
+  attempt: ExamAttempt;
+  questions: ExamReviewQuestion[];
+}
+
 export interface Enrollment {
   id: number;
   offering_id: number;
@@ -276,6 +298,10 @@ export function verifyStudentEmailBypass(studentId: number): Promise<{ ok: boole
   return api<{ ok: boolean }>(`/api/students/${studentId}/verify-email-bypass`, {
     method: "POST",
   });
+}
+
+export function deleteStudent(studentId: number): Promise<void> {
+  return api<void>(`/api/students/${studentId}`, { method: "DELETE" });
 }
 
 export function semesterLabel(semester: number): string {

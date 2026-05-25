@@ -22,6 +22,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { api, ApiError, type Question } from "../api/client";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import { he } from "../i18n/he";
+import { normalizeTextBlock } from "../utils/textNormalize";
 import type { QuestionType } from "../utils/qcmImportParser";
 
 interface OptionDraft {
@@ -129,11 +130,11 @@ export default function QuestionEditDialog({
       await api<Question>(`/api/exams/${examId}/questions/${question.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          text: text.trim(),
+          text: normalizeTextBlock(text),
           question_type: questionType,
           points,
           options: options.map((o, i) => ({
-            text: o.text.trim(),
+            text: normalizeTextBlock(o.text),
             is_correct: o.is_correct,
             order_index: i,
           })),

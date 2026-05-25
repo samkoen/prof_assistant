@@ -27,6 +27,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadIcon from "@mui/icons-material/Upload";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
+import { ExamQuestionReadView } from "../../components/ExamQuestionReadView";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamScopeEditor from "../../components/ExamScopeEditor";
 import { api, ApiError, type Exam, type ExamDetail, type Question } from "../../api/client";
@@ -38,12 +39,6 @@ import {
   type ParsedQuestion,
 } from "../../utils/qcmImportParser";
 import { he } from "../../i18n/he";
-
-const typeLabel: Record<string, string> = {
-  single: "בחירה יחידה",
-  multiple: "בחירה מרובה",
-  true_false: "נכון / לא נכון",
-};
 
 export default function TeacherExamEditorPage() {
   const { examId } = useParams<{ examId: string }>();
@@ -286,31 +281,13 @@ export default function TeacherExamEditorPage() {
                   alignItems: "flex-start",
                 }}
               >
-                <Box flex={1} minWidth={0}>
-                  <Typography
-                    fontWeight={600}
-                    component="div"
-                    sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", mb: 0.5 }}
-                  >
-                    {i + 1}. {q.text}
-                  </Typography>
-                  <Box display="flex" gap={0.5} flexWrap="wrap" sx={{ mb: 0.5 }}>
-                    <Chip size="small" label={typeLabel[q.question_type] ?? q.question_type} />
-                    <Chip size="small" variant="outlined" label={`${q.points} נק'`} />
-                  </Box>
-                  {q.options.map((o) => (
-                    <Typography
-                      key={o.id}
-                      variant="body2"
-                      component="div"
-                      color={o.is_correct ? "success.main" : "text.secondary"}
-                      sx={{ pr: 2, whiteSpace: "pre-wrap", mt: 0.25 }}
-                    >
-                      {o.is_correct ? "✓ " : "○ "}
-                      {o.text}
-                    </Typography>
-                  ))}
-                </Box>
+                <ExamQuestionReadView
+                  index={i + 1}
+                  text={q.text}
+                  questionType={q.question_type}
+                  points={q.points}
+                  options={q.options}
+                />
                 {exam.is_editable && (
                   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                     {exam.questions.length > 1 && (
@@ -531,25 +508,13 @@ export default function TeacherExamEditorPage() {
 function PreviewQuestion({ index, question }: { index: number; question: ParsedQuestion }) {
   return (
     <Box sx={{ mb: 2, p: 1.5, bgcolor: "action.hover", borderRadius: 1 }}>
-      <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mb={0.5}>
-        <Typography fontWeight={600} sx={{ whiteSpace: "pre-wrap" }}>
-          {index}. {question.text}
-        </Typography>
-        <Chip size="small" label={typeLabel[question.question_type]} />
-      </Box>
-      {question.options.map((o, i) => (
-        <Typography
-          key={i}
-          variant="body2"
-          component="div"
-          color={o.is_correct ? "success.main" : "text.secondary"}
-          sx={{ whiteSpace: "pre-wrap", pl: 1, mt: 0.5 }}
-        >
-          {o.is_correct ? "✓ " : "○ "}
-          {String.fromCharCode(65 + i)}){") "}
-          {o.text}
-        </Typography>
-      ))}
+      <ExamQuestionReadView
+        index={index}
+        text={question.text}
+        questionType={question.question_type}
+        points={question.points}
+        options={question.options}
+      />
     </Box>
   );
 }

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
-  Card,
-  CardContent,
   FormControlLabel,
   Switch,
   TextField,
@@ -11,6 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 import { api, ApiError, type CourseOffering } from "../api/client";
 import { he } from "../i18n/he";
@@ -64,11 +66,11 @@ export default function OfferingEnrollmentSettings({
   }, [joinUrl]);
 
   return (
-    <Card sx={{ mb: 3 }}>
-      <CardContent dir="rtl">
-        <Typography variant="h6" gutterBottom>
-          {he.enrollmentSettings}
-        </Typography>
+    <Accordion sx={{ mb: 3 }} defaultExpanded={false}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography variant="h6">{he.enrollmentSettings}</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
         <FormControlLabel
           control={<Switch checked={open} onChange={(e) => setOpen(e.target.checked)} />}
           label={he.openEnrollmentLabel}
@@ -114,7 +116,7 @@ export default function OfferingEnrollmentSettings({
             {saving ? he.loading : he.saveEnrollmentSettings}
           </Button>
         </Box>
-      </CardContent>
-    </Card>
+      </AccordionDetails>
+    </Accordion>
   );
 }

@@ -1,11 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import MarkEmailReadIcon from "@mui/icons-material/MarkEmailRead";
 import ListPageToolbar from "../components/ListPageToolbar";
 import DataListTable from "../components/DataListTable/DataListTable";
 import StudentFormDialog, { type StudentFormValues } from "../components/StudentFormDialog";
 import { getStudentTableColumns } from "../config/studentTableColumns";
-import { api, ApiError, verifyStudentEmailBypass, type StudentAccount } from "../api/client";
+import {
+  api,
+  ApiError,
+  deleteStudent,
+  verifyStudentEmailBypass,
+  type StudentAccount,
+} from "../api/client";
 import { he } from "../i18n/he";
 
 const emptyForm = (): StudentFormValues => ({
@@ -34,6 +53,8 @@ export default function StudentsListPage({
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [verifyingId, setVerifyingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<StudentAccount | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const columns = useMemo(() => getStudentTableColumns(), []);
@@ -94,6 +115,23 @@ export default function StudentsListPage({
     }
   };
 
+  const confirmDelete = async () => {
+    if (!studentToDelete) return;
+    setDeletingId(studentToDelete.id);
+    setError("");
+    setSuccess("");
+    try {
+      await deleteStudent(studentToDelete.id);
+      setStudentToDelete(null);
+      setSuccess(he.studentDeleted);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <ListPageToolbar
@@ -127,25 +165,36 @@ export default function StudentsListPage({
           loading={loading}
           emptyMessage={he.noStudents}
           getRowId={(s) => s.id}
-          renderActions={
-            allowEmailVerifyBypass
-              ? (s) =>
-                  !s.email_verified ? (
-                    <Tooltip title={he.verifyStudentEmail}>
-                      <span>
-                        <IconButton
-                          size="small"
-                          color="success"
-                          disabled={verifyingId === s.id}
-                          onClick={() => verifyEmail(s)}
-                        >
-                          <MarkEmailReadIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  ) : null
-              : undefined
-          }
+          renderActions={(s) => (
+            <>
+              {allowEmailVerifyBypass && !s.email_verified && (
+                <Tooltip title={he.verifyStudentEmail}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      color="success"
+                      disabled={verifyingId === s.id}
+                      onClick={() => verifyEmail(s)}
+                    >
+                      <MarkEmailReadIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+              <Tooltip title={he.deleteStudent}>
+                <span>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    disabled={deletingId === s.id}
+                    onClick={() => setStudentToDelete(s)}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </>
+          )}
         />
       )}
 
@@ -157,6 +206,24 @@ export default function StudentsListPage({
         onSubmit={createStudent}
         submitting={submitting}
       />
+
+      <Dialog open={!!studentToDelete} onClose={() => setStudentToDelete(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{he.deleteStudent}</DialogTitle>
+        <DialogContent>
+          <Typography>{he.deleteStudentConfirm}</Typography>
+          {studentToDelete && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {studentToDelete.full_name} ({studentToDelete.email})
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStudentToDelete(null)}>{he.cancel}</Button>
+          <Button variant="contained" color="error" onClick={confirmDelete} disabled={!!deletingId}>
+            {he.deleteStudent}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

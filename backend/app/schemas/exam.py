@@ -252,3 +252,25 @@ class ExamTakeResponse(BaseModel):
     integrity_mode_enabled: bool = False
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
+
+
+class ExamReviewCorrectOption(BaseModel):
+    text: str
+
+
+class ExamReviewQuestion(BaseModel):
+    id: int
+    text: str
+    question_type: QuestionType
+    order_index: int
+    points: float
+    is_correct: bool
+    correct_options: list[ExamReviewCorrectOption]
+
+
+class ExamReviewResponse(BaseModel):
+    session_id: int
+    exam_title: str
+    show_correction: bool
+    attempt: AttemptResponse
+    questions: list[ExamReviewQuestion]

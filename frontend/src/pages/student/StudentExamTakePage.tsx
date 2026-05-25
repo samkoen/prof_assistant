@@ -9,20 +9,20 @@ import {
   Checkbox,
   CircularProgress,
   FormControl,
-  FormControlLabel,
-  FormGroup,
   Radio,
-  RadioGroup,
   Typography,
 } from "@mui/material";
+import { OptionText } from "../../components/MultilineOptionLayout";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   api,
   ApiError,
   type ExamAttempt,
+  type ExamReview,
   type ExamTake,
   type StudentQuestion,
 } from "../../api/client";
+import ExamSubmissionReview from "../../components/ExamSubmissionReview";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamFocusOverlay from "../../components/ExamFocusOverlay";
 import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
@@ -50,8 +50,18 @@ export default function StudentExamTakePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
+  const [review, setReview] = useState<ExamReview | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [tabHidden, setTabHidden] = useState(false);
+
+  const loadReview = useCallback(async () => {
+    if (!id || Number.isNaN(id)) return;
+    try {
+      setReview(await api<ExamReview>(`/api/exams/sessions/${id}/review`));
+    } catch {
+      setReview(null);
+    }
+  }, [id]);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -63,13 +73,16 @@ export default function StudentExamTakePage() {
       setAttempt(data.attempt);
       if (data.attempt.submitted_at) {
         setSuccess(he.examSubmitted);
+        await loadReview();
+      } else {
+        setReview(null);
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, loadReview]);
 
   useEffect(() => {
     load();
@@ -148,6 +161,7 @@ export default function StudentExamTakePage() {
       });
       setAttempt(res);
       setSuccess(he.examSubmitted);
+      await loadReview();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -254,9 +268,12 @@ export default function StudentExamTakePage() {
       )}
 
       {submitted ? (
-        <Button component={RouterLink} to="/student/courses" variant="outlined">
-          {he.backToCourses}
-        </Button>
+        <>
+          {review && <ExamSubmissionReview review={review} />}
+          <Button component={RouterLink} to="/student/courses" variant="outlined" sx={{ mt: 2 }}>
+            {he.backToCourses}
+          </Button>
+        </>
       ) : rulesPending ? null : (
         <>
           {paper.questions.map((q, i) => (
@@ -313,44 +330,54 @@ function QuestionBlock({
           </Typography>
         </Typography>
         {isMultiple ? (
-          <FormGroup>
+          <Box>
             {question.options.map((o) => (
-              <FormControlLabel
+              <Box
                 key={o.id}
-                control={
+                component="label"
+                sx={{
+                  display: "block",
+                  mb: 1.5,
+                  cursor: "pointer",
+                  borderRadius: 1,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                <Box sx={{ direction: "ltr", display: "inline-flex" }}>
                   <Checkbox
                     checked={selected.includes(o.id)}
                     onChange={(e) => onToggle(question.id, o.id, e.target.checked)}
+                    sx={{ p: 0.5 }}
                   />
-                }
-                label={
-                  <Typography component="span" sx={{ whiteSpace: "pre-wrap" }}>
-                    {o.text}
-                  </Typography>
-                }
-              />
+                </Box>
+                <OptionText text={o.text} />
+              </Box>
             ))}
-          </FormGroup>
+          </Box>
         ) : (
           <FormControl component="fieldset" fullWidth>
-            <RadioGroup
-              value={selected[0] != null ? String(selected[0]) : ""}
-              onChange={(e) => onSingle(question.id, Number(e.target.value))}
-            >
-              {question.options.map((o) => (
-                <FormControlLabel
-                  key={o.id}
-                  value={String(o.id)}
-                  control={<Radio />}
-                  label={
-                    <Typography component="span" sx={{ whiteSpace: "pre-wrap" }}>
-                      {o.text}
-                    </Typography>
-                  }
-                  sx={{ alignItems: "flex-start" }}
-                />
-              ))}
-            </RadioGroup>
+            {question.options.map((o) => (
+              <Box
+                key={o.id}
+                component="label"
+                sx={{
+                  display: "block",
+                  mb: 1.5,
+                  cursor: "pointer",
+                  borderRadius: 1,
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                <Box sx={{ direction: "ltr", display: "inline-flex" }}>
+                  <Radio
+                    checked={selected[0] === o.id}
+                    onChange={() => onSingle(question.id, o.id)}
+                    sx={{ p: 0.5 }}
+                  />
+                </Box>
+                <OptionText text={o.text} />
+              </Box>
+            ))}
           </FormControl>
         )}
       </CardContent>
