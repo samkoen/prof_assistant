@@ -306,7 +306,7 @@ function QuestionBlock({
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
-        <Typography fontWeight={600} gutterBottom>
+        <Typography fontWeight={600} gutterBottom sx={{ whiteSpace: "pre-wrap" }}>
           {index}. {question.text}{" "}
           <Typography component="span" variant="body2" color="text.secondary">
             ({question.points} נק')
@@ -323,7 +323,11 @@ function QuestionBlock({
                     onChange={(e) => onToggle(question.id, o.id, e.target.checked)}
                   />
                 }
-                label={o.text}
+                label={
+                  <Typography component="span" sx={{ whiteSpace: "pre-wrap" }}>
+                    {o.text}
+                  </Typography>
+                }
               />
             ))}
           </FormGroup>
@@ -338,7 +342,12 @@ function QuestionBlock({
                   key={o.id}
                   value={String(o.id)}
                   control={<Radio />}
-                  label={o.text}
+                  label={
+                    <Typography component="span" sx={{ whiteSpace: "pre-wrap" }}>
+                      {o.text}
+                    </Typography>
+                  }
+                  sx={{ alignItems: "flex-start" }}
                 />
               ))}
             </RadioGroup>

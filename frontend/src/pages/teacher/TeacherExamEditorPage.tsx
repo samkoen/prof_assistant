@@ -296,8 +296,9 @@ export default function TeacherExamEditorPage() {
                     <Typography
                       key={o.id}
                       variant="body2"
+                      component="div"
                       color={o.is_correct ? "success.main" : "text.secondary"}
-                      sx={{ pr: 2 }}
+                      sx={{ pr: 2, whiteSpace: "pre-wrap", mt: 0.25 }}
                     >
                       {o.is_correct ? "✓ " : "○ "}
                       {o.text}
@@ -524,17 +525,22 @@ export default function TeacherExamEditorPage() {
 function PreviewQuestion({ index, question }: { index: number; question: ParsedQuestion }) {
   return (
     <Box sx={{ mb: 2, p: 1.5, bgcolor: "action.hover", borderRadius: 1 }}>
-      <Typography fontWeight={600}>
-        {index}. {question.text}{" "}
+      <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mb={0.5}>
+        <Typography fontWeight={600} sx={{ whiteSpace: "pre-wrap" }}>
+          {index}. {question.text}
+        </Typography>
         <Chip size="small" label={typeLabel[question.question_type]} />
-      </Typography>
+      </Box>
       {question.options.map((o, i) => (
         <Typography
           key={i}
           variant="body2"
+          component="div"
           color={o.is_correct ? "success.main" : "text.secondary"}
+          sx={{ whiteSpace: "pre-wrap", pl: 1, mt: 0.5 }}
         >
           {o.is_correct ? "✓ " : "○ "}
+          {String.fromCharCode(65 + i)}){") "}
           {o.text}
         </Typography>
       ))}

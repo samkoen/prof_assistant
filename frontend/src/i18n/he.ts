@@ -49,7 +49,8 @@ export const he = {
   pasteQcmHintIntro:
     "הדבק כאן שאלות חדשות. הן יתווספו לרשימה הקיימת — לא יחליפו שאלות שכבר במבחן.",
   pasteQcmHintRule1: "הפרידו בין שאלות בשורה נפרדת של מקפים.",
-  pasteQcmHintRule2: "סמנו תשובה נכונה בכוכבית בסוף שורת האפשרות.",
+  pasteQcmHintRule2:
+    "אחרי A) / B) / C) — התשובה יכולה להמשיך על כמה שורות (למשל סכמה). סמנו * בסוף השורה הנכונה.",
   pasteQcmHintRule3: "לחלופין — ניתן להדביק גם טקסט בפורמט ג'ייסון.",
   pasteQcmHintFormatLabel: "דוגמה לפורמט:",
   pasteQcmHintFormatExample: "--- between questions ---  |  A) answer  *",

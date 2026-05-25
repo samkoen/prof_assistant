@@ -33,7 +33,7 @@ export interface QuestionImportPayload {
 const HEADER_RE =
   /^(?:Q?\d+[\.\):]?\s*)?(?:\[(single|multiple|true_false|tf|vrai_faux)\])?(?:\s*\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*$/i;
 
-const OPTION_RE = /^([A-Z])[\)\.:]\s*(.+?)\s*(\*)?\s*$/;
+const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/;
 const TF_RE = /^(?:Vrai|Faux|True|False|נכון|לא נכון|לא)\s*(\*)?\s*$/i;
 
 const TF_LABELS: Record<string, string> = {
@@ -61,53 +61,102 @@ function splitBlocks(raw: string): string[] {
     .filter(Boolean);
 }
 
+function stripCorrectMarker(line: string): { text: string; marked: boolean } {
+  if (!/\*/.test(line)) return { text: line, marked: false };
+  return { text: line.replace(/\s*\*\s*$/, "").replace(/\*/g, "").trimEnd(), marked: true };
+}
+
+function trimEdgeBlankLines(lines: string[]): string[] {
+  let start = 0;
+  let end = lines.length;
+  while (start < end && !lines[start].trim()) start += 1;
+  while (end > start && !lines[end - 1].trim()) end -= 1;
+  return lines.slice(start, end);
+}
+
+/** A) seul ou A) texte — lignes suivantes = même réponse (schémas, plusieurs lignes) ; * = נכון. */
+function parseLetterOptions(lines: string[]): ParsedQuestionOption[] {
+  const options: ParsedQuestionOption[] = [];
+  let chunk: string[] = [];
+
+  const flush = () => {
+    const block = trimEdgeBlankLines(chunk);
+    if (block.length === 0) return;
+    let is_correct = false;
+    const parts = block.map((line) => {
+      const { text, marked } = stripCorrectMarker(line.trimEnd());
+      if (marked) is_correct = true;
+      return text;
+    });
+    const text = parts.join("\n").trim();
+    if (text) options.push({ text, is_correct });
+    chunk = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const start = trimmed ? OPTION_START_RE.exec(trimmed) : null;
+    if (start) {
+      flush();
+      const rest = start[2].trim();
+      if (rest) chunk.push(rest);
+      continue;
+    }
+    if (trimmed && TF_RE.test(trimmed)) return [];
+    chunk.push(line.trimEnd());
+  }
+  flush();
+  return options;
+}
+
+function findOptionStartIndex(lines: string[], from: number): number {
+  for (let i = from; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (OPTION_START_RE.test(t) || TF_RE.test(t)) return i;
+  }
+  return -1;
+}
+
 function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; error?: ParseError } {
-  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  const rawLines = block.split("\n").map((l) => l.trimEnd());
+  const lines = rawLines.map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) {
     return { error: { block: blockIndex, message: "בלוק ריק" } };
   }
 
   let type: QuestionType = "single";
   let points = 1;
-  let startLine = 0;
-
   const headerMatch = lines[0].match(HEADER_RE);
+  let rawStart = 0;
   if (headerMatch && (headerMatch[1] || headerMatch[2] || /^Q?\d/i.test(lines[0]))) {
     type = normalizeType(headerMatch[1]);
     if (headerMatch[2]) points = parseFloat(headerMatch[2]);
-    startLine = 1;
+    const headerIdx = rawLines.findIndex((l) => l.trim() === lines[0]);
+    rawStart = headerIdx >= 0 ? headerIdx + 1 : 1;
   }
 
-  const bodyLines: string[] = [];
-  const optionLines: string[] = [];
-
-  for (let i = startLine; i < lines.length; i++) {
-    const line = lines[i];
-    if (OPTION_RE.test(line) || TF_RE.test(line)) {
-      optionLines.push(...lines.slice(i));
-      break;
-    }
-    bodyLines.push(line);
+  const optionStart = findOptionStartIndex(rawLines, rawStart);
+  if (optionStart < 0) {
+    return { error: { block: blockIndex, message: "לא נמצאו אפשרויות תשובה" } };
   }
 
-  const text = bodyLines.join("\n").trim();
+  const text = trimEdgeBlankLines(rawLines.slice(rawStart, optionStart)).join("\n").trim();
   if (!text) {
     return { error: { block: blockIndex, message: "חסר טקסט לשאלה" } };
   }
 
-  const options: ParsedQuestionOption[] = [];
-  for (const line of optionLines) {
-    const opt = OPTION_RE.exec(line);
-    if (opt) {
-      options.push({ text: opt[2].trim(), is_correct: !!opt[3] });
-      continue;
-    }
-    const tf = TF_RE.exec(line);
-    if (tf) {
-      const key = line.replace(/\*/g, "").trim().toLowerCase();
-      const label = TF_LABELS[key] ?? line.replace(/\*/g, "").trim();
-      options.push({ text: label, is_correct: !!tf[1] });
-      type = "true_false";
+  const optionSection = rawLines.slice(optionStart);
+  let options = parseLetterOptions(optionSection);
+
+  if (options.length === 0) {
+    for (const line of optionSection.map((l) => l.trim()).filter(Boolean)) {
+      const tf = TF_RE.exec(line);
+      if (tf) {
+        const key = line.replace(/\*/g, "").trim().toLowerCase();
+        const label = TF_LABELS[key] ?? line.replace(/\*/g, "").trim();
+        options.push({ text: label, is_correct: !!tf[1] });
+        type = "true_false";
+      }
     }
   }
 
@@ -199,6 +248,13 @@ B) O(log n) *
 C) O(n)
 D) O(n log n)
 ---
+Q1b [single] (2 pt)
+טקסט השאלה — אפשרות עם מספר שורות:
+A)
+   שורה 1
+   שורה 2 *
+B) תשובה קצרה
+---
 Q2 [multiple] (2 pt)
 אילו מהבאים הם עצי חיפוש?
 A) AVL *
@@ -216,6 +272,6 @@ export const QCM_GEMINI_PROMPT = `צור מבחן בפורמט הבא בדיוק
 - כתוב את השאלות בבלוק plaintext
 - כותרת שאלה: Q<num> [single|multiple|true_false] (נקודות pt)
 - טקסט השאלה
-- אפשרויות: A) ... B) ... עם * אחרי התשובה הנכונה
+- אפשרויות: A) B) C) — אחרי A) אפשר כמה שורות (לא חובה בשורה אחת); * בסוף השורה הנכונה
 - לנכון/לא נכון: שורות "נכון" / "לא נכון" עם * על הנכונה
 שפה: עברית.`;
