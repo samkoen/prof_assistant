@@ -2,6 +2,7 @@ import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import { OptionDisplay } from "./MultilineOptionLayout";
+import QuestionAiExplanation from "./QuestionAiExplanation";
 import type { ExamReview } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -59,6 +60,7 @@ export default function ExamSubmissionReview({ review }: ExamSubmissionReviewPro
                 color="success.main"
               />
             ))}
+            <QuestionAiExplanation sessionId={review.session_id} questionId={q.id} />
           </CardContent>
         </Card>
       ))}

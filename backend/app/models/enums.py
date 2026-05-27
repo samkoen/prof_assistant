@@ -19,6 +19,13 @@ class ExamStatus(str, enum.Enum):
     CLOSED = "closed"
 
 
+class ExamQuestionsLanguage(str, enum.Enum):
+    HE = "he"
+    FR = "fr"
+    EN = "en"
+    RU = "ru"
+
+
 class QuestionType(str, enum.Enum):
     SINGLE = "single"
     MULTIPLE = "multiple"

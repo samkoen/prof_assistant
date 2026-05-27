@@ -34,7 +34,8 @@ const HEADER_RE =
   /^(?:Q?\d+[\.\):]?\s*)?(?:\[(single|multiple|true_false|tf|vrai_faux)\])?(?:\s*\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*$/i;
 
 const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/;
-const TF_RE = /^(?:Vrai|Faux|True|False|נכון|לא נכון|לא)\s*(\*)?\s*$/i;
+const TF_RE =
+  /^(?:Vrai|Faux|True|False|נכון|לא נכון|לא|Верно|Неверно|Да|Нет)\s*(\*)?\s*$/iu;
 
 const TF_LABELS: Record<string, string> = {
   vrai: "נכון",

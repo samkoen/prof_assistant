@@ -32,15 +32,21 @@ interface OptionDraft {
 
 interface QuestionEditDialogProps {
   examId: number;
+  /** null = création d’une nouvelle question */
   question: Question | null;
   open: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (created: boolean) => void;
 }
 
 const TF_OPTIONS: OptionDraft[] = [
   { text: "נכון", is_correct: true },
   { text: "לא נכון", is_correct: false },
+];
+
+const DEFAULT_OPTIONS: OptionDraft[] = [
+  { text: "", is_correct: false },
+  { text: "", is_correct: false },
 ];
 
 function questionToDraft(q: Question) {
@@ -73,6 +79,49 @@ function validateDraft(
   return null;
 }
 
+function buildPayload(
+  text: string,
+  questionType: QuestionType,
+  points: number,
+  options: OptionDraft[],
+) {
+  return {
+    text: normalizeTextBlock(text),
+    question_type: questionType,
+    points,
+    options: options.map((o, i) => ({
+      text: normalizeTextBlock(o.text),
+      is_correct: o.is_correct,
+      order_index: i,
+    })),
+  };
+}
+
+function resetForm(
+  question: Question | null,
+  setters: {
+    setText: (v: string) => void;
+    setQuestionType: (v: QuestionType) => void;
+    setPoints: (v: number) => void;
+    setOptions: (v: OptionDraft[]) => void;
+    setError: (v: string) => void;
+  },
+) {
+  if (question) {
+    const draft = questionToDraft(question);
+    setters.setText(draft.text);
+    setters.setQuestionType(draft.question_type);
+    setters.setPoints(draft.points);
+    setters.setOptions(draft.options);
+  } else {
+    setters.setText("");
+    setters.setQuestionType("single");
+    setters.setPoints(1);
+    setters.setOptions(DEFAULT_OPTIONS.map((o) => ({ ...o })));
+  }
+  setters.setError("");
+}
+
 export default function QuestionEditDialog({
   examId,
   question,
@@ -80,6 +129,7 @@ export default function QuestionEditDialog({
   onClose,
   onSaved,
 }: QuestionEditDialogProps) {
+  const isCreate = question === null;
   const [text, setText] = useState("");
   const [questionType, setQuestionType] = useState<QuestionType>("single");
   const [points, setPoints] = useState(1);
@@ -88,13 +138,8 @@ export default function QuestionEditDialog({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!question || !open) return;
-    const draft = questionToDraft(question);
-    setText(draft.text);
-    setQuestionType(draft.question_type);
-    setPoints(draft.points);
-    setOptions(draft.options);
-    setError("");
+    if (!open) return;
+    resetForm(question, { setText, setQuestionType, setPoints, setOptions, setError });
   }, [question, open]);
 
   const validationError = useMemo(
@@ -104,9 +149,7 @@ export default function QuestionEditDialog({
 
   const handleTypeChange = (type: QuestionType) => {
     setQuestionType(type);
-    if (type === "true_false") {
-      setOptions(TF_OPTIONS);
-    }
+    if (type === "true_false") setOptions(TF_OPTIONS);
   };
 
   const setCorrect = (index: number) => {
@@ -120,27 +163,26 @@ export default function QuestionEditDialog({
   };
 
   const save = async () => {
-    if (!question || validationError) {
-      setError(validationError ?? he.errorGeneric);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setSaving(true);
     setError("");
+    const payload = buildPayload(text, questionType, points, options);
     try {
-      await api<Question>(`/api/exams/${examId}/questions/${question.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          text: normalizeTextBlock(text),
-          question_type: questionType,
-          points,
-          options: options.map((o, i) => ({
-            text: normalizeTextBlock(o.text),
-            is_correct: o.is_correct,
-            order_index: i,
-          })),
-        }),
-      });
-      onSaved();
+      if (isCreate) {
+        await api<Question>(`/api/exams/${examId}/questions`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await api<Question>(`/api/exams/${examId}/questions/${question.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      }
+      onSaved(isCreate);
       onClose();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -151,7 +193,7 @@ export default function QuestionEditDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{he.editQuestion}</DialogTitle>
+      <DialogTitle>{isCreate ? he.addQuestion : he.editQuestion}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -203,44 +245,18 @@ export default function QuestionEditDialog({
         </Typography>
 
         {options.map((opt, i) => (
-          <Box key={i} sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={opt.is_correct}
-                  onChange={() => setCorrect(i)}
-                  color="success"
-                />
-              }
-              label={he.correctAnswer}
-              sx={{ mr: 0, minWidth: 100 }}
-            />
-            <TextField
-              value={opt.text}
-              onChange={(e) =>
-                setOptions((prev) =>
-                  prev.map((o, j) => (j === i ? { ...o, text: e.target.value } : o)),
-                )
-              }
-              fullWidth
-              size="small"
-              multiline
-              minRows={opt.text.includes("\n") ? 3 : 1}
-              dir="rtl"
-              disabled={questionType === "true_false"}
-              sx={{ "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
-            />
-            {questionType !== "true_false" && options.length > 2 && (
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
-                aria-label={he.deleteOption}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Box>
+          <OptionRow
+            key={i}
+            opt={opt}
+            index={i}
+            questionType={questionType}
+            optionsCount={options.length}
+            onCorrect={() => setCorrect(i)}
+            onTextChange={(value) =>
+              setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, text: value } : o)))
+            }
+            onRemove={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
+          />
         ))}
 
         {questionType !== "true_false" && (
@@ -266,5 +282,49 @@ export default function QuestionEditDialog({
         </DisabledActionTooltip>
       </DialogActions>
     </Dialog>
+  );
+}
+
+function OptionRow({
+  opt,
+  index,
+  questionType,
+  optionsCount,
+  onCorrect,
+  onTextChange,
+  onRemove,
+}: {
+  opt: OptionDraft;
+  index: number;
+  questionType: QuestionType;
+  optionsCount: number;
+  onCorrect: () => void;
+  onTextChange: (value: string) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1 }}>
+      <FormControlLabel
+        control={<Checkbox checked={opt.is_correct} onChange={onCorrect} color="success" />}
+        label={he.correctAnswer}
+        sx={{ mr: 0, minWidth: 100 }}
+      />
+      <TextField
+        value={opt.text}
+        onChange={(e) => onTextChange(e.target.value)}
+        fullWidth
+        size="small"
+        multiline
+        minRows={opt.text.includes("\n") ? 3 : 1}
+        dir="rtl"
+        disabled={questionType === "true_false"}
+        sx={{ "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
+      />
+      {questionType !== "true_false" && optionsCount > 2 && (
+        <IconButton size="small" color="error" onClick={onRemove} aria-label={he.deleteOption}>
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      )}
+    </Box>
   );
 }

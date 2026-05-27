@@ -15,6 +15,10 @@ from app.models.exam import Answer, Exam, ExamSession, Question, QuestionOption,
 from app.models.notification import Notification
 from app.models.enums import NotificationType
 from app.models.user import User
+from app.schemas.gemini_questions import (
+    GeminiGenerateQuestionsRequest,
+    GeminiGenerateQuestionsResponse,
+)
 from app.schemas.exam import (
     AttemptResponse,
     ExamCreate,
@@ -68,6 +72,7 @@ from app.services.catalog_scope import (
     widen_scope_for_offering,
 )
 
+from app.services.gemini_question_generation import generate_exam_questions_text
 from app.services.scoring import score_question
 from app.services.integrity_service import (
     accept_rules,
@@ -100,6 +105,7 @@ def _exam_response(
         warning_minutes=exam.warning_minutes,
         auto_submit_on_timeout=exam.auto_submit_on_timeout,
         default_multiple_scoring=exam.default_multiple_scoring,
+        questions_language=exam.questions_language,
         question_count=question_count,
         can_delete=can_delete,
         **scope_to_response(exam, names),
@@ -567,9 +573,11 @@ async def import_questions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
-    await _get_teacher_exam(exam_id, user, db)
+    exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    if body.questions_language is not None:
+        exam.questions_language = body.questions_language
 
     start_idx = await next_question_order_index(exam_id, db)
     created: list[Question] = []
@@ -588,6 +596,20 @@ async def import_questions(
         )
         out.append(QuestionResponse.model_validate(result.scalar_one()))
     return QuestionsImportResponse(imported_count=len(out), questions=out)
+
+
+@router.post("/{exam_id}/questions/generate", response_model=GeminiGenerateQuestionsResponse)
+async def generate_questions_draft(
+    exam_id: int,
+    body: GeminiGenerateQuestionsRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    raw_text = await generate_exam_questions_text(body.series, exam.title)
+    return GeminiGenerateQuestionsResponse(raw_text=raw_text)
 
 
 @router.post("/{exam_id}/questions", response_model=QuestionResponse)

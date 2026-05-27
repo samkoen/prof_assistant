@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import ExamStatus, MultipleScoringMode, QuestionType
+from app.models.enums import ExamQuestionsLanguage, ExamStatus, MultipleScoringMode, QuestionType
 
 
 class Exam(Base):
@@ -30,6 +30,9 @@ class Exam(Base):
     auto_submit_on_timeout: Mapped[bool] = mapped_column(Boolean, default=True)
     default_multiple_scoring: Mapped[MultipleScoringMode] = mapped_column(
         String(30), default=MultipleScoringMode.PROPORTIONAL
+    )
+    questions_language: Mapped[str] = mapped_column(
+        String(2), default=ExamQuestionsLanguage.HE, server_default=ExamQuestionsLanguage.HE
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -118,6 +118,7 @@ export interface Exam extends CatalogItemScope {
   warning_minutes: number;
   auto_submit_on_timeout: boolean;
   default_multiple_scoring: string;
+  questions_language: "he" | "fr" | "en" | "ru";
   question_count: number;
   can_delete?: boolean;
 }
@@ -269,6 +270,11 @@ export interface ExamReview {
   show_correction: boolean;
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];
+}
+
+export interface AiExplanation {
+  question_id: number;
+  explanation: string;
 }
 
 export interface Enrollment {

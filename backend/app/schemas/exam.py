@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -95,6 +96,7 @@ class ExamResponse(CatalogItemScopeResponse):
     warning_minutes: int
     auto_submit_on_timeout: bool
     default_multiple_scoring: MultipleScoringMode
+    questions_language: Literal["he", "fr", "en", "ru"] = "he"
     question_count: int = 0
     can_delete: bool = True
 
@@ -209,6 +211,7 @@ class StudentOfferingExamResultsResponse(BaseModel):
 
 class QuestionsImportRequest(BaseModel):
     questions: list[QuestionCreate] = Field(min_length=1)
+    questions_language: Literal["he", "fr", "en", "ru"] | None = None
 
 
 class QuestionsImportResponse(BaseModel):

@@ -68,6 +68,19 @@ class Settings(BaseSettings):
     password_min_length: int = 6
     warning_minutes_default: int = 10
 
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+    gemini_temperature: float = 0.3
+    gemini_max_output_tokens: int = 2048
+    gemini_generation_max_output_tokens: int = 8192
+    gemini_thinking_budget: int = 0
+    gemini_timeout_seconds: float = 45.0
+    gemini_generation_timeout_seconds: float = 120.0
+    gemini_fallback_models: str = "gemini-2.0-flash,gemini-2.5-flash-lite"
+    gemini_generation_fallback_models: str = "gemini-2.0-flash,gemini-2.5-flash-lite"
+    gemini_retry_count: int = 2
+    gemini_retry_delay_seconds: float = 2.0
+
     @model_validator(mode="before")
     @classmethod
     def normalize_database_connection(cls, data: Any) -> Any:

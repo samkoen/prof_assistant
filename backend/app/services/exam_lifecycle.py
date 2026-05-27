@@ -74,6 +74,7 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
         warning_minutes=source.warning_minutes,
         auto_submit_on_timeout=source.auto_submit_on_timeout,
         default_multiple_scoring=source.default_multiple_scoring,
+        questions_language=source.questions_language,
     )
     db.add(copy)
     await db.flush()

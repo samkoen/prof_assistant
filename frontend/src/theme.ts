@@ -41,3 +41,6 @@ export const theme = createTheme({
     },
   },
 });
+
+/** Sous-arbre LTR (contenu d’examen en français) — évite l’inversion stylis-plugin-rtl. */
+export const ltrTheme = createTheme(theme, { direction: "ltr" });
