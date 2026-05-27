@@ -21,6 +21,7 @@ import ExamEditorSectionAccordion from "../../components/ExamEditorSectionAccord
 import QuestionEditDialog from "../../components/QuestionEditDialog";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamScopeEditor from "../../components/ExamScopeEditor";
+import PageHeroBanner from "../../components/ui/PageHeroBanner";
 import { api, ApiError, type Exam, type ExamDetail, type Question } from "../../api/client";
 import {
   parseQcmText,
@@ -180,14 +181,12 @@ export default function TeacherExamEditorPage() {
         to={returnTo}
         startIcon={<ArrowBackIcon />}
         size="small"
-        sx={{ mb: 2 }}
+        sx={{ mb: 1 }}
       >
         {he.cancel}
       </Button>
 
-      <Typography variant="h5" fontWeight={700} gutterBottom>
-        {he.editExam}
-      </Typography>
+      <PageHeroBanner title={he.editExam} subtitle={exam.title} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>

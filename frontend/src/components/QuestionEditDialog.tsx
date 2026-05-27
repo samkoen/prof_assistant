@@ -248,7 +248,6 @@ export default function QuestionEditDialog({
           <OptionRow
             key={i}
             opt={opt}
-            index={i}
             questionType={questionType}
             optionsCount={options.length}
             onCorrect={() => setCorrect(i)}
@@ -287,7 +286,6 @@ export default function QuestionEditDialog({
 
 function OptionRow({
   opt,
-  index,
   questionType,
   optionsCount,
   onCorrect,
@@ -295,7 +293,6 @@ function OptionRow({
   onRemove,
 }: {
   opt: OptionDraft;
-  index: number;
   questionType: QuestionType;
   optionsCount: number;
   onCorrect: () => void;

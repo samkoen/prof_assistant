@@ -1,15 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Link,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Link, TextField, Typography } from "@mui/material";
+import AuthLayout from "../components/ui/AuthLayout";
 import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 import { ApiError } from "../api/client";
@@ -37,10 +29,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate(
-        joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/",
-        { replace: true }
-      );
+      navigate(joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : he.errorGeneric);
     } finally {
@@ -49,35 +38,45 @@ export default function LoginPage() {
   };
 
   return (
-    <Box maxWidth={420} mx="auto" mt={6}>
-      <Card>
-        <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" gutterBottom fontWeight={600}>
-            {he.login}
-          </Typography>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-            <TextField label={he.email} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
-            <TextField label={he.password} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth />
-            <Button type="submit" variant="contained" size="large" disabled={loading}>
-              {he.login}
-            </Button>
-          </Box>
-          <Typography variant="body2" sx={{ mt: 2 }}>
-            אין לך חשבון?{" "}
-            <Link
-              component={RouterLink}
-              to={joinOfferingId ? `/register?join=${joinOfferingId}` : "/register"}
-            >
-              {he.register}
-            </Link>
-          </Typography>
-        </CardContent>
-      </Card>
-    </Box>
+    <AuthLayout title={he.login}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+        <TextField
+          label={he.email}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          fullWidth
+          dir="ltr"
+        />
+        <TextField
+          label={he.password}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          fullWidth
+          dir="ltr"
+        />
+        <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ mt: 1 }}>
+          {loading ? he.loading : he.login}
+        </Button>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5, textAlign: "center" }}>
+        אין לך חשבון?{" "}
+        <Link
+          component={RouterLink}
+          to={joinOfferingId ? `/register?join=${joinOfferingId}` : "/register"}
+          fontWeight={600}
+        >
+          {he.register}
+        </Link>
+      </Typography>
+    </AuthLayout>
   );
 }

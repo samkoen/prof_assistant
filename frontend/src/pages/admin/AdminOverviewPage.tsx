@@ -1,38 +1,36 @@
 import { useCallback, useState } from "react";
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Grid,
-  Typography,
-} from "@mui/material";
+import { alpha, Box, Button, Chip, Grid, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import DashboardNavCard from "../../components/ui/DashboardNavCard";
+import PageHeroBanner from "../../components/ui/PageHeroBanner";
 import UnverifiedStudentsPanel from "../../components/UnverifiedStudentsPanel";
 import { he } from "../../i18n/he";
+import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 
-const cards = [
+const navCards = [
   {
     title: he.students,
     desc: he.studentsSubtitle,
     path: "/admin/students",
-    icon: <PeopleIcon fontSize="large" color="primary" />,
+    icon: <PeopleIcon />,
+    accent: "primary" as const,
   },
   {
     title: he.adminUsers,
     desc: he.adminUsersCardDesc,
     path: "/admin/users",
-    icon: <PeopleIcon fontSize="large" color="action" />,
+    icon: <PeopleIcon />,
+    accent: "secondary" as const,
   },
   {
     title: he.allCourses,
     desc: he.allCoursesCardDesc,
     path: "/admin/courses",
-    icon: <SchoolIcon fontSize="large" color="secondary" />,
+    icon: <SchoolIcon />,
+    accent: "success" as const,
   },
 ];
 
@@ -47,53 +45,51 @@ export default function AdminOverviewPage() {
   }, []);
 
   return (
-    <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom>
-        {he.dashboard}
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-        {he.adminWelcome}
-      </Typography>
+    <Box sx={hebrewAlignRightSx}>
+      <PageHeroBanner
+        title={he.dashboard}
+        subtitle={he.adminWelcome}
+        actions={
+          <>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/admin/students")}
+              sx={{ bgcolor: "#fff", color: "primary.dark", "&:hover": { bgcolor: alpha("#fff", 0.9) } }}
+            >
+              {he.newStudent}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/admin/users")}
+              sx={{ borderColor: "#fff", color: "#fff", "&:hover": { borderColor: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
+            >
+              {he.newUser}
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/admin/courses")}
+            >
+              {he.newCourse}
+            </Button>
+            {unverifiedCount > 0 && (
+              <Chip
+                label={`${he.pendingApprovals}: ${unverifiedCount}`}
+                onClick={() =>
+                  document.getElementById("admin-pending-requests")?.scrollIntoView({ behavior: "smooth" })
+                }
+                sx={{ cursor: "pointer", fontWeight: 700, bgcolor: "rgba(255,255,255,0.2)", color: "#fff" }}
+              />
+            )}
+          </>
+        }
+      />
 
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/admin/students")}
-        >
-          {he.newStudent}
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/admin/users")}
-        >
-          {he.newUser}
-        </Button>
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/admin/courses")}
-        >
-          {he.newCourse}
-        </Button>
-        {unverifiedCount > 0 && (
-          <Chip
-            label={`${he.pendingApprovals}: ${unverifiedCount}`}
-            color="warning"
-            onClick={() => {
-              document.getElementById("admin-pending-requests")?.scrollIntoView({
-                behavior: "smooth",
-              });
-            }}
-            sx={{ cursor: "pointer" }}
-          />
-        )}
-      </Box>
-
-      <Box id="admin-pending-requests" sx={{ mb: 3 }}>
-        <Typography variant="h6" fontWeight={600} gutterBottom>
+      <Box id="admin-pending-requests" sx={{ mb: 4, ...hebrewAlignRightSx }}>
+        <Typography variant="h6" fontWeight={700} gutterBottom>
           {he.pendingApprovals}
         </Typography>
         {unverifiedLoaded && unverifiedCount === 0 ? (
@@ -103,29 +99,16 @@ export default function AdminOverviewPage() {
         )}
       </Box>
 
-      <Grid container spacing={2}>
-        {cards.map((card) => (
+      <Grid container spacing={2.5}>
+        {navCards.map((card) => (
           <Grid item xs={12} sm={6} md={4} key={card.path}>
-            <Card
-              component={Link}
+            <DashboardNavCard
               to={card.path}
-              sx={{
-                textDecoration: "none",
-                height: "100%",
-                transition: "box-shadow 0.2s",
-                "&:hover": { boxShadow: 4 },
-              }}
-            >
-              <CardContent>
-                <Box mb={1}>{card.icon}</Box>
-                <Typography variant="h6" fontWeight={600} color="text.primary">
-                  {card.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {card.desc}
-                </Typography>
-              </CardContent>
-            </Card>
+              title={card.title}
+              description={card.desc}
+              icon={card.icon}
+              accent={card.accent}
+            />
           </Grid>
         ))}
       </Grid>

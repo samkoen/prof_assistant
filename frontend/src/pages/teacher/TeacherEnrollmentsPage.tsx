@@ -3,13 +3,13 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   CircularProgress,
   Typography,
 } from "@mui/material";
 import ListPageToolbar from "../../components/ListPageToolbar";
+import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import UnverifiedStudentsPanel from "../../components/UnverifiedStudentsPanel";
+import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
 import { he } from "../../i18n/he";
 
@@ -49,7 +49,7 @@ export default function TeacherEnrollmentsPage() {
   };
 
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%", ...hebrewAlignRightSx }}>
       <ListPageToolbar title={he.pendingApprovals} subtitle={he.enrollmentsSubtitle} />
 
       {error && (
@@ -71,33 +71,40 @@ export default function TeacherEnrollmentsPage() {
         </Box>
       ) : pending.length === 0 && unverifiedLoaded && unverifiedCount === 0 ? (
         <Typography color="text.secondary">{he.noPendingRequests}</Typography>
-      ) : pending.length === 0 ? null : (
-        pending.map((p) => {
-          const courseLabel = enrollmentOfferingLabel(p);
-          return (
-          <Card key={p.id} sx={{ mb: 1 }}>
-            <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-              <Box flex={1} minWidth={200}>
-                <Typography fontWeight={600}>{p.student_name}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {p.student_email}
-                </Typography>
-                {courseLabel && (
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {courseLabel}
-                  </Typography>
-                )}
-              </Box>
-              <Button size="small" variant="contained" onClick={() => review(p.id, "approved")}>
-                {he.approve}
-              </Button>
-              <Button size="small" color="error" onClick={() => review(p.id, "rejected")}>
-                {he.reject}
-              </Button>
-            </CardContent>
-          </Card>
-          );
-        })
+      ) : (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          {pending.map((p) => {
+            const courseLabel = enrollmentOfferingLabel(p);
+            return (
+              <HebrewCardRow
+                key={p.id}
+                text={
+                  <>
+                    <Typography fontWeight={600}>{p.student_name}</Typography>
+                    <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
+                      {p.student_email}
+                    </Typography>
+                    {courseLabel && (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {courseLabel}
+                      </Typography>
+                    )}
+                  </>
+                }
+                actions={
+                  <>
+                    <Button size="small" variant="contained" onClick={() => review(p.id, "approved")}>
+                      {he.approve}
+                    </Button>
+                    <Button size="small" color="error" variant="outlined" onClick={() => review(p.id, "rejected")}>
+                      {he.reject}
+                    </Button>
+                  </>
+                }
+              />
+            );
+          })}
+        </Box>
       )}
     </Box>
   );

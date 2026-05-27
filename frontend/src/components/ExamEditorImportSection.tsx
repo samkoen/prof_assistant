@@ -12,6 +12,7 @@ import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail } from "../api/client";
 import { QCM_FORMAT_EXAMPLE, type ParsedQuestion, type ParseResult } from "../utils/qcmImportParser";
+import { hebrewActionsBarSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 interface ExamEditorImportSectionProps {
@@ -44,12 +45,14 @@ export default function ExamEditorImportSection({
         </Typography>
       </Box>
       <PasteHints />
-      <Button size="small" variant="outlined" onClick={onCopyPrompt} sx={{ mb: 1, mr: 1 }}>
-        {he.copyGeminiPrompt}
-      </Button>
-      <Button size="small" variant="text" onClick={onLoadExample} sx={{ mb: 2 }}>
-        {he.loadExample}
-      </Button>
+      <Box sx={{ ...hebrewActionsBarSx, mb: 2 }}>
+        <Button size="small" variant="outlined" onClick={onCopyPrompt}>
+          {he.copyGeminiPrompt}
+        </Button>
+        <Button size="small" variant="text" onClick={onLoadExample}>
+          {he.loadExample}
+        </Button>
+      </Box>
       <DisabledActionTooltip
         disabled={!exam.is_editable}
         disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
@@ -148,14 +151,16 @@ function ImportPreview({
         </Box>
       ))}
       <Divider sx={{ my: 2 }} />
-      <DisabledActionTooltip
-        disabled={!exam.is_editable || importing}
-        disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
-      >
-        <Button variant="contained" startIcon={<UploadIcon />} onClick={onImport}>
-          {importing ? he.loading : he.importQuestions}
-        </Button>
-      </DisabledActionTooltip>
+      <Box sx={hebrewActionsBarSx}>
+        <DisabledActionTooltip
+          disabled={!exam.is_editable || importing}
+          disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
+        >
+          <Button variant="contained" startIcon={<UploadIcon />} onClick={onImport}>
+            {importing ? he.loading : he.importQuestions}
+          </Button>
+        </DisabledActionTooltip>
+      </Box>
     </>
   );
 }

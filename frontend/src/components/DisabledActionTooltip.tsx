@@ -6,6 +6,8 @@ type DisabledChildProps = { disabled?: boolean };
 type Props = {
   disabled: boolean;
   disabledReason?: string;
+  /** Libellé au survol quand l’action est disponible. */
+  title?: string;
   children: ReactElement<DisabledChildProps>;
 };
 
@@ -19,13 +21,27 @@ const wrapSx = {
   },
 };
 
-export default function DisabledActionTooltip({ disabled, disabledReason, children }: Props) {
+export default function DisabledActionTooltip({
+  disabled,
+  disabledReason,
+  title,
+  children,
+}: Props) {
   if (!isValidElement(children)) return children;
-  const forbidden = disabled && !!disabledReason;
   const child = cloneElement(children, { disabled });
-  if (!forbidden) return child;
+  const tooltipTitle =
+    disabled && disabledReason ? disabledReason : title ?? disabledReason;
+  if (!tooltipTitle) {
+    return disabled ? (
+      <Box component="span" sx={wrapSx}>
+        {child}
+      </Box>
+    ) : (
+      child
+    );
+  }
   return (
-    <Tooltip title={disabledReason} arrow placement="top">
+    <Tooltip title={tooltipTitle} arrow placement="top">
       <Box component="span" sx={wrapSx}>
         {child}
       </Box>

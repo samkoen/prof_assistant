@@ -4,6 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ParsedQuestion } from "../utils/qcmImportParser";
+import { hebrewActionsBarSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 interface GeminiGeneratedQuestionsPreviewProps {
@@ -42,7 +43,7 @@ export default function GeminiGeneratedQuestionsPreview({
         </Box>
       ))}
       <Divider sx={{ my: 2 }} />
-      <Box display="flex" gap={1} flexWrap="wrap">
+      <Box sx={hebrewActionsBarSx}>
         <Button variant="outlined" startIcon={<CloseIcon />} onClick={onReject} disabled={accepting}>
           {he.geminiRejectQuestions}
         </Button>

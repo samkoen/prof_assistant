@@ -15,6 +15,7 @@ import type {
   GeminiSeriesLevel,
 } from "../types/geminiQuestionSeries";
 import { GEMINI_SERIES_LANGUAGES, GEMINI_SERIES_LEVELS } from "../types/geminiQuestionSeries";
+import { hebrewActionsLeftSx, hebrewAlignRightSx, hebrewCardRowSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 const LEVEL_LABELS: Record<GeminiSeriesLevel, string> = {
@@ -54,21 +55,23 @@ export default function GeminiQuestionSeriesCard({
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Typography variant="subtitle1" fontWeight={600}>
+        <Box sx={{ ...hebrewCardRowSx, py: 0, mb: 2 }}>
+          <Box sx={hebrewActionsLeftSx}>
+            {canRemove && (
+              <IconButton
+                size="small"
+                color="error"
+                onClick={onRemove}
+                disabled={disabled}
+                aria-label={he.geminiRemoveSeries}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ ...hebrewAlignRightSx, order: 2, flex: 1 }}>
             {he.geminiSeriesLabel} {index + 1}
           </Typography>
-          {canRemove && (
-            <IconButton
-              size="small"
-              color="error"
-              onClick={onRemove}
-              disabled={disabled}
-              aria-label={he.geminiRemoveSeries}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
-          )}
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField

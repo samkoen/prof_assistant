@@ -1,6 +1,12 @@
 export const he = {
   appName: "עוזר AI",
   platformSubtitle: "ניהול מבחנים בזמן אמת",
+  authHeroTitle: "מבחנים חכמים, פשוט יותר",
+  authHeroPoints: [
+    "בניית מבחנים ושאלות בממשק אחד",
+    "משוב AI לסטודנטים אחרי הגשה",
+    "ממשק מלא בעברית — נוח לכל משתמש",
+  ],
   mainMenu: "תפריט ראשי",
   login: "התחברות",
   register: "הרשמה",

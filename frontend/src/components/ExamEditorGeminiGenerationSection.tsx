@@ -12,6 +12,7 @@ import {
 } from "../types/geminiQuestionSeries";
 import { parseQcmText, toImportPayload } from "../utils/qcmImportParser";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
+import { hebrewActionsBarSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 interface ExamEditorGeminiGenerationSectionProps {
@@ -132,38 +133,39 @@ export default function ExamEditorGeminiGenerationSection({
         ))}
       {!showPreview && (
         <>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={addSeries}
-            disabled={!editable || generating}
-            sx={{ mb: 2 }}
-          >
-            {he.geminiAddSeries}
-          </Button>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+          <Box sx={{ ...hebrewActionsBarSx, mb: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={addSeries}
+              disabled={!editable || generating}
+            >
+              {he.geminiAddSeries}
+            </Button>
+            <DisabledActionTooltip
+              disabled={!editable || !allSeriesValid || generating}
+              disabledReason={
+                !editable
+                  ? he.examNotEditable
+                  : !allSeriesValid
+                    ? he.geminiSeriesIncomplete
+                    : undefined
+              }
+            >
+              <Button
+                variant="contained"
+                startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
+                onClick={generate}
+                disabled={generating}
+              >
+                {generating ? he.geminiGenerating : he.geminiGenerateQuestions}
+              </Button>
+            </DisabledActionTooltip>
+          </Box>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2, ...hebrewAlignRightSx }}>
             {he.geminiSeriesTotalQuestions}: {totalQuestions}
           </Typography>
-          <DisabledActionTooltip
-            disabled={!editable || !allSeriesValid || generating}
-            disabledReason={
-              !editable
-                ? he.examNotEditable
-                : !allSeriesValid
-                  ? he.geminiSeriesIncomplete
-                  : undefined
-            }
-          >
-            <Button
-              variant="contained"
-              startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
-              onClick={generate}
-              disabled={generating}
-            >
-              {generating ? he.geminiGenerating : he.geminiGenerateQuestions}
-            </Button>
-          </DisabledActionTooltip>
         </>
       )}
       {draftText && parseResult && parseResult.errors.length > 0 && (

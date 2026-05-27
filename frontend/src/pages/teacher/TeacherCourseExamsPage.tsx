@@ -4,8 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
   Dialog,
@@ -14,30 +12,25 @@ import {
   DialogTitle,
   FormControlLabel,
   Checkbox,
-  IconButton,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopIcon from "@mui/icons-material/Stop";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
-import GradingIcon from "@mui/icons-material/Grading";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
-import { ExamActionButtons, ExamEditLink } from "../../components/ExamActionButtons";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
-import DisabledActionTooltip from "../../components/DisabledActionTooltip";
+import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
 import {
   api,
   ApiError,
-  formatScopeSummary,
   offeringLabel,
   type CourseOffering,
   type Exam,
   type ExamSession,
 } from "../../api/client";
 import { he } from "../../i18n/he";
+import ListPageToolbar from "../../components/ListPageToolbar";
+import HebrewCardRow from "../../components/ui/HebrewCardRow";
+import { examListRowDetailsSx, examListRowTextSx } from "../../styles/hebrewAlign";
 
 /** Statut affiché prof : actif / fermé / sinon tout regroupé sous « לא פעיל ». */
 function examDisplayStatus(session: ExamSession | undefined) {
@@ -183,38 +176,54 @@ export default function TeacherCourseExamsPage() {
         {he.backToCourses}
       </Button>
 
-      <Typography variant="h5" fontWeight={700} gutterBottom>
-        {he.manageCourseExams}
-      </Typography>
-      {offering && (
-        <>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {offeringLabel(offering)}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            size="small"
-            sx={{ mb: 1, mr: 1 }}
-            onClick={() =>
-              navigate(
-                `/teacher/exams/new?catalog_course_id=${offering.catalog_course_id}&offering_id=${offering.id}&return=${encodeURIComponent(`/teacher/courses/${id}/exams`)}`
-              )
-            }
-          >
-            {he.createExam}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<PlaylistAddIcon />}
-            size="small"
-            sx={{ mb: 2 }}
-            onClick={() => setAddExistingOpen(true)}
-          >
-            {he.addExistingExam}
-          </Button>
-        </>
-      )}
+      <ListPageToolbar
+        titleVariant="h5"
+        title={
+          <>
+            {he.manageCourseExams}
+            {offering && (
+              <Box
+                component="span"
+                sx={{
+                  color: "text.secondary",
+                  fontWeight: 500,
+                  fontSize: "1.125rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {" · "}
+                {offeringLabel(offering)}
+              </Box>
+            )}
+          </>
+        }
+        actions={
+          offering ? (
+            <>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                size="small"
+                onClick={() =>
+                  navigate(
+                    `/teacher/exams/new?catalog_course_id=${offering.catalog_course_id}&offering_id=${offering.id}&return=${encodeURIComponent(`/teacher/courses/${id}/exams`)}`
+                  )
+                }
+              >
+                {he.createExam}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<PlaylistAddIcon />}
+                size="small"
+                onClick={() => setAddExistingOpen(true)}
+              >
+                {he.addExistingExam}
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -232,124 +241,52 @@ export default function TeacherCourseExamsPage() {
       ) : (
         exams.map((exam) => {
           const session = sessionByExamId.get(exam.id);
-          const isActive = session?.status === "active";
-          const canStart = !session || session.status === "draft";
           const hasQuestions = exam.question_count > 0;
           const statusChip = examDisplayStatus(session);
 
           return (
-            <Card key={exam.id} sx={{ mb: 2 }}>
-              <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                <Box flex={1} minWidth={220}>
-                  <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" mb={0.5}>
-                    <Typography fontWeight={600}>{exam.title}</Typography>
-                    <Chip size="small" color={statusChip.color} label={statusChip.label} />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {exam.question_count} {he.questionsInExam} · {formatScopeSummary(exam)}
-                  </Typography>
-                  {!hasQuestions && (
-                    <Typography variant="caption" color="warning.main">
-                      {he.noQuestionsYet}
+            <HebrewCardRow
+              key={exam.id}
+              sx={{ mb: 2 }}
+              text={
+                <Box sx={examListRowTextSx}>
+                  <Box sx={examListRowDetailsSx}>
+                    <Typography variant="body2" color="text.secondary">
+                      {exam.question_count} {he.questionsInExam}
                     </Typography>
-                  )}
+                    {!hasQuestions && (
+                      <Typography variant="caption" color="warning.main" display="block">
+                        {he.noQuestionsYet}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Chip size="small" color={statusChip.color} label={statusChip.label} />
+                  <Typography fontWeight={600} sx={{ flexShrink: 0 }}>
+                    {exam.title}
+                  </Typography>
                 </Box>
-                <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0, alignItems: "center" }}>
-                  <ExamEditLink
-                    examId={exam.id}
-                    returnTo={`/teacher/courses/${id}/exams`}
-                    iconOnly
-                  />
-                  <ExamActionButtons
-                    exam={exam}
-                    onChanged={load}
-                    onError={setError}
-                    iconOnly
-                  />
-                  {session && session.status !== "draft" && (
-                    <Tooltip title={he.viewExamGrades}>
-                      <IconButton
-                        component={RouterLink}
-                        to={`/teacher/courses/${id}/exams/sessions/${session.id}/results`}
-                        size="small"
-                        color="primary"
-                        aria-label={he.viewExamGrades}
-                      >
-                        <GradingIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  {canStart && (
-                    <DisabledActionTooltip
-                      disabled={!hasQuestions || activatingId === exam.id}
-                      disabledReason={!hasQuestions ? he.noQuestionsYet : undefined}
-                    >
-                      <IconButton
-                        size="small"
-                        color="success"
-                        aria-label={he.startExamNow}
-                        onClick={() => {
-                          setActivateIntegrity(false);
-                          setActivateExam(exam);
-                        }}
-                      >
-                        {activatingId === exam.id ? (
-                          <CircularProgress size={18} color="inherit" />
-                        ) : (
-                          <PlayArrowIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </DisabledActionTooltip>
-                  )}
-                  {isActive && session && (
-                    <>
-                      <Tooltip
-                        title={closingSessionId === session.id ? he.loading : he.closeExam}
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            aria-label={he.closeExam}
-                            disabled={closingSessionId === session.id}
-                            onClick={() => setCloseSession(session)}
-                          >
-                            {closingSessionId === session.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <DoneAllIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip
-                        title={
-                          deactivatingSessionId === session.id
-                            ? he.loading
-                            : he.cancelActivation
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="warning"
-                            aria-label={he.cancelActivation}
-                            disabled={deactivatingSessionId === session.id}
-                            onClick={() => setConfirmSession(session)}
-                          >
-                            {deactivatingSessionId === session.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <StopIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
+              }
+              actions={
+                <ExamOfferingRowActions
+                  exam={exam}
+                  session={session}
+                  courseId={id}
+                  hasQuestions={hasQuestions}
+                  activatingId={activatingId}
+                  closingSessionId={closingSessionId}
+                  deactivatingSessionId={deactivatingSessionId}
+                  returnTo={`/teacher/courses/${id}/exams`}
+                  onChanged={load}
+                  onError={setError}
+                  onStartClick={(e) => {
+                    setActivateIntegrity(false);
+                    setActivateExam(e);
+                  }}
+                  onCloseClick={setCloseSession}
+                  onDeactivateClick={setConfirmSession}
+                />
+              }
+            />
           );
         })
       )}

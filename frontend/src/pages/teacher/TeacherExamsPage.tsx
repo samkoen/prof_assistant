@@ -344,7 +344,7 @@ function CatalogExamsList({
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
-          <ExamEditLink examId={exam.id} />
+          <ExamEditLink examId={exam.id} disabled={exam.can_delete === false} />
           <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} />
           <Button size="small" variant="contained" onClick={() => onActivate(exam)}>
             {he.activateExam}

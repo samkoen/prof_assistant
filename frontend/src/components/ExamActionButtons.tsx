@@ -70,6 +70,7 @@ export function ExamActionButtons({
     <DisabledActionTooltip
       disabled={busy != null || !canDelete}
       disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
+      title={busy === "delete" ? he.loading : he.deleteExam}
     >
       <IconButton
         size="small"
@@ -84,6 +85,7 @@ export function ExamActionButtons({
     <DisabledActionTooltip
       disabled={busy != null || !canDelete}
       disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
+      title={busy === "delete" ? he.loading : he.deleteExam}
     >
       <Button
         size={size}
@@ -155,33 +157,55 @@ export function ExamEditLink({
   size = "small",
   returnTo,
   iconOnly = false,
+  disabled = false,
 }: {
   examId: number;
   size?: "small" | "medium";
   returnTo?: string;
   iconOnly?: boolean;
+  /** false quand le מבחן a déjà été activé (même règle que can_delete). */
+  disabled?: boolean;
 }) {
   const to = returnTo
     ? `/teacher/exams/${examId}/edit?return=${encodeURIComponent(returnTo)}`
     : `/teacher/exams/${examId}/edit`;
+
   if (iconOnly) {
     return (
-      <Tooltip title={he.editExam}>
+      <DisabledActionTooltip
+        disabled={disabled}
+        disabledReason={he.examNotEditable}
+        title={he.editExam}
+      >
         <IconButton
-          component={RouterLink}
-          to={to}
           size="small"
-          color="primary"
+          disabled={disabled}
+          component={disabled ? "button" : RouterLink}
+          to={disabled ? undefined : to}
+          color={disabled ? "default" : "primary"}
           aria-label={he.editExam}
         >
           <EditOutlinedIcon fontSize="small" />
         </IconButton>
-      </Tooltip>
+      </DisabledActionTooltip>
     );
   }
+
   return (
-    <Button size={size} variant="outlined" component={RouterLink} to={to}>
-      {he.editExam}
-    </Button>
+    <DisabledActionTooltip
+      disabled={disabled}
+      disabledReason={he.examNotEditable}
+      title={he.editExam}
+    >
+      <Button
+        size={size}
+        variant="outlined"
+        disabled={disabled}
+        component={disabled ? "button" : RouterLink}
+        to={disabled ? undefined : to}
+      >
+        {he.editExam}
+      </Button>
+    </DisabledActionTooltip>
   );
 }

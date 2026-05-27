@@ -26,18 +26,7 @@ export default function ExamEditorSectionAccordion({
   children,
 }: ExamEditorSectionAccordionProps) {
   return (
-    <Accordion
-      defaultExpanded={defaultExpanded}
-      disableGutters
-      sx={{
-        mb: 2,
-        "&:before": { display: "none" },
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 1,
-        overflow: "hidden",
-      }}
-    >
+    <Accordion defaultExpanded={defaultExpanded} disableGutters sx={{ mb: 2 }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />} dir="rtl">
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
           <Typography variant="h6" component="span" fontWeight={600}>

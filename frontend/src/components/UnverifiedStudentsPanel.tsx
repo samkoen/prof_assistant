@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, Typography } from "@mui/material";
+import HebrewCardRow from "./ui/HebrewCardRow";
+import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import {
   api,
   ApiError,
@@ -64,27 +66,25 @@ export default function UnverifiedStudentsPanel({ onCountChange }: UnverifiedStu
   }
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 1, ...hebrewAlignRightSx }}>
       {error && (
         <Alert severity="error" onClose={() => setError("")}>
           {error}
         </Alert>
       )}
       {students.map((s) => (
-        <Card key={s.id}>
-          <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-            <Box flex={1} minWidth={200}>
-              <Chip
-                size="small"
-                label={he.pendingEmailVerificationRequest}
-                color="warning"
-                sx={{ mb: 0.5 }}
-              />
+        <HebrewCardRow
+          key={s.id}
+          text={
+            <>
+              <Chip size="small" label={he.pendingEmailVerificationRequest} color="warning" sx={{ mb: 1 }} />
               <Typography fontWeight={600}>{s.full_name}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
                 {s.email}
               </Typography>
-            </Box>
+            </>
+          }
+          actions={
             <Button
               size="small"
               variant="contained"
@@ -94,8 +94,8 @@ export default function UnverifiedStudentsPanel({ onCountChange }: UnverifiedStu
             >
               {he.verifyStudentEmail}
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       ))}
     </Box>
   );
