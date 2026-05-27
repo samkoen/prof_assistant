@@ -45,10 +45,12 @@ export default function GeminiQuestionTypesField({
         label={he.geminiSeriesQuestionTypes}
         size="small"
         value={value}
-        onChange={handleChange}
-        SelectProps={{
-          multiple: true,
-          renderValue: (selected) => formatSelectedTypes(selected as QuestionType[]),
+        onChange={(event) => handleChange(event as SelectChangeEvent<QuestionType[]>)}
+        slotProps={{
+          select: {
+            multiple: true,
+            renderValue: (selected) => formatSelectedTypes(selected as QuestionType[]),
+          },
         }}
         fullWidth={!compact}
         dir="rtl"

@@ -287,7 +287,7 @@ export default function DashboardLayout() {
         <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
         <Box
           sx={{
-            width: "100%",
+            ...hebrewAlignRightSx,
             minWidth: 0,
             maxWidth: "100%",
             bgcolor: brand.white,
@@ -296,7 +296,6 @@ export default function DashboardLayout() {
             border: `1px solid ${alpha(brand.violet500, 0.12)}`,
             boxShadow: `0 4px 24px ${alpha(brand.violet700, 0.08)}`,
             minHeight: "calc(100vh - 88px)",
-            ...hebrewAlignRightSx,
           }}
         >
           <Outlet />

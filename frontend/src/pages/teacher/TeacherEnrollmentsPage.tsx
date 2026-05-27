@@ -49,7 +49,7 @@ export default function TeacherEnrollmentsPage() {
   };
 
   return (
-    <Box sx={{ width: "100%", ...hebrewAlignRightSx }}>
+    <Box sx={hebrewAlignRightSx}>
       <ListPageToolbar title={he.pendingApprovals} subtitle={he.enrollmentsSubtitle} />
 
       {error && (
