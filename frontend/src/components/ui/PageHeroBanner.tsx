@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { alpha, Box, Typography } from "@mui/material";
 import { brand, heroGradient } from "../../theme/brand";
-import { hebrewActionsRightSx, hebrewAlignRightSx } from "../../styles/hebrewAlign";
+import { hebrewPageToolbarSx, hebrewToolbarActionsSx, hebrewToolbarTitleSx } from "../../styles/hebrewAlign";
 
 type PageHeroBannerProps = {
   title: string;
@@ -34,16 +34,26 @@ export default function PageHeroBanner({ title, subtitle, actions }: PageHeroBan
           left: -50,
         }}
       />
-      <Box sx={{ position: "relative", zIndex: 1, ...hebrewAlignRightSx }}>
-        <Typography variant="h4" fontWeight={800} sx={{ color: "#fff", mb: subtitle ? 0.75 : 0 }}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body1" sx={{ color: alpha("#fff", 0.92), maxWidth: 560, lineHeight: 1.6 }}>
-            {subtitle}
+      <Box
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          ...hebrewPageToolbarSx,
+          mb: 0,
+          alignItems: "flex-start",
+        }}
+      >
+        <Box sx={hebrewToolbarTitleSx}>
+          <Typography variant="h4" fontWeight={800} sx={{ color: "#fff", mb: subtitle ? 0.75 : 0 }}>
+            {title}
           </Typography>
-        )}
-        {actions && <Box sx={{ mt: 2, ...hebrewActionsRightSx }}>{actions}</Box>}
+          {subtitle && (
+            <Typography variant="body1" sx={{ color: alpha("#fff", 0.92), maxWidth: 560, lineHeight: 1.6 }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        {actions && <Box sx={hebrewToolbarActionsSx}>{actions}</Box>}
       </Box>
     </Box>
   );

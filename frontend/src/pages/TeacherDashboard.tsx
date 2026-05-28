@@ -24,6 +24,7 @@ import {
   type ExamSession,
   ApiError,
 } from "../api/client";
+import ListPageToolbar from "../components/ListPageToolbar";
 import { he } from "../i18n/he";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -81,14 +82,11 @@ export default function TeacherDashboard() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4" fontWeight={600}>
-          {he.dashboard}
-        </Typography>
-        <Button variant="contained" onClick={() => setDialogOpen(true)}>
-          {he.createOffering}
-        </Button>
-      </Box>
+      <ListPageToolbar
+        title={he.dashboard}
+        addLabel={he.createOffering}
+        onAdd={() => setDialogOpen(true)}
+      />
       {message && <Alert sx={{ mb: 2 }}>{message}</Alert>}
 
       <Typography variant="h6" gutterBottom>

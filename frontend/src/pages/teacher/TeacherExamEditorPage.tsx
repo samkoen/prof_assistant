@@ -175,7 +175,7 @@ export default function TeacherExamEditorPage() {
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 960 }} dir="rtl">
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }} dir="rtl">
       <Button
         component={RouterLink}
         to={returnTo}

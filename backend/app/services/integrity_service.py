@@ -42,7 +42,7 @@ def rules_blocking(session: ExamSession, attempt: StudentExamAttempt | None) -> 
 
 async def accept_rules(session: ExamSession, user: User, db: AsyncSession) -> StudentExamAttempt:
     if not session.integrity_mode_enabled:
-        raise HTTPException(status_code=400, detail="מצב מבחן מוגבר לא פעיל")
+        raise HTTPException(status_code=400, detail="מצב מעקב מבחן לא פעיל")
     attempt = await ensure_attempt_record(session, user, db)
     if attempt.submitted_at and not attempt.can_resubmit:
         raise HTTPException(status_code=400, detail="כבר הוגש")

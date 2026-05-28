@@ -1,14 +1,17 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.schemas.types import AppEmail
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
+from app.models.exam import QuestionAiExplanation, StudentExamAttempt
 from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.auth import UserResponse
@@ -49,6 +52,16 @@ class TeacherOption(BaseModel):
     email: str
 
     model_config = {"from_attributes": True}
+
+
+class AiExplanationCacheStats(BaseModel):
+    total_rows: int
+    distinct_students: int
+    distinct_attempts: int
+
+
+class AiExplanationCleanupResponse(BaseModel):
+    deleted_rows: int
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -188,3 +201,45 @@ async def all_offerings(
         )
     )
     return [offering_to_response(o) for o in result.scalars().all()]
+
+
+@router.get("/ai-explanations/stats", response_model=AiExplanationCacheStats)
+async def ai_explanations_stats(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    total_rows = await db.scalar(select(func.count()).select_from(QuestionAiExplanation)) or 0
+    distinct_students = (
+        await db.scalar(
+            select(func.count(func.distinct(StudentExamAttempt.student_id)))
+            .select_from(QuestionAiExplanation)
+            .join(StudentExamAttempt, StudentExamAttempt.id == QuestionAiExplanation.attempt_id)
+        )
+        or 0
+    )
+    distinct_attempts = (
+        await db.scalar(select(func.count(func.distinct(QuestionAiExplanation.attempt_id))))
+        or 0
+    )
+    return AiExplanationCacheStats(
+        total_rows=total_rows,
+        distinct_students=distinct_students,
+        distinct_attempts=distinct_attempts,
+    )
+
+
+@router.delete("/ai-explanations", response_model=AiExplanationCleanupResponse)
+async def cleanup_ai_explanations(
+    older_than_days: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    stmt = delete(QuestionAiExplanation)
+    if older_than_days is not None:
+        if older_than_days < 1:
+            raise HTTPException(status_code=400, detail="מספר הימים חייב להיות גדול מ-0")
+        cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+        stmt = stmt.where(QuestionAiExplanation.updated_at < cutoff)
+    result = await db.execute(stmt)
+    await db.commit()
+    return AiExplanationCleanupResponse(deleted_rows=result.rowcount or 0)

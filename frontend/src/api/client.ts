@@ -36,6 +36,7 @@ export async function api<T>(
 }
 
 export type UserRole = "admin" | "teacher" | "student";
+export type ExplanationLanguage = "he" | "fr" | "en" | "ru";
 
 export interface User {
   id: number;
@@ -47,6 +48,7 @@ export interface User {
   avatar_url: string | null;
   email_verified: boolean;
   is_blocked?: boolean;
+  ai_explanation_language?: ExplanationLanguage;
 }
 
 /** Cours catalogue — contenu pédagogique réutilisable. */
@@ -262,6 +264,7 @@ export interface ExamReviewQuestion {
   points: number;
   is_correct: boolean;
   correct_options: ExamReviewCorrectOption[];
+  student_options: ExamReviewCorrectOption[];
 }
 
 export interface ExamReview {
@@ -275,6 +278,7 @@ export interface ExamReview {
 export interface AiExplanation {
   question_id: number;
   explanation: string;
+  from_cache?: boolean;
 }
 
 export interface Enrollment {
@@ -291,6 +295,16 @@ export interface Enrollment {
   semester?: number | null;
 }
 
+export interface AiExplanationCacheStats {
+  total_rows: number;
+  distinct_students: number;
+  distinct_attempts: number;
+}
+
+export interface AiExplanationCleanupResult {
+  deleted_rows: number;
+}
+
 export interface StudentAccount {
   id: number;
   email: string;
@@ -298,6 +312,14 @@ export interface StudentAccount {
   phone: string | null;
   student_id: string | null;
   email_verified: boolean;
+  ai_explanation_language?: ExplanationLanguage;
+}
+
+export function updateAiExplanationLanguage(language: ExplanationLanguage): Promise<User> {
+  return api<User>("/api/auth/me/ai-explanation-language", {
+    method: "PATCH",
+    body: JSON.stringify({ language }),
+  });
 }
 
 export function verifyStudentEmailBypass(studentId: number): Promise<{ ok: boolean }> {
@@ -308,6 +330,17 @@ export function verifyStudentEmailBypass(studentId: number): Promise<{ ok: boole
 
 export function deleteStudent(studentId: number): Promise<void> {
   return api<void>(`/api/students/${studentId}`, { method: "DELETE" });
+}
+
+export function fetchAiExplanationCacheStats(): Promise<AiExplanationCacheStats> {
+  return api<AiExplanationCacheStats>("/api/admin/ai-explanations/stats");
+}
+
+export function cleanupAiExplanations(olderThanDays?: number): Promise<AiExplanationCleanupResult> {
+  const query = olderThanDays ? `?older_than_days=${olderThanDays}` : "";
+  return api<AiExplanationCleanupResult>(`/api/admin/ai-explanations${query}`, {
+    method: "DELETE",
+  });
 }
 
 export function semesterLabel(semester: number): string {

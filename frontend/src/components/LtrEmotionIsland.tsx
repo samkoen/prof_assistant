@@ -10,8 +10,7 @@ type LtrEmotionIslandProps = {
 };
 
 /**
- * Îlot LTR dans l’app RTL : styles Emotion sans inversion left/right.
- * À utiliser pour שאלות קיימות (examens en français).
+ * Îlot LTR dans l’app RTL : thème LTR pour contenu non hébreu (examens en français).
  */
 export function LtrEmotionIsland({ children, sx }: LtrEmotionIslandProps) {
   return (

@@ -1,5 +1,6 @@
 import { Link as RouterLink } from "react-router-dom";
-import { CircularProgress, IconButton } from "@mui/material";
+import { Box, CircularProgress, IconButton } from "@mui/material";
+import { hebrewActionsLeftSx } from "../styles/hebrewAlign";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
@@ -69,8 +70,8 @@ export default function ExamOfferingRowActions({
   const canEdit = exam.can_delete !== false;
 
   return (
-    <>
-      <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly disabled={!canEdit} />
+    <Box sx={hebrewActionsLeftSx}>
+      <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
       <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} iconOnly />
       <DisabledActionTooltip
         disabled={!canViewGrades}
@@ -145,6 +146,6 @@ export default function ExamOfferingRowActions({
           )}
         </IconButton>
       </DisabledActionTooltip>
-    </>
+    </Box>
   );
 }

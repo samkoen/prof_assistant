@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.models.enums import UserRole
+from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.schemas.types import AppEmail
 
 
@@ -28,9 +29,14 @@ class UserResponse(BaseModel):
     avatar_url: str | None
     email_verified: bool
     is_blocked: bool = False
+    ai_explanation_language: GeminiSeriesLanguage = "he"
 
     model_config = {"from_attributes": True}
 
 
 class TokenResponse(BaseModel):
     user: UserResponse
+
+
+class UserAiExplanationLanguageUpdateRequest(BaseModel):
+    language: GeminiSeriesLanguage

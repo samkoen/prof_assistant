@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Checkbox,
@@ -24,6 +24,10 @@ type Props = {
 
 export default function ExamIntegrityRulesDialog({ open, examTitle, loading, onAccept }: Props) {
   const [agreed, setAgreed] = useState(false);
+
+  useEffect(() => {
+    if (open) setAgreed(false);
+  }, [open]);
 
   return (
     <Dialog open={open} fullWidth maxWidth="sm" disableEscapeKeyDown>

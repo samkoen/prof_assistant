@@ -29,6 +29,7 @@ class User(Base):
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     email_verified_by_teacher: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    ai_explanation_language: Mapped[str] = mapped_column(String(2), default="he")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     catalog_courses_created = relationship("CourseCatalog", back_populates="creator")

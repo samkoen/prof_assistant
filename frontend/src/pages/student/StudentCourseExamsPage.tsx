@@ -4,14 +4,15 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
+  IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   api,
   ApiError,
@@ -20,7 +21,12 @@ import {
   type CourseOffering,
   type ExamSession,
 } from "../../api/client";
+import ListPageToolbar from "../../components/ListPageToolbar";
+import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
+import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import { he } from "../../i18n/he";
+import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
+import { studentExamChipProps } from "../../utils/studentExamSessionDisplay";
 
 type SessionWithAttempt = ExamSession & { attempt: ExamAttempt | null };
 
@@ -50,9 +56,8 @@ export default function StudentCourseExamsPage() {
         return;
       }
       const list = await api<ExamSession[]>(`/api/exams/sessions/offering/${id}`);
-      const active = list.filter((s) => s.status === "active");
       const withAttempts = await Promise.all(
-        active.map(async (s) => {
+        list.map(async (s) => {
           const attempt = await api<ExamAttempt | null>(`/api/exams/sessions/${s.id}/my-attempt`);
           return { ...s, attempt };
         })
@@ -90,25 +95,23 @@ export default function StudentCourseExamsPage() {
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 720 }}>
-      <Button
-        component={RouterLink}
-        to="/student/courses"
-        startIcon={<ArrowBackIcon />}
-        size="small"
-        sx={{ mb: 2 }}
-      >
-        {he.backToCourses}
-      </Button>
-
-      <Typography variant="h5" fontWeight={700} gutterBottom>
-        {he.courseExams}
-      </Typography>
-      {offering && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {offeringLabel(offering)}
-        </Typography>
-      )}
+    <Box sx={{ width: "100%" }}>
+      <ListPageToolbar
+        title={he.courseExams}
+        subtitle={offering ? offeringLabel(offering) : undefined}
+        titleVariant="h5"
+        actions={
+          <Button
+            component={RouterLink}
+            to="/student/courses"
+            startIcon={<ArrowBackIcon />}
+            size="small"
+          >
+            {he.backToCourses}
+          </Button>
+        }
+      />
+      <StudentGeminiConfigCard />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -126,51 +129,57 @@ export default function StudentCourseExamsPage() {
         <Alert severity="info">{he.noActiveExamsHint}</Alert>
       )}
 
+      {sessions.length > 0 && !sessions.some((s) => s.status === "active") && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {he.noActiveExamsHint}
+        </Alert>
+      )}
+
       {sessions.map((s) => {
         const submitted = !!s.attempt?.submitted_at;
         const inProgress = !!s.attempt?.started_at && !submitted;
+        const chip = studentExamChipProps(s, s.attempt);
 
         return (
-          <Card
+          <HebrewCardRow
             key={s.id}
+            examList
+            text={
+              <>
+                <Box sx={examListRowDetailsSx}>
+                  <Typography variant="body2" color="text.secondary">
+                    {s.question_count} {he.questionsInExam}
+                    {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                      <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
+                    )}
+                    {inProgress && <> · {he.continueExam}</>}
+                  </Typography>
+                </Box>
+                <Chip size="small" color={chip.color} label={chip.label} />
+                <Typography variant="h6" fontWeight={700} sx={examListRowTitleSx}>
+                  {s.exam_title}
+                </Typography>
+              </>
+            }
+            actions={
+              <Tooltip title={actionLabel(s.attempt)}>
+                <IconButton
+                  size="small"
+                  color={submitted ? "primary" : "success"}
+                  onClick={() => startExam(s.id)}
+                  aria-label={actionLabel(s.attempt)}
+                >
+                  {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            }
             sx={{
               mb: 2,
               border: "2px solid",
               borderColor: submitted ? "grey.300" : "success.light",
               bgcolor: submitted ? "grey.50" : "rgba(76, 175, 80, 0.08)",
             }}
-          >
-            <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-              <Box flex={1} minWidth={200}>
-                <Box display="flex" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
-                  <Typography variant="h6" fontWeight={700}>
-                    {s.exam_title}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color={submitted ? "default" : "success"}
-                    label={submitted ? he.alreadySubmitted : he.examInProgress}
-                  />
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {s.question_count} {he.questionsInExam}
-                  {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
-                    <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
-                  )}
-                  {inProgress && <> · {he.continueExam}</>}
-                </Typography>
-              </Box>
-              <Button
-                variant="contained"
-                color={submitted ? "inherit" : "success"}
-                size="large"
-                startIcon={<PlayArrowIcon />}
-                onClick={() => startExam(s.id)}
-              >
-                {actionLabel(s.attempt)}
-              </Button>
-            </CardContent>
-          </Card>
+          />
         );
       })}
     </Box>

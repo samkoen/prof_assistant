@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
+import { hebrewPageToolbarSx, hebrewToolbarActionsSx, hebrewToolbarTitleSx } from "../../styles/hebrewAlign";
 
 type PageHeaderProps = {
   title: string;
@@ -12,30 +13,30 @@ export default function PageHeader({ title, subtitle, actions }: PageHeaderProps
   return (
     <Box
       sx={{
-        mb: 3,
+        ...hebrewPageToolbarSx,
         pb: 2.5,
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}
     >
-      <Typography
-        variant="h4"
-        sx={{
-          background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${theme.palette.primary.dark} 100%)`,
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-        }}
-      >
-        {title}
-      </Typography>
-      {subtitle && (
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 640 }}>
-          {subtitle}
+      <Box sx={hebrewToolbarTitleSx}>
+        <Typography
+          variant="h4"
+          sx={{
+            background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${theme.palette.primary.dark} 100%)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
+          {title}
         </Typography>
-      )}
-      {actions && (
-        <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1.5 }}>{actions}</Box>
-      )}
+        {subtitle && (
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 640 }}>
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+      {actions && <Box sx={hebrewToolbarActionsSx}>{actions}</Box>}
     </Box>
   );
 }

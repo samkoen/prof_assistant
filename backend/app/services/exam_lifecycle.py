@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -130,3 +130,17 @@ async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
     exam = await db.get(Exam, exam_id)
     if exam:
         await db.delete(exam)
+
+
+def student_visible_sessions_clause(student_id: int):
+    """Mבחן פעיל ou session clôturée avec copie déjà soumise."""
+    return or_(
+        ExamSession.status == ExamStatus.ACTIVE,
+        exists(
+            select(StudentExamAttempt.id).where(
+                StudentExamAttempt.exam_session_id == ExamSession.id,
+                StudentExamAttempt.student_id == student_id,
+                StudentExamAttempt.submitted_at.isnot(None),
+            )
+        ),
+    )

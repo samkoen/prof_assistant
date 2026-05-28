@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -117,3 +118,97 @@ async def load_offering_for_join(offering_id: int, db: AsyncSession) -> CourseOf
 
 def student_can_request_enrollment(student: User) -> bool:
     return student.role == UserRole.STUDENT
+
+
+async def find_sibling_enrollment(
+    db: AsyncSession,
+    student_id: int,
+    offering: CourseOffering,
+    *,
+    exclude_offering_id: int | None = None,
+) -> CourseEnrollment | None:
+    oid = exclude_offering_id if exclude_offering_id is not None else offering.id
+    result = await db.execute(
+        select(CourseEnrollment)
+        .join(CourseOffering, CourseEnrollment.offering_id == CourseOffering.id)
+        .options(selectinload(CourseEnrollment.offering))
+        .where(
+            CourseEnrollment.student_id == student_id,
+            CourseOffering.catalog_course_id == offering.catalog_course_id,
+            CourseOffering.academic_year == offering.academic_year,
+            CourseOffering.semester == offering.semester,
+            CourseOffering.id != oid,
+            CourseEnrollment.status.in_(
+                (EnrollmentStatus.APPROVED, EnrollmentStatus.PENDING)
+            ),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+def ensure_no_sibling_enrollment_conflict(sibling: CourseEnrollment | None) -> None:
+    if not sibling:
+        return
+    if sibling.status == EnrollmentStatus.APPROVED:
+        raise HTTPException(
+            status_code=400,
+            detail="כבר רשום/ה לקבוצה אחרת בקורס זה (אותה שנה וסמסטר)",
+        )
+    raise HTTPException(
+        status_code=400,
+        detail="קיימת בקשת הרשמה לקבוצה אחרת בקורס זה",
+    )
+
+
+async def reject_sibling_pending_enrollments(
+    db: AsyncSession, student_id: int, offering: CourseOffering
+) -> None:
+    result = await db.execute(
+        select(CourseEnrollment)
+        .join(CourseOffering, CourseEnrollment.offering_id == CourseOffering.id)
+        .where(
+            CourseEnrollment.student_id == student_id,
+            CourseOffering.catalog_course_id == offering.catalog_course_id,
+            CourseOffering.academic_year == offering.academic_year,
+            CourseOffering.semester == offering.semester,
+            CourseOffering.id != offering.id,
+            CourseEnrollment.status == EnrollmentStatus.PENDING,
+        )
+    )
+    for enrollment in result.scalars().all():
+        enrollment.status = EnrollmentStatus.REJECTED
+
+
+def dedupe_approved_offerings_by_session(
+    rows: list[tuple[CourseOffering, EnrollmentStatus, object]],
+) -> list[tuple[CourseOffering, EnrollmentStatus]]:
+    """Une seule הרצה approuvée par cours/année/semestre (garde l'inscription la plus ancienne)."""
+    best: dict[tuple[int, int, int], tuple[CourseOffering, EnrollmentStatus, object]] = {}
+    for offering, status, enrolled_at in rows:
+        if status != EnrollmentStatus.APPROVED:
+            continue
+        key = (offering.catalog_course_id, offering.academic_year, offering.semester)
+        prev = best.get(key)
+        if prev is None or enrolled_at < prev[2]:
+            best[key] = (offering, status, enrolled_at)
+    return [(offering, status) for offering, status, _ in best.values()]
+
+
+async def load_student_enrolled_session_keys(
+    db: AsyncSession, student_id: int
+) -> set[tuple[int, int, int]]:
+    result = await db.execute(
+        select(
+            CourseOffering.catalog_course_id,
+            CourseOffering.academic_year,
+            CourseOffering.semester,
+        )
+        .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
+        .where(
+            CourseEnrollment.student_id == student_id,
+            CourseEnrollment.status.in_(
+                (EnrollmentStatus.APPROVED, EnrollmentStatus.PENDING)
+            ),
+        )
+    )
+    return {(row[0], row[1], row[2]) for row in result.all()}

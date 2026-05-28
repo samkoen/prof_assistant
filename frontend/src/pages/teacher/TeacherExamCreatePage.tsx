@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  FormControl,
   FormControlLabel,
   MenuItem,
   Radio,
@@ -16,7 +15,17 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { api, ApiError, offeringLabel, type CatalogCourse, type CourseOffering } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
+import ListPageToolbar from "../../components/ListPageToolbar";
 import { he } from "../../i18n/he";
+import {
+  hebrewFormActionsRightSx,
+  hebrewFormColumnSx,
+  hebrewFormFieldRowSx,
+  hebrewFormFieldSx,
+  hebrewFormSectionSx,
+  hebrewRadioGroupSx,
+  pageFullWidthSx,
+} from "../../styles/hebrewAlign";
 
 const emptyForm = {
   catalog_course_id: "",
@@ -116,25 +125,17 @@ export default function TeacherExamCreatePage() {
   };
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 560 }}>
-      <Button
-        component={RouterLink}
-        to={returnTo}
-        startIcon={<ArrowBackIcon />}
-        size="small"
-        sx={{ mb: 2 }}
-      >
-        {he.cancel}
-      </Button>
-
-      <Typography variant="h5" fontWeight={700} gutterBottom>
-        {he.createExam}
-      </Typography>
-      {offering && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {offeringLabel(offering)}
-        </Typography>
-      )}
+    <Box sx={pageFullWidthSx}>
+      <ListPageToolbar
+        title={he.createExam}
+        subtitle={offering ? offeringLabel(offering) : undefined}
+        titleVariant="h5"
+        actions={
+          <Button component={RouterLink} to={returnTo} startIcon={<ArrowBackIcon />} size="small">
+            {he.cancel}
+          </Button>
+        }
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -142,36 +143,50 @@ export default function TeacherExamCreatePage() {
         </Alert>
       )}
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-        <TextField
-          select
-          label={he.selectCatalogCourse}
-          value={form.catalog_course_id}
-          onChange={(e) => setForm({ ...form, catalog_course_id: e.target.value })}
-          required
-          disabled={!!prefillCatalog}
-          helperText={catalogs.length === 0 ? he.noCatalogCourses : undefined}
-        >
-          {catalogs.map((c) => (
-            <MenuItem key={c.id} value={String(c.id)}>
-              {c.name}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label={he.examTitle}
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-        />
+      <Box component="form" sx={hebrewFormColumnSx} onSubmit={(e) => e.preventDefault()}>
+        <Box sx={hebrewFormFieldRowSx}>
+          <TextField
+            select
+            size="small"
+            label={he.selectCatalogCourse}
+            value={form.catalog_course_id}
+            onChange={(e) => setForm({ ...form, catalog_course_id: e.target.value })}
+            required
+            disabled={!!prefillCatalog}
+            helperText={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+            sx={hebrewFormFieldSx}
+          >
+            {catalogs.map((c) => (
+              <MenuItem key={c.id} value={String(c.id)}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
+
+        <Box sx={hebrewFormFieldRowSx}>
+          <TextField
+            size="small"
+            label={he.examTitle}
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            sx={hebrewFormFieldSx}
+          />
+        </Box>
 
         {fromGroup ? (
-          <FormControl>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Box sx={hebrewFormSectionSx}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ width: "100%", textAlign: "right" }}
+            >
               {he.examAudience}
             </Typography>
             <RadioGroup
               value={form.audience}
               onChange={(e) => setForm({ ...form, audience: e.target.value as "all" | "this_group" })}
+              sx={hebrewRadioGroupSx}
             >
               <FormControlLabel value="all" control={<Radio />} label={he.examAudienceAllGroups} />
               <FormControlLabel
@@ -180,14 +195,15 @@ export default function TeacherExamCreatePage() {
                 label={he.examAudienceThisGroup}
               />
             </RadioGroup>
-          </FormControl>
+          </Box>
         ) : (
-          <>
-            <Typography variant="subtitle2" color="text.secondary">
+          <Box sx={hebrewFormSectionSx}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ width: "100%", textAlign: "right" }}>
               {he.scopeRestriction}
             </Typography>
             <TextField
               select
+              fullWidth
               label={he.teacher}
               value={form.scope_teacher}
               onChange={(e) => setForm({ ...form, scope_teacher: e.target.value as "any" | "me" })}
@@ -196,6 +212,7 @@ export default function TeacherExamCreatePage() {
               <MenuItem value="me">{he.scopeOnlyMe}</MenuItem>
             </TextField>
             <TextField
+              fullWidth
               label={he.academicYear}
               value={form.scope_academic_year}
               onChange={(e) => setForm({ ...form, scope_academic_year: e.target.value })}
@@ -203,6 +220,7 @@ export default function TeacherExamCreatePage() {
             />
             <TextField
               select
+              fullWidth
               label={he.semester}
               value={form.scope_semester}
               onChange={(e) => setForm({ ...form, scope_semester: e.target.value })}
@@ -212,15 +230,16 @@ export default function TeacherExamCreatePage() {
               <MenuItem value="2">סמסטר ב</MenuItem>
             </TextField>
             <TextField
+              fullWidth
               label={he.groupName}
               value={form.scope_group_name}
               onChange={(e) => setForm({ ...form, scope_group_name: e.target.value })}
               placeholder={he.scopeAny}
             />
-          </>
+          </Box>
         )}
 
-        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
+        <Box sx={{ ...hebrewFormActionsRightSx, mt: 1 }}>
           <Button onClick={cancel}>{he.cancel}</Button>
           <DisabledActionTooltip
             disabled={saving || catalogs.length === 0}

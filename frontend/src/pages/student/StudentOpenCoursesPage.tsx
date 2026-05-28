@@ -23,9 +23,8 @@ export default function StudentOpenCoursesPage() {
     setLoading(true);
     setError("");
     try {
-      const mine = await api<CourseOffering[]>("/api/courses/mine");
       const open = await api<CourseOffering[]>("/api/courses/open");
-      setOpenOfferings(open.filter((c) => !mine.some((m) => m.id === c.id)));
+      setOpenOfferings(open);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

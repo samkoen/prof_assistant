@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { Box, Button, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { hebrewAlignRightSx, hebrewPageToolbarSx } from "../styles/hebrewAlign";
+import {
+  hebrewPageToolbarSx,
+  hebrewToolbarActionsSx,
+  hebrewToolbarTitleSx,
+} from "../styles/hebrewAlign";
 
 interface ListPageToolbarProps {
   title: ReactNode;
@@ -15,17 +19,15 @@ interface ListPageToolbarProps {
 
 function renderActions(actions: ReactNode | undefined, addLabel?: string, onAdd?: () => void) {
   if (actions) {
-    return (
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, flexShrink: 0 }}>
-        {actions}
-      </Box>
-    );
+    return <Box sx={hebrewToolbarActionsSx}>{actions}</Box>;
   }
   if (addLabel && onAdd) {
     return (
-      <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={onAdd} sx={{ flexShrink: 0 }}>
-        {addLabel}
-      </Button>
+      <Box sx={hebrewToolbarActionsSx}>
+        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={onAdd}>
+          {addLabel}
+        </Button>
+      </Box>
     );
   }
   return null;
@@ -43,8 +45,7 @@ export default function ListPageToolbar({
 
   return (
     <Box sx={hebrewPageToolbarSx}>
-      {actionSlot}
-      <Box sx={{ ...hebrewAlignRightSx, flex: 1, minWidth: 0 }}>
+      <Box sx={hebrewToolbarTitleSx}>
         <Typography variant={titleVariant} component="h1" fontWeight={700}>
           {title}
         </Typography>
@@ -54,6 +55,7 @@ export default function ListPageToolbar({
           </Typography>
         )}
       </Box>
+      {actionSlot}
     </Box>
   );
 }

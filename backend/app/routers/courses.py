@@ -28,8 +28,13 @@ from app.services.enrollment_service import (
     create_student_enrollment,
     enrollment_to_response,
     enrollment_to_response_with_offering,
+    dedupe_approved_offerings_by_session,
+    ensure_no_sibling_enrollment_conflict,
     find_existing_enrollment,
+    find_sibling_enrollment,
     load_offering_for_join,
+    load_student_enrolled_session_keys,
+    reject_sibling_pending_enrollments,
 )
 from app.services.join_preview import (
     build_join_preview,
@@ -275,7 +280,7 @@ async def add_student_to_offering(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     if user.role == UserRole.TEACHER:
-        await _teacher_owns_offering(offering_id, user.id, db)
+        offering = await _teacher_owns_offering(offering_id, user.id, db)
     else:
         offering = await db.get(CourseOffering, offering_id)
         if not offering:
@@ -284,6 +289,10 @@ async def add_student_to_offering(
     student = await db.get(User, body.student_id)
     if not student or student.role != UserRole.STUDENT:
         raise HTTPException(status_code=400, detail="תלמיד לא נמצא")
+    sibling = await find_sibling_enrollment(db, body.student_id, offering)
+    if sibling and sibling.status == EnrollmentStatus.APPROVED:
+        ensure_no_sibling_enrollment_conflict(sibling)
+    await reject_sibling_pending_enrollments(db, body.student_id, offering)
 
     existing = await db.execute(
         select(CourseEnrollment).where(
@@ -371,7 +380,7 @@ async def my_offerings(
         q = q.where(CourseOffering.teacher_id == user.id)
     elif user.role == UserRole.STUDENT:
         result = await db.execute(
-            select(CourseOffering, CourseEnrollment.status)
+            select(CourseOffering, CourseEnrollment.status, CourseEnrollment.created_at)
             .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
             .options(
                 selectinload(CourseOffering.catalog_course),
@@ -379,15 +388,14 @@ async def my_offerings(
             )
             .where(
                 CourseEnrollment.student_id == user.id,
-                CourseEnrollment.status.in_(
-                    (EnrollmentStatus.APPROVED, EnrollmentStatus.PENDING)
-                ),
+                CourseEnrollment.status == EnrollmentStatus.APPROVED,
             )
-            .order_by(CourseOffering.created_at.desc())
+            .order_by(CourseEnrollment.created_at.asc())
         )
+        rows = dedupe_approved_offerings_by_session(result.unique().all())
         return [
             offering_to_response(offering, enrollment_status=status)
-            for offering, status in result.unique().all()
+            for offering, status in rows
         ]
     else:
         q = q.order_by(CourseOffering.created_at.desc())
@@ -395,12 +403,44 @@ async def my_offerings(
     return [offering_to_response(o) for o in result.scalars().unique().all()]
 
 
+@router.get("/courses/mine/pending", response_model=list[CourseOfferingResponse])
+async def my_pending_offerings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    result = await db.execute(
+        select(CourseOffering, CourseEnrollment.status)
+        .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
+        .options(
+            selectinload(CourseOffering.catalog_course),
+            selectinload(CourseOffering.teacher),
+        )
+        .where(
+            CourseEnrollment.student_id == user.id,
+            CourseEnrollment.status == EnrollmentStatus.PENDING,
+        )
+        .order_by(CourseOffering.created_at.desc())
+    )
+    return [
+        offering_to_response(offering, enrollment_status=status)
+        for offering, status in result.unique().all()
+    ]
+
+
 @router.get("/courses/open", response_model=list[CourseOfferingResponse])
 async def open_offerings(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(
         _offering_query().where(CourseOffering.is_open_enrollment.is_(True))
     )
-    return [offering_to_response(o) for o in result.scalars().all()]
+    offerings = list(result.scalars().all())
+    if user.role == UserRole.STUDENT:
+        enrolled_keys = await load_student_enrolled_session_keys(db, user.id)
+        offerings = [
+            o
+            for o in offerings
+            if (o.catalog_course_id, o.academic_year, o.semester) not in enrolled_keys
+        ]
+    return [offering_to_response(o) for o in offerings]
 
 
 @router.post("/enrollments/request", response_model=EnrollmentResponse)
@@ -413,6 +453,8 @@ async def request_enrollment(
     ensure_offering_open_for_join(offering)
     existing = await find_existing_enrollment(body.offering_id, user.id, db)
     ensure_no_existing_enrollment(existing)
+    sibling = await find_sibling_enrollment(db, user.id, offering)
+    ensure_no_sibling_enrollment_conflict(sibling)
     enrollment = await create_student_enrollment(db, user, offering)
     await db.commit()
     await db.refresh(enrollment)
@@ -462,6 +504,14 @@ async def review_enrollment(
     enrollment = result.scalar_one_or_none()
     if not enrollment:
         raise HTTPException(status_code=404, detail="בקשה לא נמצאה")
+    if body.status == EnrollmentStatus.APPROVED:
+        sibling = await find_sibling_enrollment(
+            db, enrollment.student_id, enrollment.offering, exclude_offering_id=enrollment.offering_id
+        )
+        ensure_no_sibling_enrollment_conflict(sibling)
+        await reject_sibling_pending_enrollments(
+            db, enrollment.student_id, enrollment.offering
+        )
     enrollment.status = body.status
     db.add(
         Notification(

@@ -3,17 +3,21 @@ import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
-  Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
+  IconButton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ListPageToolbar from "../../components/ListPageToolbar";
+import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
+import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import { api, ApiError, semesterLabel, type ExamAttempt, type ExamSession } from "../../api/client";
 import { he } from "../../i18n/he";
+import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
+import { studentExamChipProps } from "../../utils/studentExamSessionDisplay";
 
 type SessionWithAttempt = ExamSession & { attempt: ExamAttempt | null };
 
@@ -57,6 +61,7 @@ export default function StudentAllExamsPage() {
   return (
     <Box sx={{ width: "100%" }}>
       <ListPageToolbar title={he.exams} subtitle={he.activeExams} />
+      <StudentGeminiConfigCard />
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
@@ -69,49 +74,59 @@ export default function StudentAllExamsPage() {
       ) : sessions.length === 0 ? (
         <Alert severity="info">{he.noActiveExamsHint}</Alert>
       ) : (
-        sessions.map((s) => {
+        <>
+          {!sessions.some((s) => s.status === "active") && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {he.noActiveExamsHint}
+            </Alert>
+          )}
+          {sessions.map((s) => {
           const submitted = !!s.attempt?.submitted_at;
+          const inProgress = !!s.attempt?.started_at && !submitted;
+          const chip = studentExamChipProps(s, s.attempt);
           return (
-            <Card
+            <HebrewCardRow
               key={s.id}
+              examList
+              text={
+                <>
+                  <Box sx={examListRowDetailsSx}>
+                    <Typography variant="body2" color="text.secondary">
+                      {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
+                      {s.question_count} {he.questionsInExam}
+                      {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                        <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
+                      )}
+                      {inProgress && <> · {he.continueExam}</>}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" color={chip.color} label={chip.label} />
+                  <Typography variant="h6" fontWeight={600} sx={examListRowTitleSx}>
+                    {s.exam_title}
+                  </Typography>
+                </>
+              }
+              actions={
+                <Tooltip title={actionLabel(s.attempt)}>
+                  <IconButton
+                    size="small"
+                    color={submitted ? "primary" : "success"}
+                    onClick={() => navigate(`/student/exams/${s.id}`)}
+                    aria-label={actionLabel(s.attempt)}
+                  >
+                    {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              }
               sx={{
                 mb: 2,
                 border: submitted ? undefined : "2px solid",
                 borderColor: "success.light",
               }}
-            >
-              <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-                <Box flex={1} minWidth={200}>
-                  <Box display="flex" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
-                    <Typography variant="h6" fontWeight={600}>
-                      {s.exam_title}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={submitted ? "default" : "success"}
-                      label={submitted ? he.alreadySubmitted : he.examInProgress}
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
-                    {s.question_count} {he.questionsInExam}
-                    {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
-                      <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
-                    )}
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  color={submitted ? "inherit" : "success"}
-                  startIcon={<PlayArrowIcon />}
-                  onClick={() => navigate(`/student/exams/${s.id}`)}
-                >
-                  {actionLabel(s.attempt)}
-                </Button>
-              </CardContent>
-            </Card>
+            />
           );
-        })
+        })}
+        </>
       )}
     </Box>
   );

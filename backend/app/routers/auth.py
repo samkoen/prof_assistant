@@ -7,7 +7,13 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.enums import UserRole
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserAiExplanationLanguageUpdateRequest,
+    UserResponse,
+)
 from app.security import COOKIE_NAME, create_access_token, hash_password, verify_password
 from app.services.email import send_verification_email
 
@@ -82,4 +88,16 @@ async def logout(response: Response):
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.patch("/me/ai-explanation-language", response_model=UserResponse)
+async def update_ai_explanation_language(
+    body: UserAiExplanationLanguageUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    user.ai_explanation_language = body.language
+    await db.commit()
+    await db.refresh(user)
     return user

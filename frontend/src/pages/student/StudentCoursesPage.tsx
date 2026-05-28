@@ -11,6 +11,7 @@ import { he } from "../../i18n/he";
 export default function StudentCoursesPage() {
   const navigate = useNavigate();
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
+  const [pendingOfferings, setPendingOfferings] = useState<CourseOffering[]>([]);
   const [activeByOffering, setActiveByOffering] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -19,11 +20,13 @@ export default function StudentCoursesPage() {
     setLoading(true);
     setError("");
     try {
-      const [mine, sessions] = await Promise.all([
+      const [mine, pending, sessions] = await Promise.all([
         api<CourseOffering[]>("/api/courses/mine"),
+        api<CourseOffering[]>("/api/courses/mine/pending"),
         api<ExamSession[]>("/api/exams/sessions/mine"),
       ]);
       setOfferings(mine);
+      setPendingOfferings(pending);
       const counts: Record<number, number> = {};
       for (const s of sessions) {
         if (s.status === "active") {
@@ -43,17 +46,14 @@ export default function StudentCoursesPage() {
   }, [load]);
 
   useEffect(() => {
-    if (!offerings.some((o) => o.enrollment_status === "pending")) return;
+    if (pendingOfferings.length === 0) return;
     const t = window.setInterval(load, 15000);
     return () => window.clearInterval(t);
-  }, [load, offerings]);
+  }, [load, pendingOfferings.length]);
 
   const goToExams = (offering: CourseOffering) => {
-    if (offering.enrollment_status === "pending") return;
     navigate(`/student/courses/${offering.id}`);
   };
-  const isApproved = (o: CourseOffering) =>
-    !o.enrollment_status || o.enrollment_status === "approved";
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -78,7 +78,7 @@ export default function StudentCoursesPage() {
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
         </Box>
-      ) : offerings.length === 0 ? (
+      ) : offerings.length === 0 && pendingOfferings.length === 0 ? (
         <Box textAlign="center" py={6}>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             {he.noCoursesJoinHint}
@@ -88,34 +88,44 @@ export default function StudentCoursesPage() {
           </Button>
         </Box>
       ) : (
-        <OfferingCardGrid
-          offerings={offerings}
-          onCardDoubleClick={(o) => goToExams(o)}
-          renderActions={(o) =>
-            isApproved(o) ? (
-              <>
-                {(activeByOffering[o.id] ?? 0) > 0 && (
-                  <Chip
-                    size="small"
-                    color="success"
-                    label={`${activeByOffering[o.id]} ${he.exams}`}
-                    sx={{ height: 24, fontSize: "0.7rem" }}
-                  />
-                )}
-                <Tooltip title={he.viewCourseExams}>
-                  <IconButton
-                    component={RouterLink}
-                    to={`/student/courses/${o.id}`}
-                    size="small"
-                    sx={{ color: "primary.main" }}
-                  >
-                    <QuizIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : null
-          }
-        />
+        <>
+          {pendingOfferings.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {he.enrollmentPendingApproval}
+              </Typography>
+              <OfferingCardGrid offerings={pendingOfferings} />
+            </Box>
+          )}
+          {offerings.length > 0 && (
+            <OfferingCardGrid
+              offerings={offerings}
+              onCardDoubleClick={(o) => goToExams(o)}
+              renderActions={(o) => (
+                <>
+                  {(activeByOffering[o.id] ?? 0) > 0 && (
+                    <Chip
+                      size="small"
+                      color="success"
+                      label={`${activeByOffering[o.id]} ${he.exams}`}
+                      sx={{ height: 24, fontSize: "0.7rem" }}
+                    />
+                  )}
+                  <Tooltip title={he.viewCourseExams}>
+                    <IconButton
+                      component={RouterLink}
+                      to={`/student/courses/${o.id}`}
+                      size="small"
+                      sx={{ color: "primary.main" }}
+                    >
+                      <QuizIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            />
+          )}
+        </>
       )}
     </Box>
   );

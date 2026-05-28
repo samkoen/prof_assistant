@@ -25,7 +25,12 @@ import { useAuth } from "../context/AuthContext";
 import { getMenuItems, roleLabel } from "../config/menuItems";
 import { he } from "../i18n/he";
 import { SIDEBAR_WIDTH } from "../constants/layout";
-import { hebrewAlignRightSx } from "../styles/hebrewAlign";
+import {
+  hebrewAlignRightSx,
+  sidebarNavButtonSx,
+  sidebarNavIconSx,
+  sidebarNavTextSx,
+} from "../styles/hebrewAlign";
 import { brand, sidebarGradient } from "../theme/brand";
 
 function userInitials(name: string): string {
@@ -94,6 +99,7 @@ export default function DashboardLayout() {
                 selected={selected}
                 onClick={() => handleNavigation(item.path)}
                 sx={{
+                  ...sidebarNavButtonSx,
                   borderRadius: 2,
                   py: 1.25,
                   color: alpha("#fff", 0.75),
@@ -108,9 +114,10 @@ export default function DashboardLayout() {
                     "& .MuiListItemIcon-root": { color: brand.amber400 },
                   },
                   "& .MuiListItemIcon-root": {
-                    minWidth: 42,
+                    ...sidebarNavIconSx,
                     color: selected ? brand.amber400 : alpha("#fff", 0.65),
                   },
+                  "& .MuiListItemText-root": sidebarNavTextSx,
                 }}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
@@ -119,6 +126,7 @@ export default function DashboardLayout() {
                   primaryTypographyProps={{
                     fontSize: "0.95rem",
                     fontWeight: selected ? 700 : 500,
+                    textAlign: "right",
                   }}
                 />
               </ListItemButton>

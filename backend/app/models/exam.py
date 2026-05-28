@@ -142,3 +142,25 @@ class Answer(Base):
     selected_option_ids: Mapped[list] = mapped_column(JSONB, default=list)
 
     attempt = relationship("StudentExamAttempt", back_populates="answers")
+
+
+class QuestionAiExplanation(Base):
+    __tablename__ = "question_ai_explanations"
+    __table_args__ = (
+        UniqueConstraint(
+            "attempt_id",
+            "question_id",
+            "language",
+            name="uq_question_ai_explanations_attempt_question_lang",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), index=True)
+    language: Mapped[str] = mapped_column(String(2), index=True)
+    explanation: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

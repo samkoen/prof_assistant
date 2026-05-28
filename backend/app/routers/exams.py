@@ -48,6 +48,7 @@ from app.schemas.exam import (
 from app.services.exam_lifecycle import (
     delete_attempt_records,
     delete_exam_cascade,
+    student_visible_sessions_clause,
     duplicate_exam,
     exam_has_non_draft_sessions,
     exams_can_delete_map,
@@ -216,6 +217,9 @@ def _attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptRespo
         max_score=attempt.max_score,
         progress_index=attempt.progress_index,
         can_resubmit=attempt.can_resubmit,
+        rules_accepted_at=attempt.rules_accepted_at,
+        focus_loss_count=attempt.focus_loss_count,
+        total_hidden_seconds=attempt.total_hidden_seconds,
     )
 
 
@@ -380,7 +384,7 @@ async def list_offering_exam_sessions(
         .where(ExamSession.offering_id == offering_id)
     )
     if user.role == UserRole.STUDENT:
-        q = q.where(ExamSession.status == ExamStatus.ACTIVE)
+        q = q.where(student_visible_sessions_clause(user.id))
     q = q.order_by(ExamSession.created_at.desc())
     sessions = (await db.execute(q)).scalars().all()
     out = []
@@ -421,7 +425,7 @@ async def list_my_exam_sessions(
                 CourseEnrollment.student_id == user.id,
                 CourseEnrollment.status == EnrollmentStatus.APPROVED,
                 CourseEnrollment.offering_id == ExamSession.offering_id,
-                ExamSession.status == ExamStatus.ACTIVE,
+                student_visible_sessions_clause(user.id),
             )
             .order_by(ExamSession.created_at.desc())
         )
@@ -1170,11 +1174,15 @@ async def get_session_review(
     for sq in paper:
         q = questions_by_id[sq.id]
         answer = answers_by_q.get(q.id)
-        selected = list(answer.selected_option_ids) if answer else []
-        earned, max_pts = score_question(q, selected)
+        selected_ids = list(answer.selected_option_ids) if answer else []
+        earned, max_pts = score_question(q, selected_ids)
         is_fully_correct = earned >= max_pts - 1e-9
         correct_opts = sorted(
             [o for o in q.options if o.is_correct],
+            key=lambda o: o.order_index,
+        )
+        student_opts = sorted(
+            [o for o in q.options if o.id in selected_ids],
             key=lambda o: o.order_index,
         )
         review_rows.append(
@@ -1188,6 +1196,11 @@ async def get_session_review(
                 correct_options=[
                     ExamReviewCorrectOption(text=o.text) for o in correct_opts
                 ],
+                student_options=(
+                    [ExamReviewCorrectOption(text=o.text) for o in student_opts]
+                    if not is_fully_correct
+                    else []
+                ),
             )
         )
 

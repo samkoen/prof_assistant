@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/material";
-import { hebrewAlignRightSx, hebrewPageToolbarSx } from "../styles/hebrewAlign";
+import { hebrewPageToolbarSx, hebrewToolbarActionsSx, hebrewToolbarTitleSx } from "../styles/hebrewAlign";
 
 interface PageHeaderProps {
   title: string;
@@ -10,9 +10,8 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
-    <Box sx={{ ...hebrewPageToolbarSx, mb: 3 }}>
-      {action && <Box sx={{ flexShrink: 0 }}>{action}</Box>}
-      <Box sx={{ ...hebrewAlignRightSx, flex: 1, minWidth: 0 }}>
+    <Box sx={hebrewPageToolbarSx}>
+      <Box sx={hebrewToolbarTitleSx}>
         <Typography variant="h4" fontWeight={700}>
           {title}
         </Typography>
@@ -22,6 +21,7 @@ export default function PageHeader({ title, subtitle, action }: PageHeaderProps)
           </Typography>
         )}
       </Box>
+      {action && <Box sx={hebrewToolbarActionsSx}>{action}</Box>}
     </Box>
   );
 }

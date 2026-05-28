@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { api, ApiError, type ExamSessionResults } from "../../api/client";
 import { he } from "../../i18n/he";
+import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 import { formatHiddenDuration } from "../../utils/formatHiddenDuration";
 
 const statusLabel: Record<ExamSessionResults["results"][0]["status"], string> = {
@@ -86,7 +87,7 @@ export default function TeacherExamResultsPage() {
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 960 }}>
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <Button
         component={RouterLink}
         to={backTo}
@@ -97,15 +98,17 @@ export default function TeacherExamResultsPage() {
         {he.backToExams}
       </Button>
 
-      <Typography variant="h5" fontWeight={700} gutterBottom>
-        {he.examResults}
-      </Typography>
-      <Typography variant="h6" gutterBottom>
-        {data.exam_title}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {data.offering_label}
-      </Typography>
+      <Box sx={{ mb: 2, ...hebrewAlignRightSx }}>
+        <Typography variant="h5" fontWeight={700} gutterBottom>
+          {he.examResults}
+        </Typography>
+        <Typography variant="h6" gutterBottom>
+          {data.exam_title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {data.offering_label}
+        </Typography>
+      </Box>
       {data.integrity_mode_enabled && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {he.integrityMode}: {he.integrityModeHint}

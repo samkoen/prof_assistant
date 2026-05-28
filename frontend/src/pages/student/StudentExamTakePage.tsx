@@ -28,6 +28,11 @@ import ExamFocusOverlay from "../../components/ExamFocusOverlay";
 import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
 import { useExamIntegrity } from "../../hooks/useExamIntegrity";
 import { he } from "../../i18n/he";
+import {
+  hebrewAlignRightSx,
+  hebrewPageToolbarSx,
+  hebrewToolbarTitleSx,
+} from "../../styles/hebrewAlign";
 
 function formatRemaining(expiresAt: string | null): string {
   if (!expiresAt) return "—";
@@ -89,8 +94,9 @@ export default function StudentExamTakePage() {
   }, [load]);
 
   const integrityActive = !!paper?.integrity_mode_enabled;
+  const rulesAcceptedAt = attempt?.rules_accepted_at ?? paper?.attempt.rules_accepted_at;
   const rulesPending =
-    integrityActive && paper && !paper.attempt.rules_accepted_at && !paper.attempt.submitted_at;
+    integrityActive && paper && !rulesAcceptedAt && !paper.attempt.submitted_at;
   const submitted = !!attempt?.submitted_at;
   const examInProgress = integrityActive && !!attempt?.started_at && !submitted;
 
@@ -120,6 +126,9 @@ export default function StudentExamTakePage() {
         method: "POST",
       });
       setAttempt(res);
+      setPaper((prev) =>
+        prev ? { ...prev, attempt: { ...prev.attempt, ...res } } : prev
+      );
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -206,7 +215,7 @@ export default function StudentExamTakePage() {
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 800 }}>
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <ExamFocusOverlay visible={examInProgress && tabHidden} />
       <ExamIntegrityRulesDialog
         open={!!rulesPending}
@@ -227,8 +236,8 @@ export default function StudentExamTakePage() {
         </Button>
       )}
 
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={2}>
-        <Box>
+      <Box sx={{ ...hebrewPageToolbarSx, mb: 2, alignItems: "flex-start" }}>
+        <Box sx={hebrewToolbarTitleSx}>
           <Typography variant="h5" fontWeight={700}>
             {paper.exam_title}
           </Typography>
@@ -239,7 +248,7 @@ export default function StudentExamTakePage() {
           )}
         </Box>
         {!submitted && attempt?.started_at && (
-          <Typography variant="h6" color="primary" fontWeight={700}>
+          <Typography variant="h6" color="primary" fontWeight={700} sx={{ flexShrink: 0 }}>
             {he.timeRemaining}: {timeLeft}
           </Typography>
         )}
@@ -257,10 +266,21 @@ export default function StudentExamTakePage() {
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert
+          severity="success"
+          sx={{
+            mb: 2,
+            ...hebrewAlignRightSx,
+            "& .MuiAlert-message": {
+              width: "100%",
+              textAlign: "right",
+              direction: "rtl",
+            },
+          }}
+        >
           {success}
           {attempt?.score != null && attempt.max_score != null && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
+            <Typography variant="body2" sx={{ mt: 1, textAlign: "inherit" }}>
               {he.yourScore}: {attempt.score} / {attempt.max_score}
             </Typography>
           )}

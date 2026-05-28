@@ -28,7 +28,7 @@ export default function DisabledActionTooltip({
   children,
 }: Props) {
   if (!isValidElement(children)) return children;
-  const child = cloneElement(children, { disabled });
+  const child = disabled ? cloneElement(children, { disabled: true }) : children;
   const tooltipTitle =
     disabled && disabledReason ? disabledReason : title ?? disabledReason;
   if (!tooltipTitle) {

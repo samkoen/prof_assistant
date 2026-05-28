@@ -6,11 +6,11 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { theme } from "./theme";
 import { AuthProvider } from "./context/AuthContext";
-import { cacheRtl } from "./emotion/caches";
+import { emotionCache } from "./emotion/caches";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <CacheProvider value={cacheRtl}>
+    <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>

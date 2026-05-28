@@ -16,6 +16,7 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 
 import AdminCoursesPage from "./pages/admin/AdminCoursesPage";
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage";
+import AdminAiExplanationsPage from "./pages/admin/AdminAiExplanationsPage";
 
 import TeacherOverviewPage from "./pages/teacher/TeacherOverviewPage";
 
@@ -112,6 +113,8 @@ export default function App() {
           <Route path="/admin/students" element={<AdminStudentsPage />} />
 
           <Route path="/admin/courses" element={<AdminCoursesPage />} />
+
+          <Route path="/admin/ai-explanations" element={<AdminAiExplanationsPage />} />
 
         </Route>
 

@@ -5,14 +5,22 @@ from sqlalchemy.orm import selectinload
 
 from app.models.course import CourseEnrollment
 from app.models.enums import EnrollmentStatus, QuestionType
-from app.models.exam import Answer, ExamSession, Question, StudentExamAttempt
+from app.models.exam import Answer, ExamSession, Question, QuestionAiExplanation, StudentExamAttempt
 from app.models.user import User
+from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.gemini_client import GeminiError, generate_text
 
 _TYPE_LABELS = {
     QuestionType.SINGLE: "בחירה יחידה",
     QuestionType.MULTIPLE: "בחירה מרובה",
     QuestionType.TRUE_FALSE: "נכון/לא נכון",
+}
+
+_LANG_CONFIG: dict[GeminiSeriesLanguage, dict[str, str]] = {
+    "he": {"label": "עברית", "instruction": "ענה בעברית בלבד."},
+    "fr": {"label": "francais", "instruction": "Reponds uniquement en francais."},
+    "en": {"label": "English", "instruction": "Respond in English only."},
+    "ru": {"label": "russkiy", "instruction": "Otvechay tolko na russkom yazyke."},
 }
 
 
@@ -29,7 +37,7 @@ async def _student_approved(offering_id: int, user: User, db: AsyncSession) -> b
 
 async def _load_review_context(
     session_id: int, question_id: int, user: User, db: AsyncSession
-) -> tuple[Question, list[int]]:
+) -> tuple[int, Question, list[int]]:
     session_row = await db.execute(
         select(ExamSession)
         .options(selectinload(ExamSession.exam))
@@ -69,7 +77,42 @@ async def _load_review_context(
     )
     answer = ans_row.scalar_one_or_none()
     selected = list(answer.selected_option_ids) if answer else []
-    return question, selected
+    return attempt.id, question, selected
+
+
+async def _load_cached(
+    attempt_id: int, question_id: int, language: GeminiSeriesLanguage, db: AsyncSession
+) -> QuestionAiExplanation | None:
+    row = await db.execute(
+        select(QuestionAiExplanation).where(
+            QuestionAiExplanation.attempt_id == attempt_id,
+            QuestionAiExplanation.question_id == question_id,
+            QuestionAiExplanation.language == language,
+        )
+    )
+    return row.scalar_one_or_none()
+
+
+async def _upsert_cache(
+    attempt_id: int,
+    question_id: int,
+    language: GeminiSeriesLanguage,
+    explanation: str,
+    db: AsyncSession,
+) -> None:
+    cached = await _load_cached(attempt_id, question_id, language, db)
+    if cached:
+        cached.explanation = explanation
+    else:
+        db.add(
+            QuestionAiExplanation(
+                attempt_id=attempt_id,
+                question_id=question_id,
+                language=language,
+                explanation=explanation,
+            )
+        )
+    await db.commit()
 
 
 def _option_label(index: int) -> str:
@@ -97,11 +140,14 @@ def _selected_labels(question: Question, selected_ids: list[int]) -> str:
     return "לא נבחרה תשובה"
 
 
-def _build_prompt(question: Question, selected_ids: list[int]) -> str:
+def _build_prompt(
+    question: Question, selected_ids: list[int], language: GeminiSeriesLanguage
+) -> str:
     correct = sorted([o for o in question.options if o.is_correct], key=lambda o: o.order_index)
     correct_text = "; ".join(o.text.strip() for o in correct) or "—"
     type_label = _TYPE_LABELS.get(question.question_type, question.question_type)
-    return f"""אתה עוזר לימודי למבחן QCM. ענה בעברית בלבד.
+    lang = _LANG_CONFIG.get(language, _LANG_CONFIG["he"])
+    return f"""אתה עוזר לימודי למבחן QCM. {lang["instruction"]}
 
 כללים:
 - הסבר למה התשובה(ות) הנכונה(ות) נכונה(ות), בצורה ברורה ומעודדת.
@@ -125,11 +171,37 @@ def _build_prompt(question: Question, selected_ids: list[int]) -> str:
 
 
 async def explain_exam_question(
-    session_id: int, question_id: int, user: User, db: AsyncSession
-) -> str:
-    question, selected = await _load_review_context(session_id, question_id, user, db)
-    prompt = _build_prompt(question, selected)
+    session_id: int,
+    question_id: int,
+    language: GeminiSeriesLanguage,
+    user: User,
+    db: AsyncSession,
+) -> tuple[str, bool]:
+    attempt_id, question, selected = await _load_review_context(session_id, question_id, user, db)
+    cached = await _load_cached(attempt_id, question_id, language, db)
+    if cached:
+        return cached.explanation, True
+    prompt = _build_prompt(question, selected, language)
     try:
-        return await generate_text(prompt)
+        explanation = await generate_text(prompt)
+        await _upsert_cache(attempt_id, question_id, language, explanation, db)
+        return explanation, False
+    except GeminiError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+async def regenerate_exam_question_explanation(
+    session_id: int,
+    question_id: int,
+    language: GeminiSeriesLanguage,
+    user: User,
+    db: AsyncSession,
+) -> str:
+    attempt_id, question, selected = await _load_review_context(session_id, question_id, user, db)
+    prompt = _build_prompt(question, selected, language)
+    try:
+        explanation = await generate_text(prompt)
+        await _upsert_cache(attempt_id, question_id, language, explanation, db)
+        return explanation
     except GeminiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

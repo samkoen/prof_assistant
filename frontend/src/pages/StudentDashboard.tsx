@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { api, offeringLabel, semesterLabel, type CourseOffering, type ExamSession, ApiError } from "../api/client";
 import { he } from "../i18n/he";
+import { hebrewAlignRightSx, hebrewCardRowSx } from "../styles/hebrewAlign";
 
 export default function StudentDashboard() {
   const [tab, setTab] = useState(0);
@@ -52,7 +53,7 @@ export default function StudentDashboard() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight={600}>
+      <Typography variant="h4" gutterBottom fontWeight={600} sx={hebrewAlignRightSx}>
         {he.dashboard}
       </Typography>
       {message && <Alert sx={{ mb: 2 }}>{message}</Alert>}
@@ -98,9 +99,16 @@ export default function StudentDashboard() {
             <Grid item xs={12} md={6} key={s.id}>
               <Card>
                 <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6">{s.exam_title}</Typography>
-                    <Chip label={statusLabel(s.status)} color={s.status === "active" ? "success" : "default"} size="small" />
+                  <Box sx={{ ...hebrewCardRowSx, py: 0, mb: 0.5 }}>
+                    <Chip
+                      label={statusLabel(s.status)}
+                      color={s.status === "active" ? "success" : "default"}
+                      size="small"
+                      sx={{ flexShrink: 0 }}
+                    />
+                    <Typography variant="h6" sx={{ ...hebrewAlignRightSx, flex: 1 }}>
+                      {s.exam_title}
+                    </Typography>
                   </Box>
                   <Typography color="text.secondary">
                     {s.catalog_name} — {semesterLabel(s.semester)} {s.academic_year}

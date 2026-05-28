@@ -2,6 +2,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import AutoDeleteIcon from "@mui/icons-material/AutoDelete";
 import QuizIcon from "@mui/icons-material/Quiz";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import type { ReactNode } from "react";
@@ -22,6 +23,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.adminUsers, icon: <PeopleIcon />, path: "/admin/users" },
       { text: he.students, icon: <SchoolIcon />, path: "/admin/students" },
       { text: he.allCourses, icon: <MenuBookIcon />, path: "/admin/courses" },
+      { text: he.aiExplanationsAdminTitle, icon: <AutoDeleteIcon />, path: "/admin/ai-explanations" },
     ];
   }
   if (role === "teacher") {

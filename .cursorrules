@@ -5,6 +5,7 @@ Découper en sous-fonctions, helpers ou méthodes privées au-delà de 30 lignes
 
 ## 2. RTL
 Thème MUI `direction: "rtl"`, `dir="rtl"` sur tableaux/formulaires/texte hébreu ; `dir="ltr"` pour email/code/URL.
+Pour les accordéons hébreu (ex: `הגדרות`) : appliquer l’alignement à droite physique sur le titre, le contenu et les champs (`AccordionSummary`, `AccordionDetails`, `TextField`) via les styles utilitaires RTL du projet (ex: `hebrewAlignRightSx`).
 
 ## 3. Modules OOP par entité (front + back)
 Une entité = model + schema + router + services (back) ; api + components + pages minces (front). Logique métier dans les services, pas dans les routers ni god-components.

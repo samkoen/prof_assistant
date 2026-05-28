@@ -30,7 +30,7 @@ import {
 import { he } from "../../i18n/he";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
-import { examListRowDetailsSx, examListRowTextSx } from "../../styles/hebrewAlign";
+import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
 
 /** Statut affiché prof : actif / fermé / sinon tout regroupé sous « לא פעיל ». */
 function examDisplayStatus(session: ExamSession | undefined) {
@@ -165,7 +165,7 @@ export default function TeacherCourseExamsPage() {
   }
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 840 }}>
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <Button
         component={RouterLink}
         to="/teacher/courses"
@@ -247,9 +247,10 @@ export default function TeacherCourseExamsPage() {
           return (
             <HebrewCardRow
               key={exam.id}
+              examList
               sx={{ mb: 2 }}
               text={
-                <Box sx={examListRowTextSx}>
+                <>
                   <Box sx={examListRowDetailsSx}>
                     <Typography variant="body2" color="text.secondary">
                       {exam.question_count} {he.questionsInExam}
@@ -261,10 +262,10 @@ export default function TeacherCourseExamsPage() {
                     )}
                   </Box>
                   <Chip size="small" color={statusChip.color} label={statusChip.label} />
-                  <Typography fontWeight={600} sx={{ flexShrink: 0 }}>
+                  <Typography fontWeight={600} sx={examListRowTitleSx}>
                     {exam.title}
                   </Typography>
-                </Box>
+                </>
               }
               actions={
                 <ExamOfferingRowActions

@@ -1,15 +1,16 @@
 import createCache from "@emotion/cache";
 import { prefixer } from "stylis";
-import rtlPlugin from "stylis-plugin-rtl";
 
-/** Cache global RTL (stylis inverse left/right dans tout le sx MUI). */
-export const cacheRtl = createCache({
-  key: "muirtl",
-  stylisPlugins: [prefixer, rtlPlugin],
-});
-
-/** Cache LTR — pas de plugin RTL : left reste left pour les îlots français. */
-export const cacheLtr = createCache({
-  key: "muiltr",
+/**
+ * Cache Emotion global — sans stylis-plugin-rtl.
+ * Le RTL est géré par `theme.direction: "rtl"` (MUI + CssBaseline).
+ * Évite la double inversion CSS (stylis + thème) qui provoquait des alignements incohérents.
+ */
+export const emotionCache = createCache({
+  key: "mui",
   stylisPlugins: [prefixer],
 });
+
+/** Alias conservés pour compatibilité (main, îlots LTR). */
+export const cacheRtl = emotionCache;
+export const cacheLtr = emotionCache;

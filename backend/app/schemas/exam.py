@@ -269,6 +269,7 @@ class ExamReviewQuestion(BaseModel):
     points: float
     is_correct: bool
     correct_options: list[ExamReviewCorrectOption]
+    student_options: list[ExamReviewCorrectOption] = []
 
 
 class ExamReviewResponse(BaseModel):
