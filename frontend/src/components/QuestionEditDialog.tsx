@@ -214,6 +214,7 @@ export default function QuestionEditDialog({
           multiline
           minRows={4}
           dir="rtl"
+          helperText={he.mathMarkupHint}
           sx={{ mb: 2, mt: 1, "& textarea": { fontFamily: "inherit", whiteSpace: "pre-wrap" } }}
         />
 

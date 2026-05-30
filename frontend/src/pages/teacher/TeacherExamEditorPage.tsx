@@ -73,7 +73,6 @@ export default function TeacherExamEditorPage() {
   const parseResult = useMemo(() => parseQcmText(paste), [paste]);
   const titleChanged = titleDraft.trim() !== exam?.title;
   const titleValid = titleDraft.trim().length > 0;
-  const hasQuestions = (exam?.questions.length ?? 0) > 0;
 
   const importQuestions = async () => {
     if (parseResult.errors.length > 0 || parseResult.questions.length === 0) return;
@@ -174,6 +173,8 @@ export default function TeacherExamEditorPage() {
     return <Alert severity="error">{error || he.errorGeneric}</Alert>;
   }
 
+  const editBannerSubtitle = [exam.catalog_course_name, exam.title].filter(Boolean).join(" — ");
+
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }} dir="rtl">
       <Button
@@ -186,7 +187,7 @@ export default function TeacherExamEditorPage() {
         {he.cancel}
       </Button>
 
-      <PageHeroBanner title={he.editExam} subtitle={exam.title} />
+      <PageHeroBanner title={he.editExam} subtitle={editBannerSubtitle} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -199,7 +200,7 @@ export default function TeacherExamEditorPage() {
         </Alert>
       )}
 
-      <ExamEditorSectionAccordion title={he.examTitle} defaultExpanded>
+      <ExamEditorSectionAccordion title={he.examTitle} defaultExpanded={false}>
         <TextField
           label={he.examTitle}
           value={titleDraft}
@@ -237,7 +238,7 @@ export default function TeacherExamEditorPage() {
       <ExamEditorSectionAccordion
         title={he.existingQuestions}
         subtitle={`${exam.question_count} ${he.questionsInExam}`}
-        defaultExpanded={hasQuestions}
+        defaultExpanded={false}
         detailsDir="ltr"
       >
         <ExamEditorQuestionsSection
@@ -271,7 +272,7 @@ export default function TeacherExamEditorPage() {
         />
       </ExamEditorSectionAccordion>
 
-      <ExamEditorSectionAccordion title={he.pasteQcm} defaultExpanded={!hasQuestions}>
+      <ExamEditorSectionAccordion title={he.pasteQcm} defaultExpanded={false}>
         <ExamEditorImportSection
           exam={exam}
           paste={paste}

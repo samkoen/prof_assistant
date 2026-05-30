@@ -1,13 +1,15 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import GeminiGeneratedQuestionsPreview from "./GeminiGeneratedQuestionsPreview";
 import GeminiQuestionSeriesCard from "./GeminiQuestionSeriesCard";
+import GeminiRefinePanel from "./GeminiRefinePanel";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import { api, ApiError, type ExamDetail } from "../api/client";
 import {
   createGeminiQuestionSeries,
+  type GeminiGenerationSession,
   type GeminiQuestionSeriesDraft,
 } from "../types/geminiQuestionSeries";
 import { parseQcmText, toImportPayload } from "../utils/qcmImportParser";
@@ -33,20 +35,40 @@ export default function ExamEditorGeminiGenerationSection({
   const [seriesList, setSeriesList] = useState<GeminiQuestionSeriesDraft[]>(() => [
     createGeminiQuestionSeries(),
   ]);
+  const [session, setSession] = useState<GeminiGenerationSession | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [refining, setRefining] = useState(false);
   const [accepting, setAccepting] = useState(false);
-  const [draftText, setDraftText] = useState<string | null>(null);
 
   const editable = exam.is_editable;
   const totalQuestions = seriesList.reduce((sum, s) => sum + s.questionCount, 0);
   const allSeriesValid = seriesList.every(
-    (s) => s.subject.trim().length > 0 && s.questionCount >= 1 && s.questionTypes.length > 0,
+    (s) => s.instructions.trim().length > 0 && s.questionCount >= 1 && s.questionTypes.length > 0,
   );
 
-  const parseResult = useMemo(
-    () => (draftText ? parseQcmText(draftText) : null),
-    [draftText],
-  );
+  const rawText = session?.raw_text ?? null;
+  const parseResult = useMemo(() => (rawText ? parseQcmText(rawText) : null), [rawText]);
+  const showPreview =
+    !!rawText && !!parseResult && parseResult.questions.length > 0 && parseResult.errors.length === 0;
+
+  const loadActiveSession = useCallback(async () => {
+    setLoadingSession(true);
+    try {
+      const active = await api<GeminiGenerationSession | null>(
+        `/api/exams/${examId}/gemini-sessions/active`,
+      );
+      setSession(active);
+    } catch {
+      setSession(null);
+    } finally {
+      setLoadingSession(false);
+    }
+  }, [examId]);
+
+  useEffect(() => {
+    loadActiveSession();
+  }, [loadActiveSession]);
 
   const addSeries = () => setSeriesList((prev) => [...prev, createGeminiQuestionSeries()]);
   const updateSeries = (id: string, next: GeminiQuestionSeriesDraft) => {
@@ -56,26 +78,29 @@ export default function ExamEditorGeminiGenerationSection({
     setSeriesList((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const clearDraft = () => setDraftText(null);
+  const resetSession = async () => {
+    if (session) {
+      try {
+        await api(`/api/gemini-sessions/${session.id}/abandon`, { method: "POST" });
+      } catch {
+        /* ignore */
+      }
+    }
+    setSession(null);
+  };
 
-  const generate = async () => {
+  const startSession = async () => {
     setGenerating(true);
     onError("");
-    clearDraft();
     try {
-      const res = await api<{ raw_text: string }>(`/api/exams/${examId}/questions/generate`, {
+      if (session) {
+        await api(`/api/gemini-sessions/${session.id}/abandon`, { method: "POST" });
+      }
+      const created = await api<GeminiGenerationSession>(`/api/exams/${examId}/gemini-sessions`, {
         method: "POST",
         body: JSON.stringify({ series: seriesListToApiPayload(seriesList) }),
       });
-      const parsed = parseQcmText(res.raw_text);
-      if (parsed.questions.length === 0) {
-        onError(he.geminiParseFailed);
-        return;
-      }
-      if (parsed.errors.length > 0) {
-        onError(`${he.geminiParseFailed} (${parsed.errors.length})`);
-      }
-      setDraftText(res.raw_text);
+      setSession(created);
     } catch (e) {
       onError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -83,21 +108,41 @@ export default function ExamEditorGeminiGenerationSection({
     }
   };
 
+  const refineSession = async (message: string) => {
+    if (!session) return;
+    setRefining(true);
+    onError("");
+    try {
+      const updated = await api<GeminiGenerationSession>(
+        `/api/gemini-sessions/${session.id}/messages`,
+        { method: "POST", body: JSON.stringify({ message }) },
+      );
+      setSession(updated);
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setRefining(false);
+    }
+  };
+
   const acceptDraft = async () => {
-    if (!parseResult || parseResult.questions.length === 0) return;
+    if (!parseResult || parseResult.questions.length === 0 || !session) return;
     setAccepting(true);
     onError("");
     try {
       const questionsLanguage = seriesList[0]?.language ?? "he";
-      const res = await api<{ imported_count: number }>(`/api/exams/${examId}/questions/import`, {
-        method: "POST",
-        body: JSON.stringify({
-          questions: toImportPayload(parseResult.questions),
-          questions_language: questionsLanguage,
-        }),
-      });
+      const res = await api<{ imported_count: number }>(
+        `/api/gemini-sessions/${session.id}/accept`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            questions: toImportPayload(parseResult.questions),
+            questions_language: questionsLanguage,
+          }),
+        },
+      );
       onSuccess(`${he.importSuccess}: ${res.imported_count} ${he.questionsImported}`);
-      clearDraft();
+      setSession(null);
       await onImported();
     } catch (e) {
       onError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -106,12 +151,21 @@ export default function ExamEditorGeminiGenerationSection({
     }
   };
 
-  const showPreview =
-    draftText && parseResult && parseResult.questions.length > 0 && parseResult.errors.length === 0;
+  const handleReject = async () => {
+    await resetSession();
+  };
+
+  if (loadingSession) {
+    return (
+      <Box display="flex" justifyContent="center" py={3}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
 
   return (
     <Box dir="rtl">
-      <Typography variant="body2" color="text.secondary" paragraph>
+      <Typography variant="body2" color="text.secondary" paragraph sx={hebrewAlignRightSx}>
         {he.geminiGenerateIntro}
       </Typography>
       {!editable && (
@@ -126,7 +180,7 @@ export default function ExamEditorGeminiGenerationSection({
             index={index}
             series={series}
             canRemove={seriesList.length > 1}
-            disabled={!editable || generating}
+            disabled={!editable || generating || refining}
             onChange={(next) => updateSeries(series.id, next)}
             onRemove={() => removeSeries(series.id)}
           />
@@ -139,12 +193,12 @@ export default function ExamEditorGeminiGenerationSection({
               size="small"
               startIcon={<AddIcon />}
               onClick={addSeries}
-              disabled={!editable || generating}
+              disabled={!editable || generating || refining}
             >
               {he.geminiAddSeries}
             </Button>
             <DisabledActionTooltip
-              disabled={!editable || !allSeriesValid || generating}
+              disabled={!editable || !allSeriesValid || generating || refining}
               disabledReason={
                 !editable
                   ? he.examNotEditable
@@ -155,8 +209,10 @@ export default function ExamEditorGeminiGenerationSection({
             >
               <Button
                 variant="contained"
-                startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />}
-                onClick={generate}
+                startIcon={
+                  generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />
+                }
+                onClick={startSession}
                 disabled={generating}
               >
                 {generating ? he.geminiGenerating : he.geminiGenerateQuestions}
@@ -168,7 +224,7 @@ export default function ExamEditorGeminiGenerationSection({
           </Typography>
         </>
       )}
-      {draftText && parseResult && parseResult.errors.length > 0 && (
+      {rawText && parseResult && parseResult.errors.length > 0 && (
         <Alert severity="warning" sx={{ mt: 2 }}>
           {he.geminiParseFailed}
           {parseResult.errors.map((e) => (
@@ -176,19 +232,30 @@ export default function ExamEditorGeminiGenerationSection({
               {he.questionBlock} {e.block}: {e.message}
             </Typography>
           ))}
-          <Button size="small" onClick={clearDraft} sx={{ mt: 1 }}>
+          <Button size="small" onClick={handleReject} sx={{ mt: 1 }}>
             {he.geminiRejectQuestions}
           </Button>
         </Alert>
       )}
-      {showPreview && parseResult && (
-        <GeminiGeneratedQuestionsPreview
-          questions={parseResult.questions}
-          accepting={accepting}
-          editable={editable}
-          onAccept={acceptDraft}
-          onReject={clearDraft}
-        />
+      {showPreview && parseResult && session && (
+        <>
+          <GeminiGeneratedQuestionsPreview
+            questions={parseResult.questions}
+            accepting={accepting}
+            editable={editable}
+            onAccept={acceptDraft}
+            onReject={handleReject}
+          />
+          <GeminiRefinePanel
+            messages={session.messages}
+            refining={refining}
+            disabled={!editable || accepting}
+            onSend={refineSession}
+          />
+          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={accepting || refining}>
+            {he.geminiStartOver}
+          </Button>
+        </>
       )}
     </Box>
   );

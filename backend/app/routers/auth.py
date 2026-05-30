@@ -14,7 +14,13 @@ from app.schemas.auth import (
     UserAiExplanationLanguageUpdateRequest,
     UserResponse,
 )
-from app.security import COOKIE_NAME, create_access_token, hash_password, verify_password
+from app.security import (
+    COOKIE_NAME,
+    create_access_token,
+    decode_email_verification_token,
+    hash_password,
+    verify_password,
+)
 from app.services.email import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -61,8 +67,24 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    await send_verification_email(user.email, f"verify-{user.id}")
+    await send_verification_email(user.email, user.id, user.full_name)
     return user
+
+
+@router.get("/verify-email")
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    user_id = decode_email_verification_token(token)
+    if user_id is None:
+        raise HTTPException(status_code=400, detail="קישור האימות לא תקין או שפג תוקפו")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    if user.email_verified:
+        return {"ok": True, "already_verified": True}
+    user.email_verified = True
+    await db.commit()
+    return {"ok": True, "already_verified": False}
 
 
 @router.post("/login", response_model=TokenResponse)

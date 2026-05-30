@@ -1,5 +1,6 @@
 import { alpha, createTheme } from "@mui/material/styles";
 import { brand, pageMeshBackground } from "./theme/brand";
+import { hebrewTextFieldOverrides } from "./theme/hebrewTextFieldOverrides";
 
 export const theme = createTheme({
   direction: "rtl",
@@ -85,16 +86,7 @@ export const theme = createTheme({
         },
       },
     },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 10,
-            bgcolor: brand.white,
-          },
-        },
-      },
-    },
+    ...hebrewTextFieldOverrides,
     MuiChip: {
       styleOverrides: {
         root: { fontWeight: 600, borderRadius: 8 },

@@ -224,6 +224,7 @@ class QuestionsReorderRequest(BaseModel):
 
 
 class ExamDetailResponse(ExamResponse):
+    catalog_course_name: str = ""
     questions: list[QuestionResponse] = []
     is_editable: bool = True
 

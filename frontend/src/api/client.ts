@@ -35,6 +35,32 @@ export async function api<T>(
   return res.json() as Promise<T>;
 }
 
+export async function downloadExamPdf(examId: number, title?: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/exams/${examId}/pdf`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    let detail = "אירעה שגיאה";
+    try {
+      const data = await res.json();
+      detail = data.detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? `${title?.replace(/\s+/g, "_") || `exam_${examId}`}.pdf`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export type UserRole = "admin" | "teacher" | "student";
 export type ExplanationLanguage = "he" | "fr" | "en" | "ru";
 
@@ -160,6 +186,7 @@ export interface Question {
 }
 
 export interface ExamDetail extends Exam {
+  catalog_course_name?: string;
   questions: Question[];
   is_editable: boolean;
 }

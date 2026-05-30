@@ -88,7 +88,7 @@ export default function DashboardLayout() {
         </Box>
       </Box>
 
-      <List sx={{ flex: 1, px: 1.5, py: 2 }}>
+      <List sx={{ flex: 1, minHeight: 0, overflowY: "auto", px: 1.5, py: 2 }}>
         {menuItems.map((item) => {
           const selected = item.matchPathPrefix
             ? location.pathname.startsWith(item.matchPathPrefix)
@@ -187,7 +187,7 @@ export default function DashboardLayout() {
   const appBarWidth = { xs: "100%", sm: `calc(100% - ${SIDEBAR_WIDTH}px)` };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+    <Box sx={{ display: "flex", height: "100vh", width: "100%", overflow: "hidden" }}>
       <CssBaseline />
 
       <AppBar
@@ -287,9 +287,11 @@ export default function DashboardLayout() {
           width: 0,
           order: 1,
           boxSizing: "border-box",
+          height: "100vh",
+          overflowY: "auto",
+          overflowX: "hidden",
           px: { xs: 1.5, sm: 2.5 },
           pb: { xs: 2, sm: 3 },
-          minHeight: "100vh",
         }}
       >
         <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
@@ -303,7 +305,6 @@ export default function DashboardLayout() {
             p: { xs: 2, sm: 3 },
             border: `1px solid ${alpha(brand.violet500, 0.12)}`,
             boxShadow: `0 4px 24px ${alpha(brand.violet700, 0.08)}`,
-            minHeight: "calc(100vh - 88px)",
           }}
         >
           <Outlet />

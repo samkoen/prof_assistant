@@ -22,6 +22,9 @@ export const hebrewAlignRightSx = {
   textAlign: "right",
 } as const;
 
+/** TextField hébreu — renfort (préférer le thème global ; éviter dir:"ltr" sur le parent). */
+export const hebrewTextFieldSx = {} as const;
+
 /** Bloc texte hébreu (côté droit d'une fiche). */
 export const hebrewTextBlockSx = {
   ...hebrewAlignRightSx,
@@ -238,6 +241,32 @@ export const sidebarNavIconSx = {
 export const sidebarNavTextSx = {
   flex: 1,
   margin: 0,
+  textAlign: "right",
+} as const;
+
+/** Tableau DataListTable : titres et valeurs RTL, alignés à droite. */
+export const hebrewDataListTableSx = {
+  "& .MuiTableCell-root": {
+    textAlign: "right",
+  },
+  "& .MuiTableSortLabel-root": {
+    flexDirection: "row-reverse",
+    width: "100%",
+    justifyContent: "flex-end",
+  },
+  "& .MuiTableSortLabel-icon": {
+    marginInlineStart: 0,
+    marginInlineEnd: 4,
+  },
+  "& .MuiTableHead .MuiInputBase-input": {
+    textAlign: "right",
+    direction: "rtl",
+  },
+} as const;
+
+/** Cellule tableau : contenu technique (email) — LTR, aligné à droite dans la colonne. */
+export const hebrewDataListTableCellLtrSx = {
+  direction: "ltr",
   textAlign: "right",
 } as const;
 

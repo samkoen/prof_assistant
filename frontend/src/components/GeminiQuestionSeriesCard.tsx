@@ -75,13 +75,17 @@ export default function GeminiQuestionSeriesCard({
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField
-            label={he.geminiSeriesSubject}
-            value={series.subject}
-            onChange={(e) => patch({ subject: e.target.value })}
+            label={he.geminiSeriesInstructions}
+            value={series.instructions}
+            onChange={(e) => patch({ instructions: e.target.value })}
             fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
             dir="rtl"
             disabled={disabled}
             required
+            placeholder={he.geminiSeriesInstructions}
           />
           <Box
             sx={{

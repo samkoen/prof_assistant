@@ -9,6 +9,7 @@ import { getHomePath } from "./config/menuItems";
 import LoginPage from "./pages/LoginPage";
 
 import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 
@@ -81,6 +82,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 

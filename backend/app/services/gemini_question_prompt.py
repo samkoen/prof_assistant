@@ -53,7 +53,7 @@ def _series_block(index: int, item: GeminiSeriesInput) -> str:
     level = _LEVEL_LABELS[item.level]
     lang = _LANG_CONFIG[item.language]["label"]
     return (
-        f"{index}. נושא: {item.subject.strip()}\n"
+        f"{index}. הנחיות המורה:\n{item.instructions.strip()}\n"
         f"   מספר שאלות: {item.question_count}\n"
         f"   רמה: {level}\n"
         f"   שפה: {lang}\n"

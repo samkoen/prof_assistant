@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.responses import Response
 
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
@@ -74,6 +75,7 @@ from app.services.catalog_scope import (
 )
 
 from app.services.gemini_question_generation import generate_exam_questions_text
+from app.services.exam_pdf import build_exam_pdf_bytes, pdf_content_disposition
 from app.services.scoring import score_question
 from app.services.integrity_service import (
     accept_rules,
@@ -563,10 +565,43 @@ async def get_exam_detail(
     names = await load_scope_teacher_names(db, [exam])
     editable = not await exam_has_active_sessions(exam_id, db)
     can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    catalog = await db.get(CourseCatalog, exam.catalog_course_id)
     return ExamDetailResponse(
         **_exam_response(exam, len(questions), names, can_delete=can_delete).model_dump(),
+        catalog_course_name=catalog.name if catalog else "",
         questions=[QuestionResponse.model_validate(q) for q in questions],
         is_editable=editable,
+    )
+
+
+@router.get("/{exam_id}/pdf")
+async def download_exam_pdf(
+    exam_id: int,
+    include_answers: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    q_result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.exam_id == exam_id)
+        .order_by(Question.order_index, Question.id)
+    )
+    questions = q_result.scalars().all()
+    if not questions:
+        raise HTTPException(status_code=400, detail="אין שאלות במבחן")
+    catalog = await db.get(CourseCatalog, exam.catalog_course_id)
+    course_name = catalog.name if catalog else ""
+    try:
+        pdf_bytes = build_exam_pdf_bytes(exam, questions, course_name, include_answers=include_answers)
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="לא ניתן ליצור PDF — חסרה גופן במערכת")
+    filename = pdf_content_disposition(exam)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": filename},
     )
 
 

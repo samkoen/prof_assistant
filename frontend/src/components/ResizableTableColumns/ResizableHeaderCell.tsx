@@ -104,6 +104,7 @@ export function ResizableHeaderCell({
   return (
     <TableCell
       padding="none"
+      align="right"
       {...tableCellProps}
       sx={{
         position: "relative",
@@ -127,6 +128,8 @@ export function ResizableHeaderCell({
           maxWidth: "100%",
           whiteSpace: "nowrap",
           pointerEvents: "none",
+          textAlign: "right",
+          direction: "rtl",
         }}
       >
         <Box
@@ -136,6 +139,8 @@ export function ResizableHeaderCell({
             maxWidth: "100%",
             minWidth: 0,
             pointerEvents: "auto",
+            textAlign: "right",
+            direction: "rtl",
             "& .MuiTableSortLabel-root": { maxWidth: "100%", minWidth: 0 },
           }}
         >
@@ -200,13 +205,15 @@ export function AlignedTableCell({
   width,
   children,
   dense = false,
+  cellDir = "rtl",
   sx: sxProps,
   ...rest
-}: TableCellProps & { width: number; dense?: boolean }) {
+}: TableCellProps & { width: number; dense?: boolean; cellDir?: "ltr" | "rtl" }) {
   const w = num(width, 100);
   return (
     <TableCell
       padding="none"
+      align="right"
       {...rest}
       sx={{
         width: w,
@@ -216,7 +223,18 @@ export function AlignedTableCell({
         ...sxProps,
       }}
     >
-      <Box sx={{ pl: 2, pr: 2, py: dense ? 0.75 : 1.5, overflow: "hidden" }}>{children}</Box>
+      <Box
+        sx={{
+          pl: 2,
+          pr: 2,
+          py: dense ? 0.75 : 1.5,
+          overflow: "hidden",
+          textAlign: "right",
+          direction: cellDir,
+        }}
+      >
+        {children}
+      </Box>
     </TableCell>
   );
 }

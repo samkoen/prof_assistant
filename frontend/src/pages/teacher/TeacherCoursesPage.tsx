@@ -25,6 +25,17 @@ import { api, ApiError, type CatalogCourse, type CourseOffering } from "../../ap
 import { he } from "../../i18n/he";
 
 const CURRENT_YEAR = new Date().getFullYear();
+const NEW_CATALOG_ID = "__new__";
+
+const emptyOfferingForm = () => ({
+  catalog_course_id: "",
+  group_name: "",
+  academic_year: String(CURRENT_YEAR),
+  semester: "1",
+  description: "",
+  is_open_enrollment: true,
+  auto_approve_enrollment: false,
+});
 
 export default function TeacherCoursesPage() {
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
@@ -32,15 +43,11 @@ export default function TeacherCoursesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    catalog_course_id: "",
-    group_name: "",
-    academic_year: String(CURRENT_YEAR),
-    semester: "1",
-    description: "",
-    is_open_enrollment: true,
-    auto_approve_enrollment: false,
-  });
+  const [form, setForm] = useState(emptyOfferingForm);
+  const [newCatalog, setNewCatalog] = useState({ name: "", description: "" });
+  const [submitting, setSubmitting] = useState(false);
+
+  const isNewCatalog = form.catalog_course_id === NEW_CATALOG_ID;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,16 +70,50 @@ export default function TeacherCoursesPage() {
     load();
   }, [load]);
 
+  const openCreateDialog = () => {
+    setForm({
+      ...emptyOfferingForm(),
+      catalog_course_id: catalogs.length === 0 ? NEW_CATALOG_ID : "",
+    });
+    setNewCatalog({ name: "", description: "" });
+    setOpen(true);
+  };
+
+  const closeCreateDialog = () => {
+    setOpen(false);
+    setForm(emptyOfferingForm());
+    setNewCatalog({ name: "", description: "" });
+  };
+
+  const resolveCatalogCourseId = async (): Promise<number> => {
+    if (!isNewCatalog) return Number(form.catalog_course_id);
+    const created = await api<CatalogCourse>("/api/catalog-courses", {
+      method: "POST",
+      body: JSON.stringify({
+        name: newCatalog.name.trim(),
+        description: newCatalog.description.trim() || null,
+      }),
+    });
+    return created.id;
+  };
+
   const createOffering = async () => {
     if (!form.catalog_course_id) {
       setError(he.selectCatalogCourse);
       return;
     }
+    if (isNewCatalog && !newCatalog.name.trim()) {
+      setError(he.subject);
+      return;
+    }
+    setSubmitting(true);
+    setError("");
     try {
+      const catalogCourseId = await resolveCatalogCourseId();
       await api("/api/courses", {
         method: "POST",
         body: JSON.stringify({
-          catalog_course_id: Number(form.catalog_course_id),
+          catalog_course_id: catalogCourseId,
           group_name: form.group_name,
           academic_year: Number(form.academic_year),
           semester: Number(form.semester),
@@ -81,21 +122,19 @@ export default function TeacherCoursesPage() {
           auto_approve_enrollment: form.auto_approve_enrollment,
         }),
       });
-      setOpen(false);
-      setForm({
-        catalog_course_id: "",
-        group_name: "",
-        academic_year: String(CURRENT_YEAR),
-        semester: "1",
-        description: "",
-        is_open_enrollment: true,
-        auto_approve_enrollment: false,
-      });
+      closeCreateDialog();
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const canSubmitOffering =
+    !!form.catalog_course_id &&
+    (!isNewCatalog || newCatalog.name.trim().length > 0) &&
+    form.group_name.trim().length > 0;
 
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
@@ -103,7 +142,7 @@ export default function TeacherCoursesPage() {
         title={he.myCourses}
         subtitle={he.offeringSubtitle}
         addLabel={he.createOffering}
-        onAdd={() => setOpen(true)}
+        onAdd={openCreateDialog}
       />
 
       {error && (
@@ -147,7 +186,7 @@ export default function TeacherCoursesPage() {
         />
       )}
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={open} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <DialogTitle>{he.createOffering}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <TextField
@@ -156,14 +195,35 @@ export default function TeacherCoursesPage() {
             value={form.catalog_course_id}
             onChange={(e) => setForm({ ...form, catalog_course_id: e.target.value })}
             required
-            helperText={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+            fullWidth
           >
+            <MenuItem value={NEW_CATALOG_ID}>{he.catalogCourseNew}</MenuItem>
             {catalogs.map((c) => (
               <MenuItem key={c.id} value={String(c.id)}>
                 {c.name}
               </MenuItem>
             ))}
           </TextField>
+          {isNewCatalog && (
+            <>
+              <TextField
+                label={he.subject}
+                value={newCatalog.name}
+                onChange={(e) => setNewCatalog({ ...newCatalog, name: e.target.value })}
+                required
+                fullWidth
+                placeholder="לדוגמה: מבני נתונים"
+              />
+              <TextField
+                label={he.description}
+                value={newCatalog.description}
+                onChange={(e) => setNewCatalog({ ...newCatalog, description: e.target.value })}
+                multiline
+                rows={2}
+                fullWidth
+              />
+            </>
+          )}
           <TextField
             label={he.groupName}
             value={form.group_name}
@@ -224,13 +284,23 @@ export default function TeacherCoursesPage() {
           </Tooltip>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>{he.cancel}</Button>
+          <Button onClick={closeCreateDialog} disabled={submitting}>
+            {he.cancel}
+          </Button>
           <DisabledActionTooltip
-            disabled={catalogs.length === 0}
-            disabledReason={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+            disabled={!canSubmitOffering || submitting}
+            disabledReason={
+              !form.catalog_course_id
+                ? he.selectCatalogCourse
+                : isNewCatalog && !newCatalog.name.trim()
+                  ? he.subject
+                  : !form.group_name.trim()
+                    ? he.groupName
+                    : undefined
+            }
           >
-            <Button variant="contained" onClick={createOffering}>
-              {he.submit}
+            <Button variant="contained" onClick={createOffering} disabled={submitting}>
+              {submitting ? he.loading : he.submit}
             </Button>
           </DisabledActionTooltip>
         </DialogActions>

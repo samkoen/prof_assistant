@@ -16,6 +16,7 @@ export function getStudentTableColumns(): DataListColumnDef<StudentAccount>[] {
       key: "email",
       label: he.email,
       minWidth: 180,
+      cellDir: "ltr",
       getValue: (s) => s.email,
       renderCell: (s) => s.email,
     },

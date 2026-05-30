@@ -125,6 +125,7 @@ export default function TeacherCourseStudentsPage() {
         key: "student_email",
         label: he.email,
         minWidth: 180,
+        cellDir: "ltr",
         getValue: (e) => e.student_email,
         renderCell: (e) => e.student_email,
       },

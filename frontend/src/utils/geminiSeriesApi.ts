@@ -1,7 +1,7 @@
 import type { GeminiQuestionSeriesDraft } from "../types/geminiQuestionSeries";
 
 export interface GeminiSeriesApiPayload {
-  subject: string;
+  instructions: string;
   question_count: number;
   level: "easy" | "medium" | "hard";
   question_types: ("single" | "multiple" | "true_false")[];
@@ -12,7 +12,7 @@ export function seriesListToApiPayload(
   series: GeminiQuestionSeriesDraft[],
 ): GeminiSeriesApiPayload[] {
   return series.map((s) => ({
-    subject: s.subject.trim(),
+    instructions: s.instructions.trim(),
     question_count: s.questionCount,
     level: s.level,
     question_types: s.questionTypes,

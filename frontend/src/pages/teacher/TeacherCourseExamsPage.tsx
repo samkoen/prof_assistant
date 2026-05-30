@@ -4,21 +4,23 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Checkbox,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
+import DataListTable from "../../components/DataListTable/DataListTable";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
+import ListPageToolbar from "../../components/ListPageToolbar";
+import { getCourseExamTableColumns } from "../../config/courseExamTableColumns";
 import {
   api,
   ApiError,
@@ -28,20 +30,6 @@ import {
   type ExamSession,
 } from "../../api/client";
 import { he } from "../../i18n/he";
-import ListPageToolbar from "../../components/ListPageToolbar";
-import HebrewCardRow from "../../components/ui/HebrewCardRow";
-import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
-
-/** Statut affiché prof : actif / fermé / sinon tout regroupé sous « לא פעיל ». */
-function examDisplayStatus(session: ExamSession | undefined) {
-  if (session?.status === "active") {
-    return { color: "success" as const, label: he.examAlreadyActive };
-  }
-  if (session?.status === "closed") {
-    return { color: "default" as const, label: he.examClosed };
-  }
-  return { color: "warning" as const, label: he.examNotActive };
-}
 
 export default function TeacherCourseExamsPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -61,6 +49,8 @@ export default function TeacherCourseExamsPage() {
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const columns = useMemo(() => getCourseExamTableColumns(), []);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -98,6 +88,11 @@ export default function TeacherCourseExamsPage() {
     }
     return map;
   }, [sessions]);
+
+  const tableRows = useMemo(
+    () => exams.map((exam) => ({ exam, session: sessionByExamId.get(exam.id) })),
+    [exams, sessionByExamId],
+  );
 
   const confirmStartExam = async () => {
     if (!offering || !activateExam) return;
@@ -236,61 +231,35 @@ export default function TeacherCourseExamsPage() {
         </Alert>
       )}
 
-      {exams.length === 0 ? (
-        <Typography color="text.secondary">{he.noExams}</Typography>
-      ) : (
-        exams.map((exam) => {
-          const session = sessionByExamId.get(exam.id);
-          const hasQuestions = exam.question_count > 0;
-          const statusChip = examDisplayStatus(session);
-
-          return (
-            <HebrewCardRow
-              key={exam.id}
-              examList
-              sx={{ mb: 2 }}
-              text={
-                <>
-                  <Box sx={examListRowDetailsSx}>
-                    <Typography variant="body2" color="text.secondary">
-                      {exam.question_count} {he.questionsInExam}
-                    </Typography>
-                    {!hasQuestions && (
-                      <Typography variant="caption" color="warning.main" display="block">
-                        {he.noQuestionsYet}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Chip size="small" color={statusChip.color} label={statusChip.label} />
-                  <Typography fontWeight={600} sx={examListRowTitleSx}>
-                    {exam.title}
-                  </Typography>
-                </>
-              }
-              actions={
-                <ExamOfferingRowActions
-                  exam={exam}
-                  session={session}
-                  courseId={id}
-                  hasQuestions={hasQuestions}
-                  activatingId={activatingId}
-                  closingSessionId={closingSessionId}
-                  deactivatingSessionId={deactivatingSessionId}
-                  returnTo={`/teacher/courses/${id}/exams`}
-                  onChanged={load}
-                  onError={setError}
-                  onStartClick={(e) => {
-                    setActivateIntegrity(false);
-                    setActivateExam(e);
-                  }}
-                  onCloseClick={setCloseSession}
-                  onDeactivateClick={setConfirmSession}
-                />
-              }
-            />
-          );
-        })
-      )}
+      <DataListTable
+        viewKey={`teacher-course-exams-${id}`}
+        rows={tableRows}
+        columns={columns}
+        loading={loading}
+        emptyMessage={he.noExams}
+        getRowId={(row) => row.exam.id}
+        actionsColumnPx={210}
+        renderActions={(row) => (
+          <ExamOfferingRowActions
+            exam={row.exam}
+            session={row.session}
+            courseId={id}
+            hasQuestions={row.exam.question_count > 0}
+            activatingId={activatingId}
+            closingSessionId={closingSessionId}
+            deactivatingSessionId={deactivatingSessionId}
+            returnTo={`/teacher/courses/${id}/exams`}
+            onChanged={load}
+            onError={setError}
+            onStartClick={(exam) => {
+              setActivateIntegrity(false);
+              setActivateExam(exam);
+            }}
+            onCloseClick={setCloseSession}
+            onDeactivateClick={setConfirmSession}
+          />
+        )}
+      />
 
       {offering && (
         <AddExistingExamDialog

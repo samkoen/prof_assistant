@@ -1,4 +1,5 @@
 import { Box, Typography, type TypographyProps } from "@mui/material";
+import MathText from "./MathText";
 
 const optionTextSx = {
   display: "block",
@@ -61,7 +62,7 @@ export function OptionDisplay({
           color={color}
           sx={{ ...optionTextSx, flex: 1, textAlign: "left", minWidth: 0 }}
         >
-          {text}
+          <MathText text={text} component="span" />
         </Typography>
       </Box>
     );
@@ -80,7 +81,8 @@ export function OptionDisplay({
         direction: dir,
       }}
     >
-      {`${prefix}\n${text}`}
+      {`${prefix}\n`}
+      <MathText text={text} component="span" />
     </Typography>
   );
 }
@@ -97,7 +99,7 @@ export function OptionText({
 }) {
   return (
     <Typography variant={variant} component="div" color={color} sx={optionTextSx}>
-      {text}
+      <MathText text={text} component="span" />
     </Typography>
   );
 }

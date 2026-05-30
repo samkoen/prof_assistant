@@ -2,6 +2,7 @@ import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import { OptionDisplay } from "./MultilineOptionLayout";
+import MathText from "./MathText";
 import QuestionAiExplanation from "./QuestionAiExplanation";
 import { useAuth } from "../context/AuthContext";
 import type { ExamReview, ExamReviewCorrectOption, ExamReviewQuestion, ExplanationLanguage } from "../api/client";
@@ -78,7 +79,7 @@ function ReviewQuestionCard({
           />
         </Box>
         <Typography fontWeight={600} component="div" sx={{ whiteSpace: "pre-wrap", mb: 1.5 }}>
-          {index + 1}. {q.text}{" "}
+          {index + 1}. <MathText text={q.text} component="span" />{" "}
           <Typography component="span" variant="body2" color="text.secondary">
             ({q.points} נק')
           </Typography>

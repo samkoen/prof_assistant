@@ -87,6 +87,7 @@ export default function TeacherCatalogCoursesPage() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
             placeholder="לדוגמה: מבני נתונים"
+            fullWidth
           />
           <TextField
             label={he.description}
@@ -94,6 +95,7 @@ export default function TeacherCatalogCoursesPage() {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             multiline
             rows={2}
+            fullWidth
           />
         </DialogContent>
         <DialogActions>

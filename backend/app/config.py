@@ -58,10 +58,15 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cookie_domain: str | None = None
     frontend_url: str = "http://localhost:5173"
-    resend_api_key: str = ""
-    email_from: str = "noreply@assistant-ai.local"
     app_name: str = "Assistant AI"
     environment: str = "development"
+
+    brevo_api_key: str = ""
+    brevo_sender_email: str = ""
+    brevo_sender_name: str = ""
+    brevo_use_simulation: bool = True
+    brevo_sandbox_recipient: str = ""
+    email_verify_expire_hours: int = 48
 
     access_token_expire_days_student: int = 7
     access_token_expire_days_staff: int = 30

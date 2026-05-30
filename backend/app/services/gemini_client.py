@@ -142,6 +142,32 @@ async def _generate_across_models(
     raise last_error
 
 
+def _chat_body(
+    contents: list[dict],
+    *,
+    max_output_tokens: int | None,
+) -> dict:
+    return {
+        "contents": contents,
+        "generationConfig": _generation_config(max_output_tokens),
+    }
+
+
+async def _generate_with_body(
+    body: dict,
+    *,
+    timeout_seconds: float | None,
+    use_generation_fallbacks: bool,
+) -> str:
+    api_key = (settings.gemini_api_key or "").strip()
+    if not api_key:
+        raise GeminiError("שירות ההסבר אינו מוגדר")
+    primary = settings.gemini_model.strip() or "gemini-2.0-flash"
+    timeout = timeout_seconds or settings.gemini_timeout_seconds
+    models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)
+    return await _generate_across_models(models, api_key, body, timeout)
+
+
 async def generate_text(
     prompt: str,
     *,
@@ -149,14 +175,27 @@ async def generate_text(
     timeout_seconds: float | None = None,
     use_generation_fallbacks: bool = False,
 ) -> str:
-    api_key = (settings.gemini_api_key or "").strip()
-    if not api_key:
-        raise GeminiError("שירות ההסבר אינו מוגדר")
-    primary = settings.gemini_model.strip() or "gemini-2.0-flash"
-    body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": _generation_config(max_output_tokens),
-    }
-    timeout = timeout_seconds or settings.gemini_timeout_seconds
-    models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)
-    return await _generate_across_models(models, api_key, body, timeout)
+    body = _chat_body(
+        [{"role": "user", "parts": [{"text": prompt}]}],
+        max_output_tokens=max_output_tokens,
+    )
+    return await _generate_with_body(
+        body,
+        timeout_seconds=timeout_seconds,
+        use_generation_fallbacks=use_generation_fallbacks,
+    )
+
+
+async def generate_chat(
+    contents: list[dict],
+    *,
+    max_output_tokens: int | None = None,
+    timeout_seconds: float | None = None,
+    use_generation_fallbacks: bool = False,
+) -> str:
+    body = _chat_body(contents, max_output_tokens=max_output_tokens)
+    return await _generate_with_body(
+        body,
+        timeout_seconds=timeout_seconds,
+        use_generation_fallbacks=use_generation_fallbacks,
+    )

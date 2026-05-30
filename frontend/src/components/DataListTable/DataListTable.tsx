@@ -27,6 +27,7 @@ import {
   TABLE_ACTIONS_COLUMN_PX,
 } from "../../constants/layout";
 import { he } from "../../i18n/he";
+import { hebrewDataListTableSx } from "../../styles/hebrewAlign";
 import {
   computeResizablePixelWidths,
   defaultEqualFractions,
@@ -50,6 +51,8 @@ export interface DataListTableProps<T> {
   getRowId: (row: T) => string | number;
   renderActions?: (row: T) => ReactNode;
   toolbarExtra?: ReactNode;
+  /** Largeur colonne actions (défaut : TABLE_ACTIONS_COLUMN_PX). */
+  actionsColumnPx?: number;
 }
 
 function compareValues(a: string, b: string, order: "asc" | "desc"): number {
@@ -66,6 +69,7 @@ export default function DataListTable<T>({
   getRowId,
   renderActions,
   toolbarExtra,
+  actionsColumnPx = TABLE_ACTIONS_COLUMN_PX,
 }: DataListTableProps<T>) {
   const widthsStorageKey = `assistant.table.${viewKey}.widths`;
   const columnsStorageKey = `assistant.table.${viewKey}.columns`;
@@ -124,7 +128,7 @@ export default function DataListTable<T>({
   }, []);
 
   const hasActions = Boolean(renderActions);
-  const actionsPx = hasActions ? TABLE_ACTIONS_COLUMN_PX : 0;
+  const actionsPx = hasActions ? actionsColumnPx : 0;
 
   const { fullWidths, tableMinW, fitContainer } = useMemo((): {
     fullWidths: Record<string, number>;
@@ -333,6 +337,7 @@ export default function DataListTable<T>({
               tableLayout: "fixed",
               width: fitContainer ? "100%" : "max-content",
               minWidth: effectiveTableMinW,
+              ...hebrewDataListTableSx,
             }}
           >
             <TableHead sx={{ "& .MuiTableRow-root": { overflow: "visible" } }}>
@@ -381,7 +386,12 @@ export default function DataListTable<T>({
                 {resizableOrder.map((colKey) => {
                   const col = visibleColumns.find((c) => c.key === colKey)!;
                   return (
-                    <AlignedTableCell key={`f-${colKey}`} width={fullWidths[colKey]} dense>
+                    <AlignedTableCell
+                      key={`f-${colKey}`}
+                      width={fullWidths[colKey]}
+                      dense
+                      cellDir={col.cellDir ?? "rtl"}
+                    >
                       {col.filterable !== false ? (
                         <TextField
                           size="small"
@@ -425,7 +435,11 @@ export default function DataListTable<T>({
                   {resizableOrder.map((colKey) => {
                     const col = visibleColumns.find((c) => c.key === colKey)!;
                     return (
-                      <AlignedTableCell key={colKey} width={fullWidths[colKey]}>
+                      <AlignedTableCell
+                        key={colKey}
+                        width={fullWidths[colKey]}
+                        cellDir={col.cellDir ?? "rtl"}
+                      >
                         {col.renderCell(row)}
                       </AlignedTableCell>
                     );

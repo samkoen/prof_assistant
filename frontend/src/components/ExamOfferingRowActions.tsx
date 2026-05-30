@@ -1,11 +1,10 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, CircularProgress, IconButton } from "@mui/material";
+import { Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { hebrewActionsLeftSx } from "../styles/hebrewAlign";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import GradingIcon from "@mui/icons-material/Grading";
-import DisabledActionTooltip from "./DisabledActionTooltip";
 import { ExamActionButtons, ExamEditLink } from "./ExamActionButtons";
 import type { Exam, ExamSession } from "../api/client";
 import { he } from "../i18n/he";
@@ -26,21 +25,6 @@ type ExamOfferingRowActionsProps = {
   onDeactivateClick: (session: ExamSession) => void;
 };
 
-function playDisabledReason(
-  canStart: boolean,
-  hasQuestions: boolean,
-  isActive: boolean,
-  isClosed: boolean
-): string | undefined {
-  if (!hasQuestions) return he.noQuestionsYet;
-  if (!canStart) {
-    if (isActive) return he.examAlreadyActive;
-    if (isClosed) return he.examClosed;
-    return he.examNotActive;
-  }
-  return undefined;
-}
-
 export default function ExamOfferingRowActions({
   exam,
   session,
@@ -57,13 +41,13 @@ export default function ExamOfferingRowActions({
   onDeactivateClick,
 }: ExamOfferingRowActionsProps) {
   const isActive = session?.status === "active";
-  const isClosed = session?.status === "closed";
   const canStart = !session || session.status === "draft";
   const canViewGrades = !!session && session.status !== "draft";
   const canClose = isActive && !!session;
   const canDeactivate = isActive && !!session;
-  const playDisabled = !canStart || !hasQuestions || activatingId === exam.id;
-  const playReason = playDisabledReason(canStart, hasQuestions, !!isActive, !!isClosed);
+  const showStart = (canStart && hasQuestions) || activatingId === exam.id;
+  const showClose = canClose || closingSessionId === session?.id;
+  const showDeactivate = canDeactivate || deactivatingSessionId === session?.id;
   const gradesPath = session
     ? `/teacher/courses/${courseId}/exams/sessions/${session.id}/results`
     : "#";
@@ -72,80 +56,77 @@ export default function ExamOfferingRowActions({
   return (
     <Box sx={hebrewActionsLeftSx}>
       <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
-      <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} iconOnly />
-      <DisabledActionTooltip
-        disabled={!canViewGrades}
-        disabledReason={he.examNotActive}
-        title={he.viewExamGrades}
-      >
-        <IconButton
-          size="small"
-          disabled={!canViewGrades}
-          component={canViewGrades ? RouterLink : "button"}
-          to={canViewGrades ? gradesPath : undefined}
-          color={canViewGrades ? "primary" : "default"}
-          aria-label={he.viewExamGrades}
-        >
-          <GradingIcon fontSize="small" />
-        </IconButton>
-      </DisabledActionTooltip>
-      <DisabledActionTooltip
-        disabled={playDisabled}
-        disabledReason={playReason}
-        title={activatingId === exam.id ? he.loading : he.startExamNow}
-      >
-        <IconButton
-          size="small"
-          disabled={playDisabled}
-          color={!playDisabled ? "success" : "default"}
-          aria-label={he.startExamNow}
-          onClick={() => onStartClick(exam)}
-        >
-          {activatingId === exam.id ? (
-            <CircularProgress size={18} color="inherit" />
-          ) : (
-            <PlayArrowIcon fontSize="small" />
-          )}
-        </IconButton>
-      </DisabledActionTooltip>
-      <DisabledActionTooltip
-        disabled={!canClose}
-        disabledReason={he.examNotActive}
-        title={closingSessionId === session?.id ? he.loading : he.closeExam}
-      >
-        <IconButton
-          size="small"
-          disabled={!canClose || closingSessionId === session?.id}
-          color={canClose ? "primary" : "default"}
-          aria-label={he.closeExam}
-          onClick={() => session && onCloseClick(session)}
-        >
-          {closingSessionId === session?.id ? (
-            <CircularProgress size={18} />
-          ) : (
-            <DoneAllIcon fontSize="small" />
-          )}
-        </IconButton>
-      </DisabledActionTooltip>
-      <DisabledActionTooltip
-        disabled={!canDeactivate}
-        disabledReason={he.examNotActive}
-        title={deactivatingSessionId === session?.id ? he.loading : he.cancelActivation}
-      >
-        <IconButton
-          size="small"
-          disabled={!canDeactivate || deactivatingSessionId === session?.id}
-          color={canDeactivate ? "warning" : "default"}
-          aria-label={he.cancelActivation}
-          onClick={() => session && onDeactivateClick(session)}
-        >
-          {deactivatingSessionId === session?.id ? (
-            <CircularProgress size={18} />
-          ) : (
-            <StopIcon fontSize="small" />
-          )}
-        </IconButton>
-      </DisabledActionTooltip>
+      <ExamActionButtons
+        exam={exam}
+        onChanged={onChanged}
+        onError={onError}
+        iconOnly
+        hideInactive
+      />
+      {canViewGrades && (
+        <Tooltip title={he.viewExamGrades}>
+          <IconButton
+            size="small"
+            component={RouterLink}
+            to={gradesPath}
+            color="primary"
+            aria-label={he.viewExamGrades}
+          >
+            <GradingIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+      {showStart && (
+        <Tooltip title={activatingId === exam.id ? he.loading : he.startExamNow}>
+          <IconButton
+            size="small"
+            color="success"
+            aria-label={he.startExamNow}
+            disabled={activatingId === exam.id}
+            onClick={() => onStartClick(exam)}
+          >
+            {activatingId === exam.id ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : (
+              <PlayArrowIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
+      {showClose && session && (
+        <Tooltip title={closingSessionId === session.id ? he.loading : he.closeExam}>
+          <IconButton
+            size="small"
+            color="primary"
+            aria-label={he.closeExam}
+            disabled={closingSessionId === session.id}
+            onClick={() => onCloseClick(session)}
+          >
+            {closingSessionId === session.id ? (
+              <CircularProgress size={18} />
+            ) : (
+              <DoneAllIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
+      {showDeactivate && session && (
+        <Tooltip title={deactivatingSessionId === session.id ? he.loading : he.cancelActivation}>
+          <IconButton
+            size="small"
+            color="warning"
+            aria-label={he.cancelActivation}
+            disabled={deactivatingSessionId === session.id}
+            onClick={() => onDeactivateClick(session)}
+          >
+            {deactivatingSessionId === session.id ? (
+              <CircularProgress size={18} />
+            ) : (
+              <StopIcon fontSize="small" />
+            )}
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }

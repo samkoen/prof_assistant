@@ -1,6 +1,7 @@
 import { Box, Chip, Typography } from "@mui/material";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
+import MathText from "./MathText";
 import { OptionDisplay } from "./MultilineOptionLayout";
 import { he } from "../i18n/he";
 
@@ -67,7 +68,7 @@ export function ExamQuestionReadView({
           ...(ltr ? examQuestionLtrSx : { textAlign: "start", width: "100%" }),
         }}
       >
-        {index}. {text}
+        {index}. <MathText text={text} component="span" />
       </Typography>
       <Box
         dir={contentDir}

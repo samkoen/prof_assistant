@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { OptionText } from "../../components/MultilineOptionLayout";
+import MathText from "../../components/MathText";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   api,
@@ -344,7 +345,7 @@ function QuestionBlock({
     <Card sx={{ mb: 2 }}>
       <CardContent>
         <Typography fontWeight={600} gutterBottom sx={{ whiteSpace: "pre-wrap" }}>
-          {index}. {question.text}{" "}
+          {index}. <MathText text={question.text} component="span" />{" "}
           <Typography component="span" variant="body2" color="text.secondary">
             ({question.points} נק')
           </Typography>

@@ -16,6 +16,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DisabledActionTooltip from "./DisabledActionTooltip";
+import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
 import { api, ApiError, type Exam } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -25,6 +26,8 @@ interface ExamActionButtonsProps {
   onError: (message: string) => void;
   size?: "small" | "medium";
   iconOnly?: boolean;
+  /** Masquer les actions indisponibles (ex. supprimer si examen activé). */
+  hideInactive?: boolean;
 }
 
 export function ExamActionButtons({
@@ -33,6 +36,7 @@ export function ExamActionButtons({
   onError,
   size = "small",
   iconOnly = false,
+  hideInactive = false,
 }: ExamActionButtonsProps) {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -132,7 +136,8 @@ export function ExamActionButtons({
   return (
     <>
       {duplicateBtn}
-      {deleteBtn}
+      <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
+      {(!hideInactive || canDelete) && deleteBtn}
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs">
         <DialogTitle>{he.deleteExam}</DialogTitle>

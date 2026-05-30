@@ -8,6 +8,7 @@ from app.models.enums import UserRole
 
 ALGORITHM = "HS256"
 COOKIE_NAME = "assistant_session"
+EMAIL_VERIFY_PURPOSE = "email_verify"
 
 
 def hash_password(password: str) -> str:
@@ -39,4 +40,21 @@ def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
     except JWTError:
+        return None
+
+
+def create_email_verification_token(user_id: int) -> str:
+    hours = settings.email_verify_expire_hours
+    expire = datetime.now(timezone.utc) + timedelta(hours=hours)
+    payload = {"sub": str(user_id), "purpose": EMAIL_VERIFY_PURPOSE, "exp": expire}
+    return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
+
+
+def decode_email_verification_token(token: str) -> int | None:
+    data = decode_access_token(token)
+    if not data or data.get("purpose") != EMAIL_VERIFY_PURPOSE:
+        return None
+    try:
+        return int(data["sub"])
+    except (KeyError, TypeError, ValueError):
         return None
