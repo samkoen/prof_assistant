@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -91,6 +92,13 @@ class Settings(BaseSettings):
     gemini_source_max_chars_per_file: int = 80_000
     gemini_source_max_total_chars: int = 120_000
     gemini_source_max_files_per_exam: int = 5
+
+    @model_validator(mode="after")
+    def apply_vercel_storage_defaults(self) -> "Settings":
+        """Vercel serverless : FS éphémère, seul /tmp est inscriptible."""
+        if os.getenv("VERCEL") and self.gemini_sources_dir == "data/gemini_sources":
+            object.__setattr__(self, "gemini_sources_dir", "/tmp/gemini_sources")
+        return self
 
     @model_validator(mode="before")
     @classmethod

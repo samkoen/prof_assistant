@@ -20,8 +20,26 @@ from app.services.exam_questions import exam_has_active_sessions
 
 def _storage_root() -> Path:
     root = Path(settings.gemini_sources_dir)
-    root.mkdir(parents=True, exist_ok=True)
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="אחסון קבצים לא זמין בשרת — נסו TXT/MD או פנו למנהל",
+        ) from exc
     return root
+
+
+def _persist_raw_file(exam_id: int, stored_name: str, raw: bytes) -> str:
+    """Enregistre le fichier ; sur serverless sans disque, texte déjà en base."""
+    rel_dir = _storage_root() / str(exam_id)
+    try:
+        rel_dir.mkdir(parents=True, exist_ok=True)
+        full_path = rel_dir / stored_name
+        full_path.write_bytes(raw)
+        return str(full_path)
+    except OSError:
+        return f"ephemeral://{exam_id}/{stored_name}"
 
 
 def _source_to_response(src: ExamGeminiSource) -> GeminiSourceResponse:
@@ -102,18 +120,15 @@ async def upload_source(
 
     style_default, content_default = _defaults_for_type(source_type)
     safe_name = Path(filename).name.replace("..", "").strip() or "source.txt"
-    rel_dir = _storage_root() / str(exam_id)
-    rel_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{uuid.uuid4().hex}_{safe_name}"
-    full_path = rel_dir / stored_name
-    full_path.write_bytes(raw)
+    storage_path = _persist_raw_file(exam_id, stored_name, raw)
 
     source = ExamGeminiSource(
         exam_id=exam_id,
         teacher_id=user.id,
         source_type=source_type,
         original_filename=safe_name,
-        storage_path=str(full_path),
+        storage_path=storage_path,
         extracted_text=extracted,
         char_count=char_count,
         use_as_style=style_default,
@@ -144,9 +159,10 @@ async def update_source_flags(
 async def delete_source(source_id: int, user: User, db: AsyncSession) -> None:
     source = await _load_owned_source(source_id, user, db)
     await _assert_exam_editable(source.exam_id, db)
-    path = Path(source.storage_path)
-    if path.is_file():
-        path.unlink(missing_ok=True)
+    if not source.storage_path.startswith("ephemeral://"):
+        path = Path(source.storage_path)
+        if path.is_file():
+            path.unlink(missing_ok=True)
     await db.delete(source)
     await db.commit()
 
