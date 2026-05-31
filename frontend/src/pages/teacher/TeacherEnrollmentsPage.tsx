@@ -8,15 +8,12 @@ import {
 } from "@mui/material";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
-import UnverifiedStudentsPanel from "../../components/UnverifiedStudentsPanel";
 import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
 import { he } from "../../i18n/he";
 
 export default function TeacherEnrollmentsPage() {
   const [pending, setPending] = useState<Enrollment[]>([]);
-  const [unverifiedCount, setUnverifiedCount] = useState(0);
-  const [unverifiedLoaded, setUnverifiedLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -58,18 +55,11 @@ export default function TeacherEnrollmentsPage() {
         </Alert>
       )}
 
-      <UnverifiedStudentsPanel
-        onCountChange={(count) => {
-          setUnverifiedCount(count);
-          setUnverifiedLoaded(true);
-        }}
-      />
-
       {loading ? (
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
         </Box>
-      ) : pending.length === 0 && unverifiedLoaded && unverifiedCount === 0 ? (
+      ) : pending.length === 0 ? (
         <Typography color="text.secondary">{he.noPendingRequests}</Typography>
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>

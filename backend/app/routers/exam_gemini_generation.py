@@ -33,7 +33,7 @@ async def start_gemini_session(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
-    return await create_generation_session(exam, user, body.series, db)
+    return await create_generation_session(exam, user, body.series, db, body.source_ids)
 
 
 @router.get("/exams/{exam_id}/gemini-sessions/active", response_model=GeminiSessionResponse | None)

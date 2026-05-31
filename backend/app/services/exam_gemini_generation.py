@@ -26,13 +26,16 @@ from app.services.exam_questions import (
     validate_question_body,
 )
 from app.services.gemini_client import GeminiError, generate_chat
+from app.services.gemini_source_prompt import build_sources_context_block
+from app.services.exam_gemini_source_service import load_sources_for_generation
 from app.services.gemini_question_prompt import build_questions_generation_prompt
 
 MAX_REFINE_TURNS = 12
 REFINE_USER_PREFIX = """בקשת עדכון מהמורה:
 {message}
 
-החזר את כל מערך השאלות המלא בפורמט הנדרש (מ-Q1 ברצף), לא רק את השינויים."""
+החזר את כל מערך השאלות המלא בפורמט הנדרש (מ-Q1 ברצף), לא רק את השינויים.
+חובה: A) B) C) D) בלבד; ב-single בדיוק אפשרות אחת עם * (שורה * בלבד אחרי A) או * בסוף שורת האפשרות הנכונה)."""
 
 
 def _series_to_params(series: list[GeminiSeriesInput]) -> list[dict]:
@@ -131,18 +134,22 @@ async def create_generation_session(
     user: User,
     series: list[GeminiSeriesInput],
     db: AsyncSession,
+    source_ids: list[int] | None = None,
 ) -> GeminiSessionResponse:
     if await exam_has_active_sessions(exam.id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     await _abandon_active_sessions(exam.id, user.id, db)
+    ids = source_ids or []
+    sources = await load_sources_for_generation(exam.id, user, ids, db)
     session = ExamGeminiGenerationSession(
         exam_id=exam.id,
         teacher_id=user.id,
-        initial_params={"series": _series_to_params(series)},
+        initial_params={"series": _series_to_params(series), "source_ids": ids},
     )
     db.add(session)
     await db.flush()
-    prompt = build_questions_generation_prompt(series, exam.title)
+    sources_block = build_sources_context_block(sources)
+    prompt = build_questions_generation_prompt(series, exam.title, sources_block)
     await _append_exchange(session, prompt, db)
     await db.commit()
     result = await db.execute(

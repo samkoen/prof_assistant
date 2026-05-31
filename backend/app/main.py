@@ -9,6 +9,7 @@ from app.routers import (
     catalog_courses,
     courses,
     exam_gemini_generation,
+    exam_gemini_sources,
     exams,
     notifications,
     students_router,
@@ -29,6 +30,7 @@ app.include_router(catalog_courses.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(exams.router, prefix="/api")
 app.include_router(exam_gemini_generation.router, prefix="/api")
+app.include_router(exam_gemini_sources.router, prefix="/api")
 app.include_router(ai_explanations.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

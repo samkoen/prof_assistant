@@ -4,6 +4,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import GeminiGeneratedQuestionsPreview from "./GeminiGeneratedQuestionsPreview";
 import GeminiQuestionSeriesCard from "./GeminiQuestionSeriesCard";
+import ExamGeminiSourcesPanel from "./ExamGeminiSourcesPanel";
 import GeminiRefinePanel from "./GeminiRefinePanel";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import { api, ApiError, type ExamDetail } from "../api/client";
@@ -40,6 +41,7 @@ export default function ExamEditorGeminiGenerationSection({
   const [generating, setGenerating] = useState(false);
   const [refining, setRefining] = useState(false);
   const [accepting, setAccepting] = useState(false);
+  const [sourceIds, setSourceIds] = useState<number[]>([]);
 
   const editable = exam.is_editable;
   const totalQuestions = seriesList.reduce((sum, s) => sum + s.questionCount, 0);
@@ -98,7 +100,10 @@ export default function ExamEditorGeminiGenerationSection({
       }
       const created = await api<GeminiGenerationSession>(`/api/exams/${examId}/gemini-sessions`, {
         method: "POST",
-        body: JSON.stringify({ series: seriesListToApiPayload(seriesList) }),
+        body: JSON.stringify({
+          series: seriesListToApiPayload(seriesList),
+          source_ids: sourceIds,
+        }),
       });
       setSession(created);
     } catch (e) {
@@ -172,6 +177,14 @@ export default function ExamEditorGeminiGenerationSection({
         <Alert severity="warning" sx={{ mb: 2 }}>
           {he.examNotEditable}
         </Alert>
+      )}
+      {!showPreview && (
+        <ExamGeminiSourcesPanel
+          examId={examId}
+          disabled={!editable || generating || refining}
+          onSelectedIdsChange={setSourceIds}
+          onError={onError}
+        />
       )}
       {!showPreview &&
         seriesList.map((series, index) => (

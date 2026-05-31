@@ -86,6 +86,12 @@ class Settings(BaseSettings):
     gemini_retry_count: int = 2
     gemini_retry_delay_seconds: float = 2.0
 
+    gemini_sources_dir: str = "data/gemini_sources"
+    gemini_source_max_file_bytes: int = 15 * 1024 * 1024
+    gemini_source_max_chars_per_file: int = 80_000
+    gemini_source_max_total_chars: int = 120_000
+    gemini_source_max_files_per_exam: int = 5
+
     @model_validator(mode="before")
     @classmethod
     def normalize_database_connection(cls, data: Any) -> Any:

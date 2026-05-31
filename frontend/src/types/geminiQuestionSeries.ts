@@ -4,23 +4,34 @@ export type GeminiSeriesLevel = "easy" | "medium" | "hard";
 
 export type GeminiSeriesLanguage = "he" | "fr" | "en" | "ru";
 
+export type InstructionsTextDirection = "ltr" | "rtl";
+
 export interface GeminiQuestionSeriesDraft {
   id: string;
   instructions: string;
+  instructionsDir: InstructionsTextDirection;
   questionCount: number;
   level: GeminiSeriesLevel;
   questionTypes: QuestionType[];
   language: GeminiSeriesLanguage;
 }
 
+export function defaultInstructionsDir(
+  language: GeminiSeriesLanguage,
+): InstructionsTextDirection {
+  return language === "he" ? "rtl" : "ltr";
+}
+
 export function createGeminiQuestionSeries(): GeminiQuestionSeriesDraft {
+  const language: GeminiSeriesLanguage = "he";
   return {
     id: crypto.randomUUID(),
     instructions: "",
+    instructionsDir: defaultInstructionsDir(language),
     questionCount: 5,
     level: "medium",
     questionTypes: ["single"],
-    language: "he",
+    language,
   };
 }
 

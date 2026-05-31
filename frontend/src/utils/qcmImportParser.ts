@@ -33,7 +33,12 @@ export interface QuestionImportPayload {
 const HEADER_RE =
   /^(?:Q?\d+[\.\):]?\s*)?(?:\[(single|multiple|true_false|tf|vrai_faux)\])?(?:\s*\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*$/i;
 
-const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/;
+const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/i;
+const HEBREW_OPTION_RE = /^([א-ת])\)\s*(.*)$/u;
+/** Ligne dédiée : * ou ✓ seul (réponse correcte avant contenu multiligne). */
+const MARKER_ONLY_RE = /^[*✓✔]\s*$/u;
+const CORRECT_SUFFIX_RE =
+  /\s*(?:[\(\[]\s*)?(?:נכון|תשובה\s*נכונה|correct)(?:\s*[\)\]])?\s*$/iu;
 const TF_RE =
   /^(?:Vrai|Faux|True|False|נכון|לא נכון|לא|Верно|Неверно|Да|Нет)\s*(\*)?\s*$/iu;
 
@@ -63,8 +68,56 @@ function splitBlocks(raw: string): string[] {
 }
 
 function stripCorrectMarker(line: string): { text: string; marked: boolean } {
-  if (!/\*/.test(line)) return { text: line, marked: false };
-  return { text: line.replace(/\s*\*\s*$/, "").replace(/\*/g, "").trimEnd(), marked: true };
+  const trimmed = line.trim();
+  if (MARKER_ONLY_RE.test(trimmed)) return { text: "", marked: true };
+  if (CORRECT_SUFFIX_RE.test(trimmed)) {
+    return { text: trimmed.replace(CORRECT_SUFFIX_RE, "").trimEnd(), marked: true };
+  }
+  if (/\s[*✓✔]\s*$/.test(line.trimEnd())) {
+    return { text: line.replace(/\s*[*✓✔]\s*$/, "").trimEnd(), marked: true };
+  }
+  return { text: line, marked: false };
+}
+
+const HEBREW_OPTION_MAP: Record<string, string> = {
+  א: "A",
+  ב: "B",
+  ג: "C",
+  ד: "D",
+  ה: "E",
+};
+
+function normalizeHebrewOptionLine(line: string): string {
+  const m = HEBREW_OPTION_RE.exec(line.trim());
+  if (!m) return line;
+  const lat = HEBREW_OPTION_MAP[m[1]];
+  return lat ? `${lat}) ${m[2]}` : line;
+}
+
+function normalizeGeminiQcmText(raw: string): string {
+  let text = raw.trim().replace(/^\uFEFF/, "");
+  if (text.startsWith("```")) {
+    text = text.replace(/^```[\w]*\n?/, "").replace(/\n?```\s*$/, "");
+  }
+  return text
+    .split("\n")
+    .map((line) => {
+      let out = line.replace(/^\*\*([A-Z])\)\*\*/i, "$1)").replace(/^\*\*([A-Z])\)/i, "$1)");
+      out = normalizeHebrewOptionLine(out);
+      return out;
+    })
+    .join("\n");
+}
+
+function collectOptionText(block: string[]): { text: string; is_correct: boolean } {
+  let is_correct = false;
+  const parts: string[] = [];
+  for (const line of block) {
+    const { text, marked } = stripCorrectMarker(line.trimEnd());
+    if (marked) is_correct = true;
+    if (text.trim()) parts.push(text);
+  }
+  return { text: trimEdgeBlankLines(parts).join("\n"), is_correct };
 }
 
 function trimEdgeBlankLines(lines: string[]): string[] {
@@ -83,20 +136,17 @@ function parseLetterOptions(lines: string[]): ParsedQuestionOption[] {
   const flush = () => {
     const block = trimEdgeBlankLines(chunk);
     if (block.length === 0) return;
-    let is_correct = false;
-    const parts = block.map((line) => {
-      const { text, marked } = stripCorrectMarker(line.trimEnd());
-      if (marked) is_correct = true;
-      return text;
-    });
-    const text = trimEdgeBlankLines(parts).join("\n");
-    if (text) options.push({ text, is_correct });
+    const { text, is_correct } = collectOptionText(block);
+    if (text || is_correct) options.push({ text: text || " ", is_correct });
     chunk = [];
   };
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const start = trimmed ? OPTION_START_RE.exec(trimmed) : null;
+    const normalized = normalizeHebrewOptionLine(trimmed);
+    const start = normalized
+      ? OPTION_START_RE.exec(normalized) ?? HEBREW_OPTION_RE.exec(normalized)
+      : null;
     if (start) {
       flush();
       const rest = start[2].trim();
@@ -110,10 +160,14 @@ function parseLetterOptions(lines: string[]): ParsedQuestionOption[] {
   return options;
 }
 
+function isOptionStartLine(line: string): boolean {
+  const t = line.trim();
+  return OPTION_START_RE.test(t) || HEBREW_OPTION_RE.test(t) || TF_RE.test(t);
+}
+
 function findOptionStartIndex(lines: string[], from: number): number {
   for (let i = from; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (OPTION_START_RE.test(t) || TF_RE.test(t)) return i;
+    if (isOptionStartLine(lines[i])) return i;
   }
   return -1;
 }
@@ -182,7 +236,7 @@ function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; er
 }
 
 export function parseQcmText(raw: string): ParseResult {
-  const trimmed = raw.trim();
+  const trimmed = normalizeGeminiQcmText(raw);
   if (!trimmed) {
     return { questions: [], errors: [{ block: 0, message: "אין תוכן להדבקה" }] };
   }
@@ -256,6 +310,26 @@ A)
    שורה 2 *
 B) תשובה קצרה
 ---
+Q1c [single] (2 pt)
+איזה עץ AVL מתקבל אחרי הוספת 7?
+A)
+*
+      10
+     /  \\
+    5    15
+B)
+      10
+     /  \\
+    5    12
+C)
+      12
+     /  \\
+    5    15
+D)
+      10
+     /  \\
+    7    15
+---
 Q2 [multiple] (2 pt)
 אילו מהבאים הם עצי חיפוש?
 A) AVL *
@@ -270,9 +344,9 @@ Q3 [true_false]
 ---`;
 
 export const QCM_GEMINI_PROMPT = `צור מבחן בפורמט הבא בדיוק (הפרד בין שאלות עם שורה ---):
-- כתוב את השאלות בבלוק plaintext
-- כותרת שאלה: Q<num> [single|multiple|true_false] (נקודות pt)
-- טקסט השאלה
-- אפשרויות: A) B) C) — אחרי A) אפשר כמה שורות (לא חובה בשורה אחת); * בסוף השורה הנכונה
-- לנכון/לא נכון: שורות "נכון" / "לא נכון" עם * על הנכונה
+- כותרת: Q<num> [single] (1 pt) — אפשרויות A) B) C) D) בלבד (לא א) ב))
+- אחרי A) מותרות שורות נוספות; עץ AVL: / = שמאל, \\ = ימין
+- סימון נכון: שורה * בלבד אחרי A), או * בסוף השורה האחרונה של האפשרות (לא * בתוך הטקסט)
+- ב-single: בדיוק אפשרות אחת עם *
+- לנכון/לא נכון: "נכון" / "לא נכון" עם * על הנכונה
 שפה: עברית.`;

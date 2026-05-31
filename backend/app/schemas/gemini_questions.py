@@ -24,8 +24,25 @@ class GeminiGenerateQuestionsResponse(BaseModel):
     raw_text: str
 
 
+class GeminiSourceResponse(BaseModel):
+    id: int
+    exam_id: int
+    source_type: str
+    original_filename: str
+    char_count: int
+    use_as_style: bool
+    use_as_content: bool
+    created_at: str
+
+
+class GeminiSourceUpdate(BaseModel):
+    use_as_style: bool | None = None
+    use_as_content: bool | None = None
+
+
 class GeminiSessionCreateRequest(BaseModel):
     series: list[GeminiSeriesInput] = Field(min_length=1, max_length=20)
+    source_ids: list[int] = Field(default_factory=list, max_length=10)
 
 
 class GeminiSessionRefineRequest(BaseModel):

@@ -8,13 +8,18 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DirectionalMultilineField from "./DirectionalMultilineField";
 import GeminiQuestionTypesField from "./GeminiQuestionTypesField";
 import type {
   GeminiQuestionSeriesDraft,
   GeminiSeriesLanguage,
   GeminiSeriesLevel,
 } from "../types/geminiQuestionSeries";
-import { GEMINI_SERIES_LANGUAGES, GEMINI_SERIES_LEVELS } from "../types/geminiQuestionSeries";
+import {
+  defaultInstructionsDir,
+  GEMINI_SERIES_LANGUAGES,
+  GEMINI_SERIES_LEVELS,
+} from "../types/geminiQuestionSeries";
 import { hebrewActionsLeftSx, hebrewAlignRightSx, hebrewCardRowSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
@@ -74,15 +79,12 @@ export default function GeminiQuestionSeriesCard({
           </Typography>
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <TextField
+          <DirectionalMultilineField
             label={he.geminiSeriesInstructions}
             value={series.instructions}
-            onChange={(e) => patch({ instructions: e.target.value })}
-            fullWidth
-            multiline
-            minRows={3}
-            maxRows={8}
-            dir="rtl"
+            onChange={(instructions) => patch({ instructions })}
+            direction={series.instructionsDir ?? defaultInstructionsDir(series.language)}
+            onDirectionChange={(instructionsDir) => patch({ instructionsDir })}
             disabled={disabled}
             required
             placeholder={he.geminiSeriesInstructions}

@@ -36,6 +36,7 @@ htmlcov/
 .nox/
 *.cover
 .hypothesis/
+backend/data/gemini_sources/
 
 # --- Node / frontend ---
 node_modules/

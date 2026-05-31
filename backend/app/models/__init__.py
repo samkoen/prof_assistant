@@ -12,6 +12,7 @@ from app.models.exam_gemini_generation import (
     ExamGeminiGenerationMessage,
     ExamGeminiGenerationSession,
 )
+from app.models.exam_gemini_source import ExamGeminiSource
 from app.models.exercise import Exercise
 from app.models.notification import Notification
 from app.models.user import User
@@ -32,4 +33,5 @@ __all__ = [
     "Notification",
     "ExamGeminiGenerationSession",
     "ExamGeminiGenerationMessage",
+    "ExamGeminiSource",
 ]

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Box, Button, Chip, Grid, Typography } from "@mui/material";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import PeopleIcon from "@mui/icons-material/People";
@@ -6,14 +6,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SchoolIcon from "@mui/icons-material/School";
 import DashboardNavCard from "../../components/ui/DashboardNavCard";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
-import {
-  api,
-  ApiError,
-  enrollmentOfferingLabel,
-  verifyStudentEmailBypass,
-  type Enrollment,
-  type StudentAccount,
-} from "../../api/client";
+import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
 import { he } from "../../i18n/he";
 import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 
@@ -43,27 +36,14 @@ const navCards = [
 
 export default function TeacherOverviewPage() {
   const [pendingEnrollments, setPendingEnrollments] = useState<Enrollment[]>([]);
-  const [unverifiedStudents, setUnverifiedStudents] = useState<StudentAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [verifyingId, setVerifyingId] = useState<number | null>(null);
-
-  const pendingCount = useMemo(
-    () => pendingEnrollments.length + unverifiedStudents.length,
-    [pendingEnrollments.length, unverifiedStudents.length],
-  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [enrollments, students] = await Promise.all([
-        api<Enrollment[]>("/api/enrollments/pending"),
-        api<StudentAccount[]>("/api/students"),
-      ]);
-      setPendingEnrollments(enrollments);
-      setUnverifiedStudents(students.filter((s) => !s.email_verified));
+      setPendingEnrollments(await api<Enrollment[]>("/api/enrollments/pending"));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -77,7 +57,6 @@ export default function TeacherOverviewPage() {
 
   const reviewEnrollment = async (enrollmentId: number, status: "approved" | "rejected") => {
     setError("");
-    setSuccess("");
     try {
       await api(`/api/enrollments/${enrollmentId}`, {
         method: "PATCH",
@@ -89,20 +68,7 @@ export default function TeacherOverviewPage() {
     }
   };
 
-  const verifyStudent = async (student: StudentAccount) => {
-    setVerifyingId(student.id);
-    setError("");
-    setSuccess("");
-    try {
-      await verifyStudentEmailBypass(student.id);
-      setSuccess(he.verifyStudentEmailSuccess);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setVerifyingId(null);
-    }
-  };
+  const pendingCount = pendingEnrollments.length;
 
   return (
     <Box sx={hebrewAlignRightSx}>
@@ -132,11 +98,6 @@ export default function TeacherOverviewPage() {
           {error}
         </Alert>
       )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>
-          {success}
-        </Alert>
-      )}
 
       <Box id="teacher-pending-requests" sx={{ mb: 4, ...hebrewAlignRightSx }}>
         <Typography variant="h6" fontWeight={700} gutterBottom>
@@ -148,34 +109,9 @@ export default function TeacherOverviewPage() {
           <Typography color="text.secondary">{he.noPendingRequests}</Typography>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {unverifiedStudents.map((s) => (
-              <HebrewCardRow
-                key={`verify-${s.id}`}
-                text={
-                  <>
-                    <Chip size="small" label={he.pendingEmailVerificationRequest} color="warning" sx={{ mb: 1 }} />
-                    <Typography fontWeight={700}>{s.full_name}</Typography>
-                    <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
-                      {s.email}
-                    </Typography>
-                  </>
-                }
-                actions={
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="success"
-                    disabled={verifyingId === s.id}
-                    onClick={() => verifyStudent(s)}
-                  >
-                    {he.verifyStudentEmail}
-                  </Button>
-                }
-              />
-            ))}
             {pendingEnrollments.map((p) => (
               <HebrewCardRow
-                key={`enrollment-${p.id}`}
+                key={p.id}
                 text={
                   <>
                     <Chip size="small" label={he.pendingEnrollmentRequest} color="warning" sx={{ mb: 1 }} />

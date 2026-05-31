@@ -1,5 +1,18 @@
 import type { ReactNode } from "react";
 
+/** Schéma ASCII (arbres AVL, etc.) — ne pas interpréter \\ comme échappement. */
+export function looksLikeAsciiDiagram(text: string): boolean {
+  if (!text.includes("\n")) return false;
+  return /[/\\]/.test(text) && /\d/.test(text);
+}
+
+export const asciiDiagramSx = {
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  direction: "ltr",
+  textAlign: "left",
+  unicodeBidi: "plaintext",
+} as const;
+
 /** Lit un exposant / indice : ^{…}, ^2, ^10, ^n */
 function readScript(input: string, start: number): [string, number] | null {
   if (start >= input.length) return null;
@@ -15,6 +28,8 @@ function readScript(input: string, start: number): [string, number] | null {
 
 /** Transforme n^2, x_{i}, a^10 en nœuds React avec <sup> / <sub>. */
 export function renderMathMarkup(text: string): ReactNode[] {
+  if (looksLikeAsciiDiagram(text)) return [text];
+
   const nodes: ReactNode[] = [];
   let buffer = "";
   let i = 0;
@@ -28,9 +43,14 @@ export function renderMathMarkup(text: string): ReactNode[] {
 
   while (i < text.length) {
     const ch = text[i];
-    if (ch === "\\" && i + 1 < text.length) {
-      buffer += text[i + 1];
-      i += 2;
+    if (ch === "\\") {
+      if (text[i + 1] === "\\") {
+        buffer += "\\";
+        i += 2;
+        continue;
+      }
+      buffer += "\\";
+      i += 1;
       continue;
     }
     if (ch === "^" || ch === "_") {
