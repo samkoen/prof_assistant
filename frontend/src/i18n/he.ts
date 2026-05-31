@@ -78,6 +78,7 @@ export const he = {
   geminiSourceChars: "תווים",
   geminiSourceUseStyle: "השתמש כדוגמה לסגנון ורמה",
   geminiSourceUseContent: "השתמש כתוכן לשאלות",
+  geminiSourceDelete: "מחיקת מקור",
   geminiSeriesLabel: "סדרה",
   geminiSeriesInstructions: "מה ליצור (הנחיות מדויקות)",
   textDirectionToolbar: "כיוון טקסט",

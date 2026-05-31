@@ -174,7 +174,7 @@ export default function ExamGeminiSourcesPanel({
                 color="error"
                 onClick={() => remove(src.id)}
                 disabled={disabled}
-                aria-label={he.delete}
+                aria-label={he.geminiSourceDelete}
               >
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
