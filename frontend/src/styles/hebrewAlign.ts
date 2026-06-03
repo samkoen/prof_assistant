@@ -91,6 +91,15 @@ export const hebrewActionsBarSx = {
   width: "100%",
 } as const;
 
+/** Barre de boutons RTL — à utiliser dans un conteneur dir="rtl". */
+export const hebrewActionsBarRtlSx = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 1,
+  justifyContent: "flex-start",
+  width: "100%",
+} as const;
+
 /** Ligne radio/checkbox dans îlot LTR : bouton à droite, libellé hébreu à sa gauche. */
 export const hebrewFormControlLabelSx = {
   margin: 0,

@@ -3,6 +3,7 @@ import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
 import MathText from "./MathText";
 import { OptionDisplay } from "./MultilineOptionLayout";
+import QuestionImageDisplay from "./QuestionImageDisplay";
 import { he } from "../i18n/he";
 
 const typeLabelRtl: Record<string, string> = {
@@ -26,11 +27,13 @@ export type ExamQuestionOptionView = {
   text: string;
   is_correct: boolean | null;
   id?: number;
+  image_url?: string | null;
 };
 
 type ExamQuestionReadViewProps = {
   index: number;
   text: string;
+  imageUrl?: string | null;
   questionType: string;
   points?: number;
   options: ExamQuestionOptionView[];
@@ -42,6 +45,7 @@ type ExamQuestionReadViewProps = {
 export function ExamQuestionReadView({
   index,
   text,
+  imageUrl,
   questionType,
   points,
   options,
@@ -70,6 +74,7 @@ export function ExamQuestionReadView({
       >
         {index}. <MathText text={text} component="span" />
       </Typography>
+      <QuestionImageDisplay url={imageUrl} />
       <Box
         dir={contentDir}
         display="flex"
@@ -89,6 +94,7 @@ export function ExamQuestionReadView({
           key={o.id ?? optIdx}
           prefix={`${String.fromCharCode(65 + optIdx)}) ${o.is_correct ? "✓" : "○"}`}
           text={o.text}
+          imageUrl={o.image_url}
           color={o.is_correct ? "success.main" : "text.secondary"}
           dir={contentDir}
         />

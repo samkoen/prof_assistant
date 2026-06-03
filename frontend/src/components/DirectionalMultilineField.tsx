@@ -1,12 +1,10 @@
-import type { KeyboardEvent } from "react";
+import { useCallback, useRef } from "react";
 import { Box, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import type { TextFieldProps } from "@mui/material";
 import FormatTextdirectionLToR from "@mui/icons-material/FormatTextdirectionLToR";
 import FormatTextdirectionRToL from "@mui/icons-material/FormatTextdirectionRToL";
-import {
-  handleTextDirectionShortcut,
-  type TextDirection,
-} from "../utils/textDirectionShortcut";
+import type { TextDirection } from "../utils/textDirectionShortcut";
+import { bidiInputSlotProps, useRegisterBidiFocus } from "../hooks/useBidiTextField";
 import { he } from "../i18n/he";
 
 interface DirectionalMultilineFieldProps
@@ -67,9 +65,13 @@ export default function DirectionalMultilineField({
   minRows = 3,
   maxRows = 8,
 }: DirectionalMultilineFieldProps) {
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    handleTextDirectionShortcut(e, onDirectionChange);
-  };
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const onDirection = useCallback(
+    (dir: TextDirection) => onDirectionChange(dir),
+    [onDirectionChange],
+  );
+  useRegisterBidiFocus(inputRef, onDirection);
+  const slotProps = bidiInputSlotProps(direction, onDirection);
 
   return (
     <Box>
@@ -86,17 +88,13 @@ export default function DirectionalMultilineField({
         <Typography variant="caption" color="text.secondary">
           {he.textDirectionHint}
         </Typography>
-        <DirectionToolbar
-          direction={direction}
-          onDirection={onDirectionChange}
-          disabled={disabled}
-        />
+        <DirectionToolbar direction={direction} onDirection={onDirectionChange} disabled={disabled} />
       </Box>
       <TextField
         label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
+        inputRef={inputRef}
         fullWidth
         multiline
         minRows={minRows}
@@ -105,9 +103,7 @@ export default function DirectionalMultilineField({
         disabled={disabled}
         required={required}
         placeholder={placeholder}
-        slotProps={{
-          htmlInput: { dir: direction },
-        }}
+        slotProps={slotProps}
       />
     </Box>
   );

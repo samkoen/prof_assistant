@@ -1,5 +1,33 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
+export function resolveApiUrl(path: string | null | undefined): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${API_BASE}${path}`;
+}
+
+export async function uploadQuestionImage(examId: number, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}/api/exams/${examId}/question-images`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!res.ok) {
+    let detail = "אירעה שגיאה";
+    try {
+      const data = await res.json();
+      detail = data.detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
+  }
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -173,11 +201,13 @@ export interface QuestionOption {
   text: string;
   is_correct: boolean | null;
   order_index: number;
+  image_url?: string | null;
 }
 
 export interface Question {
   id: number;
   text: string;
+  image_url?: string | null;
   question_type: "single" | "multiple" | "true_false";
   order_index: number;
   points: number;
@@ -195,11 +225,13 @@ export interface StudentQuestionOption {
   id: number;
   text: string;
   order_index: number;
+  image_url?: string | null;
 }
 
 export interface StudentQuestion {
   id: number;
   text: string;
+  image_url?: string | null;
   question_type: "single" | "multiple" | "true_false";
   order_index: number;
   points: number;
@@ -275,17 +307,20 @@ export interface ExamTake {
   duration_minutes: number;
   warning_minutes: number;
   integrity_mode_enabled: boolean;
+  questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: StudentQuestion[];
 }
 
 export interface ExamReviewCorrectOption {
   text: string;
+  image_url?: string | null;
 }
 
 export interface ExamReviewQuestion {
   id: number;
   text: string;
+  image_url?: string | null;
   question_type: "single" | "multiple" | "true_false";
   order_index: number;
   points: number;
@@ -298,6 +333,7 @@ export interface ExamReview {
   session_id: number;
   exam_title: string;
   show_correction: boolean;
+  questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];
 }

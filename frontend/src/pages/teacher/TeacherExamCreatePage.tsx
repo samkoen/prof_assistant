@@ -48,6 +48,7 @@ export default function TeacherExamCreatePage() {
   const [saving, setSaving] = useState(false);
 
   const returnTo = searchParams.get("return") || "/teacher/exams";
+  const backLabel = returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
   const prefillCatalog = searchParams.get("catalog_course_id") || "";
   const prefillOfferingId = searchParams.get("offering_id") || "";
   const fromGroup = !!offering;
@@ -73,7 +74,13 @@ export default function TeacherExamCreatePage() {
     }
   }, [prefillCatalog]);
 
-  const cancel = () => navigate(returnTo);
+  const resetForm = () => {
+    setForm({
+      ...emptyForm,
+      catalog_course_id: prefillCatalog || "",
+    });
+    setError("");
+  };
 
   const submit = async () => {
     if (!form.catalog_course_id) {
@@ -132,7 +139,7 @@ export default function TeacherExamCreatePage() {
         titleVariant="h5"
         actions={
           <Button component={RouterLink} to={returnTo} startIcon={<ArrowBackIcon />} size="small">
-            {he.cancel}
+            {backLabel}
           </Button>
         }
       />
@@ -240,7 +247,7 @@ export default function TeacherExamCreatePage() {
         )}
 
         <Box sx={{ ...hebrewFormActionsRightSx, mt: 1 }}>
-          <Button onClick={cancel}>{he.cancel}</Button>
+          <Button onClick={resetForm}>{he.cancel}</Button>
           <DisabledActionTooltip
             disabled={saving || catalogs.length === 0}
             disabledReason={catalogs.length === 0 ? he.noCatalogCourses : undefined}

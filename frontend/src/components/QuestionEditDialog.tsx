@@ -17,10 +17,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import BidiTextField from "./BidiTextField";
+import DirectionalMultilineField from "./DirectionalMultilineField";
+import type { TextDirection } from "../utils/textDirectionShortcut";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { api, ApiError, type Question } from "../api/client";
 import DisabledActionTooltip from "./DisabledActionTooltip";
+import QuestionImageField from "./QuestionImageField";
 import { he } from "../i18n/he";
 import { normalizeTextBlock } from "../utils/textNormalize";
 import type { QuestionType } from "../utils/qcmImportParser";
@@ -28,6 +32,7 @@ import type { QuestionType } from "../utils/qcmImportParser";
 interface OptionDraft {
   text: string;
   is_correct: boolean;
+  image_url?: string | null;
 }
 
 interface QuestionEditDialogProps {
@@ -49,21 +54,31 @@ const DEFAULT_OPTIONS: OptionDraft[] = [
   { text: "", is_correct: false },
 ];
 
+function hasContent(text: string, imageUrl?: string | null): boolean {
+  return text.trim().length > 0 || !!imageUrl?.trim();
+}
+
 function questionToDraft(q: Question) {
   return {
     text: q.text,
+    image_url: q.image_url ?? null,
     question_type: q.question_type as QuestionType,
     points: q.points,
-    options: q.options.map((o) => ({ text: o.text, is_correct: o.is_correct ?? false })),
+    options: q.options.map((o) => ({
+      text: o.text,
+      is_correct: o.is_correct ?? false,
+      image_url: o.image_url ?? null,
+    })),
   };
 }
 
 function validateDraft(
   text: string,
+  imageUrl: string | null,
   questionType: QuestionType,
   options: OptionDraft[],
 ): string | null {
-  if (!text.trim()) return he.questionTextRequired;
+  if (!hasContent(text, imageUrl)) return he.questionContentRequired;
   if (questionType === "true_false") {
     if (options.length !== 2) return he.tfTwoOptionsRequired;
   } else if (options.length < 2) {
@@ -75,22 +90,25 @@ function validateDraft(
   } else if (correct.length < 1) {
     return he.atLeastOneCorrectRequired;
   }
-  if (options.some((o) => !o.text.trim())) return he.optionTextRequired;
+  if (options.some((o) => !hasContent(o.text, o.image_url))) return he.optionContentRequired;
   return null;
 }
 
 function buildPayload(
   text: string,
+  imageUrl: string | null,
   questionType: QuestionType,
   points: number,
   options: OptionDraft[],
 ) {
   return {
     text: normalizeTextBlock(text),
+    image_url: imageUrl || null,
     question_type: questionType,
     points,
     options: options.map((o, i) => ({
       text: normalizeTextBlock(o.text),
+      image_url: o.image_url || null,
       is_correct: o.is_correct,
       order_index: i,
     })),
@@ -101,6 +119,7 @@ function resetForm(
   question: Question | null,
   setters: {
     setText: (v: string) => void;
+    setImageUrl: (v: string | null) => void;
     setQuestionType: (v: QuestionType) => void;
     setPoints: (v: number) => void;
     setOptions: (v: OptionDraft[]) => void;
@@ -110,11 +129,13 @@ function resetForm(
   if (question) {
     const draft = questionToDraft(question);
     setters.setText(draft.text);
+    setters.setImageUrl(draft.image_url);
     setters.setQuestionType(draft.question_type);
     setters.setPoints(draft.points);
     setters.setOptions(draft.options);
   } else {
     setters.setText("");
+    setters.setImageUrl(null);
     setters.setQuestionType("single");
     setters.setPoints(1);
     setters.setOptions(DEFAULT_OPTIONS.map((o) => ({ ...o })));
@@ -131,25 +152,35 @@ export default function QuestionEditDialog({
 }: QuestionEditDialogProps) {
   const isCreate = question === null;
   const [text, setText] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>("single");
   const [points, setPoints] = useState(1);
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [textDir, setTextDir] = useState<TextDirection>("rtl");
 
   useEffect(() => {
     if (!open) return;
-    resetForm(question, { setText, setQuestionType, setPoints, setOptions, setError });
+    setTextDir("rtl");
+    resetForm(question, {
+      setText,
+      setImageUrl,
+      setQuestionType,
+      setPoints,
+      setOptions,
+      setError,
+    });
   }, [question, open]);
 
   const validationError = useMemo(
-    () => validateDraft(text, questionType, options),
-    [text, questionType, options],
+    () => validateDraft(text, imageUrl, questionType, options),
+    [text, imageUrl, questionType, options],
   );
 
   const handleTypeChange = (type: QuestionType) => {
     setQuestionType(type);
-    if (type === "true_false") setOptions(TF_OPTIONS);
+    if (type === "true_false") setOptions(TF_OPTIONS.map((o) => ({ ...o })));
   };
 
   const setCorrect = (index: number) => {
@@ -169,7 +200,7 @@ export default function QuestionEditDialog({
     }
     setSaving(true);
     setError("");
-    const payload = buildPayload(text, questionType, points, options);
+    const payload = buildPayload(text, imageUrl, questionType, points, options);
     try {
       if (isCreate) {
         await api<Question>(`/api/exams/${examId}/questions`, {
@@ -194,7 +225,7 @@ export default function QuestionEditDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>{isCreate ? he.addQuestion : he.editQuestion}</DialogTitle>
-      <DialogContent>
+      <DialogContent dir="rtl">
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -206,16 +237,24 @@ export default function QuestionEditDialog({
           </Alert>
         )}
 
-        <TextField
+        <DirectionalMultilineField
           label={he.questionText}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          fullWidth
-          multiline
+          onChange={setText}
+          direction={textDir}
+          onDirectionChange={setTextDir}
           minRows={4}
-          dir="rtl"
-          helperText={he.mathMarkupHint}
-          sx={{ mb: 2, mt: 1, "& textarea": { fontFamily: "inherit", whiteSpace: "pre-wrap" } }}
+          maxRows={12}
+          placeholder={he.mathMarkupHint}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, mt: -0.5 }}>
+          {he.mathMarkupHint}
+        </Typography>
+        <QuestionImageField
+          examId={examId}
+          value={imageUrl}
+          onChange={setImageUrl}
+          label={he.questionImageLabel}
         />
 
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
@@ -248,12 +287,16 @@ export default function QuestionEditDialog({
         {options.map((opt, i) => (
           <OptionRow
             key={i}
+            examId={examId}
             opt={opt}
             questionType={questionType}
             optionsCount={options.length}
             onCorrect={() => setCorrect(i)}
             onTextChange={(value) =>
               setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, text: value } : o)))
+            }
+            onImageChange={(url) =>
+              setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, image_url: url } : o)))
             }
             onRemove={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
           />
@@ -286,43 +329,55 @@ export default function QuestionEditDialog({
 }
 
 function OptionRow({
+  examId,
   opt,
   questionType,
   optionsCount,
   onCorrect,
   onTextChange,
+  onImageChange,
   onRemove,
 }: {
+  examId: number;
   opt: OptionDraft;
   questionType: QuestionType;
   optionsCount: number;
   onCorrect: () => void;
   onTextChange: (value: string) => void;
+  onImageChange: (url: string | null) => void;
   onRemove: () => void;
 }) {
   return (
-    <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1 }}>
-      <FormControlLabel
-        control={<Checkbox checked={opt.is_correct} onChange={onCorrect} color="success" />}
-        label={he.correctAnswer}
-        sx={{ mr: 0, minWidth: 100 }}
-      />
-      <TextField
+    <Box sx={{ mb: 2, p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
+      <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 1 }}>
+        <FormControlLabel
+          control={<Checkbox checked={opt.is_correct} onChange={onCorrect} color="success" />}
+          label={he.correctAnswer}
+          sx={{ mr: 0, minWidth: 100 }}
+        />
+        {questionType !== "true_false" && optionsCount > 2 && (
+          <IconButton size="small" color="error" onClick={onRemove} aria-label={he.deleteOption}>
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
+      <BidiTextField
         value={opt.text}
         onChange={(e) => onTextChange(e.target.value)}
         fullWidth
         size="small"
         multiline
         minRows={opt.text.includes("\n") ? 3 : 1}
-        dir="rtl"
         disabled={questionType === "true_false"}
-        sx={{ "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
+        showDirectionHint={questionType !== "true_false"}
+        sx={{ mb: 1, "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
       />
-      {questionType !== "true_false" && optionsCount > 2 && (
-        <IconButton size="small" color="error" onClick={onRemove} aria-label={he.deleteOption}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
-      )}
+      <QuestionImageField
+        examId={examId}
+        value={opt.image_url}
+        onChange={onImageChange}
+        label={he.optionImageLabel}
+      />
     </Box>
   );
 }

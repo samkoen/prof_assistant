@@ -14,6 +14,8 @@ import {
 } from "@mui/material";
 import { OptionText } from "../../components/MultilineOptionLayout";
 import MathText from "../../components/MathText";
+import QuestionImageDisplay from "../../components/QuestionImageDisplay";
+import { examQuestionLtrSx } from "../../components/examQuestionLtrStyles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   api,
@@ -34,6 +36,10 @@ import {
   hebrewPageToolbarSx,
   hebrewToolbarTitleSx,
 } from "../../styles/hebrewAlign";
+import {
+  contentDirForExam,
+  formatExamPointsLabel,
+} from "../../utils/examQuestionsLanguage";
 
 function formatRemaining(expiresAt: string | null): string {
   if (!expiresAt) return "—";
@@ -203,6 +209,8 @@ export default function StudentExamTakePage() {
       return remainingMin > 0 && remainingMin <= paper.warning_minutes;
     })();
 
+  const contentDir = contentDirForExam(paper?.questions ?? [], paper?.questions_language);
+
   if (loading && !paper) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -303,6 +311,7 @@ export default function StudentExamTakePage() {
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
+              contentDir={contentDir}
               onSingle={setSingle}
               onToggle={toggleMultiple}
             />
@@ -330,26 +339,38 @@ function QuestionBlock({
   index,
   question,
   selected,
+  contentDir,
   onSingle,
   onToggle,
 }: {
   index: number;
   question: StudentQuestion;
   selected: number[];
+  contentDir: "ltr" | "rtl";
   onSingle: (questionId: number, optionId: number) => void;
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
 }) {
   const isMultiple = question.question_type === "multiple";
+  const ltr = contentDir === "ltr";
+  const pointsLabel = formatExamPointsLabel(question.points, contentDir);
 
   return (
     <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography fontWeight={600} gutterBottom sx={{ whiteSpace: "pre-wrap" }}>
+      <CardContent dir={contentDir} sx={ltr ? examQuestionLtrSx : undefined}>
+        <Typography
+          fontWeight={600}
+          gutterBottom
+          sx={{
+            whiteSpace: "pre-wrap",
+            ...(ltr ? { textAlign: "left", direction: "ltr" } : {}),
+          }}
+        >
           {index}. <MathText text={question.text} component="span" />{" "}
           <Typography component="span" variant="body2" color="text.secondary">
-            ({question.points} נק')
+            ({pointsLabel})
           </Typography>
         </Typography>
+        <QuestionImageDisplay url={question.image_url} />
         {isMultiple ? (
           <Box>
             {question.options.map((o) => (
@@ -362,6 +383,7 @@ function QuestionBlock({
                   cursor: "pointer",
                   borderRadius: 1,
                   "&:hover": { bgcolor: "action.hover" },
+                  ...(ltr ? { textAlign: "left" } : {}),
                 }}
               >
                 <Box sx={{ direction: "ltr", display: "inline-flex" }}>
@@ -371,7 +393,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} />
+                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDir} />
               </Box>
             ))}
           </Box>
@@ -387,6 +409,7 @@ function QuestionBlock({
                   cursor: "pointer",
                   borderRadius: 1,
                   "&:hover": { bgcolor: "action.hover" },
+                  ...(ltr ? { textAlign: "left" } : {}),
                 }}
               >
                 <Box sx={{ direction: "ltr", display: "inline-flex" }}>
@@ -396,7 +419,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} />
+                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDir} />
               </Box>
             ))}
           </FormControl>

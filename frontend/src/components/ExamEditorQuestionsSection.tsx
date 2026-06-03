@@ -9,10 +9,8 @@ import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail, Question } from "../api/client";
+import { contentDirForExam } from "../utils/examQuestionsLanguage";
 import { he } from "../i18n/he";
-
-/** Affichage שאלות קיימות — pour l’instant examens en français uniquement (LTR). */
-const CONTENT_DIR = "ltr" as const;
 
 interface ExamEditorQuestionsSectionProps {
   exam: ExamDetail;
@@ -33,6 +31,7 @@ export default function ExamEditorQuestionsSection({
   onDelete,
   onAdd,
 }: ExamEditorQuestionsSectionProps) {
+  const contentDir = contentDirForExam(exam.questions, exam.questions_language);
   const addButton =
     exam.is_editable && onAdd ? (
       <Box dir="rtl" sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
@@ -44,7 +43,7 @@ export default function ExamEditorQuestionsSection({
 
   if (exam.questions.length === 0) {
     return (
-      <Box dir={CONTENT_DIR} sx={examQuestionLtrSx}>
+      <Box dir={contentDir} sx={contentDir === "ltr" ? examQuestionLtrSx : undefined}>
         {addButton}
         <Typography variant="body2" color="text.secondary" dir="rtl" sx={{ textAlign: "right" }}>
           {he.noQuestionsInExam}
@@ -54,19 +53,24 @@ export default function ExamEditorQuestionsSection({
   }
 
   return (
-    <Box dir={CONTENT_DIR} sx={examQuestionLtrSx}>
+    <Box dir={contentDir} sx={contentDir === "ltr" ? examQuestionLtrSx : undefined}>
       {addButton}
       {!exam.is_editable && (
         <Chip size="small" color="warning" label={he.examNotEditable} sx={{ mb: 2 }} />
       )}
       {exam.is_editable && exam.questions.length > 1 && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 2, textAlign: contentDir === "ltr" ? "left" : "right" }}
+        >
           {he.reorderQuestionsHint}
         </Typography>
       )}
       {exam.questions.map((q, i) => (
         <QuestionRow
           key={q.id}
+          contentDir={contentDir}
           actions={
             exam.is_editable ? (
               <QuestionActions
@@ -84,10 +88,11 @@ export default function ExamEditorQuestionsSection({
           <ExamQuestionReadView
             index={i + 1}
             text={q.text}
+            imageUrl={q.image_url}
             questionType={q.question_type}
             points={q.points}
             options={q.options}
-            contentDir={CONTENT_DIR}
+            contentDir={contentDir}
           />
         </QuestionRow>
       ))}
@@ -95,12 +100,21 @@ export default function ExamEditorQuestionsSection({
   );
 }
 
-function QuestionRow({ children, actions }: { children: ReactNode; actions: ReactNode }) {
+function QuestionRow({
+  children,
+  actions,
+  contentDir,
+}: {
+  children: ReactNode;
+  actions: ReactNode;
+  contentDir: "ltr" | "rtl";
+}) {
+  const ltr = contentDir === "ltr";
   return (
     <Box
-      dir={CONTENT_DIR}
+      dir={contentDir}
       sx={{
-        ...examQuestionLtrSx,
+        ...(ltr ? examQuestionLtrSx : {}),
         mb: 2,
         p: 2,
         bgcolor: "background.paper",
@@ -116,7 +130,7 @@ function QuestionRow({ children, actions }: { children: ReactNode; actions: Reac
         width: "100%",
       }}
     >
-      <Box flex={1} minWidth={0} sx={examQuestionLtrSx}>
+      <Box flex={1} minWidth={0} sx={ltr ? examQuestionLtrSx : undefined}>
         {children}
       </Box>
       {actions}

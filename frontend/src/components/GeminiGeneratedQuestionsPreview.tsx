@@ -4,6 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ParsedQuestion } from "../utils/qcmImportParser";
+import { contentDirFromFirstQuestion } from "../utils/examQuestionsLanguage";
 import { hebrewActionsBarSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
@@ -22,6 +23,13 @@ export default function GeminiGeneratedQuestionsPreview({
   onAccept,
   onReject,
 }: GeminiGeneratedQuestionsPreviewProps) {
+  const previewDir = contentDirFromFirstQuestion(
+    questions.map((q, i) => ({
+      text: q.text,
+      order_index: i,
+      options: q.options.map((o, j) => ({ text: o.text, order_index: j })),
+    })),
+  );
   return (
     <Box sx={{ mt: 2 }} dir="rtl">
       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -38,7 +46,7 @@ export default function GeminiGeneratedQuestionsPreview({
             questionType={q.question_type}
             points={q.points}
             options={q.options}
-            contentDir="ltr"
+            contentDir={previewDir}
           />
         </Box>
       ))}

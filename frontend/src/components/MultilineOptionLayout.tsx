@@ -1,5 +1,6 @@
 import { Box, Typography, type TypographyProps } from "@mui/material";
 import MathText from "./MathText";
+import QuestionImageDisplay from "./QuestionImageDisplay";
 
 const optionTextSx = {
   display: "block",
@@ -11,6 +12,7 @@ type OptionDisplayProps = {
   /** Ex. « ✓ A) » — sur sa propre ligne, comme « 1. » pour la question */
   prefix: string;
   text: string;
+  imageUrl?: string | null;
   color?: TypographyProps["color"];
   variant?: TypographyProps["variant"];
   dir?: "ltr" | "rtl";
@@ -29,6 +31,7 @@ const ltrBlockSx = {
 export function OptionDisplay({
   prefix,
   text,
+  imageUrl,
   color,
   variant = "body2",
   dir = "rtl",
@@ -56,14 +59,19 @@ export function OptionDisplay({
         >
           {prefix}
         </Typography>
-        <Typography
-          variant={variant}
-          component="span"
-          color={color}
-          sx={{ ...optionTextSx, flex: 1, textAlign: "left", minWidth: 0 }}
-        >
-          <MathText text={text} component="span" />
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {text.trim() && (
+            <Typography
+              variant={variant}
+              component="span"
+              color={color}
+              sx={{ ...optionTextSx, textAlign: "left" }}
+            >
+              <MathText text={text} component="span" />
+            </Typography>
+          )}
+          <QuestionImageDisplay url={imageUrl} maxHeight={180} />
+        </Box>
       </Box>
     );
   }
@@ -82,7 +90,8 @@ export function OptionDisplay({
       }}
     >
       {`${prefix}\n`}
-      <MathText text={text} component="span" />
+      {text.trim() && <MathText text={text} component="span" />}
+      <QuestionImageDisplay url={imageUrl} maxHeight={180} />
     </Typography>
   );
 }
@@ -90,16 +99,30 @@ export function OptionDisplay({
 /** Corps de réponse seul (sous radio/checkbox à l'examen). */
 export function OptionText({
   text,
+  imageUrl,
   color,
   variant = "body1",
+  dir = "rtl",
 }: {
   text: string;
+  imageUrl?: string | null;
   color?: TypographyProps["color"];
   variant?: TypographyProps["variant"];
+  dir?: "ltr" | "rtl";
 }) {
   return (
-    <Typography variant={variant} component="div" color={color} sx={optionTextSx}>
-      <MathText text={text} component="span" />
+    <Typography
+      variant={variant}
+      component="div"
+      color={color}
+      dir={dir}
+      sx={{
+        ...optionTextSx,
+        ...(dir === "ltr" ? { textAlign: "left", direction: "ltr" } : {}),
+      }}
+    >
+      {text.trim() && <MathText text={text} component="span" />}
+      <QuestionImageDisplay url={imageUrl} maxHeight={180} />
     </Typography>
   );
 }

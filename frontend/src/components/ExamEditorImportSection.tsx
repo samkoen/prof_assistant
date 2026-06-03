@@ -12,7 +12,8 @@ import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail } from "../api/client";
 import { QCM_FORMAT_EXAMPLE, type ParsedQuestion, type ParseResult } from "../utils/qcmImportParser";
-import { hebrewActionsBarSx } from "../styles/hebrewAlign";
+import { contentDirFromFirstQuestion } from "../utils/examQuestionsLanguage";
+import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 interface ExamEditorImportSectionProps {
@@ -37,15 +38,15 @@ export default function ExamEditorImportSection({
   onImport,
 }: ExamEditorImportSectionProps) {
   return (
-    <>
-      <Box display="flex" alignItems="center" gap={1} mb={1}>
-        <ContentPasteIcon color="primary" />
+    <Box dir="rtl" sx={hebrewAlignRightSx}>
+      <Box display="flex" alignItems="flex-start" gap={1} mb={1} flexDirection="row-reverse">
+        <ContentPasteIcon color="primary" sx={{ mt: 0.25 }} />
         <Typography variant="body2" color="text.secondary">
           {he.pasteQcmHintIntro}
         </Typography>
       </Box>
       <PasteHints />
-      <Box sx={{ ...hebrewActionsBarSx, mb: 2 }}>
+      <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
         <Button size="small" variant="outlined" onClick={onCopyPrompt}>
           {he.copyGeminiPrompt}
         </Button>
@@ -80,14 +81,14 @@ export default function ExamEditorImportSection({
       {parseResult.questions.length > 0 && parseResult.errors.length === 0 && (
         <ImportPreview questions={parseResult.questions} exam={exam} importing={importing} onImport={onImport} />
       )}
-    </>
+    </Box>
   );
 }
 
 function PasteHints() {
   return (
-    <Box sx={{ mb: 2 }} dir="rtl">
-      <Box component="ul" sx={{ m: 0, pl: 2.5, color: "text.secondary" }}>
+    <Box sx={{ mb: 2 }}>
+      <Box component="ul" sx={{ m: 0, paddingInlineStart: 2.5, color: "text.secondary" }}>
         <Typography component="li" variant="body2" sx={{ mb: 0.5 }}>
           {he.pasteQcmHintRule1}
         </Typography>
@@ -133,9 +134,16 @@ function ImportPreview({
   importing: boolean;
   onImport: () => void;
 }) {
+  const previewDir = contentDirFromFirstQuestion(
+    questions.map((q, i) => ({
+      text: q.text,
+      order_index: i,
+      options: q.options.map((o, j) => ({ text: o.text, order_index: j })),
+    })),
+  );
   return (
     <>
-      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ textAlign: "start" }}>
         {he.importPreview} ({questions.length})
       </Typography>
       {questions.map((q, i) => (
@@ -146,12 +154,12 @@ function ImportPreview({
             questionType={q.question_type}
             points={q.points}
             options={q.options}
-            contentDir="ltr"
+            contentDir={previewDir}
           />
         </Box>
       ))}
       <Divider sx={{ my: 2 }} />
-      <Box sx={hebrewActionsBarSx}>
+      <Box sx={hebrewActionsBarRtlSx}>
         <DisabledActionTooltip
           disabled={!exam.is_editable || importing}
           disabledReason={!exam.is_editable ? he.examNotEditable : undefined}

@@ -15,7 +15,7 @@ import {
 } from "../types/geminiQuestionSeries";
 import { parseQcmText, toImportPayload } from "../utils/qcmImportParser";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
-import { hebrewActionsBarSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
+import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 interface ExamEditorGeminiGenerationSectionProps {
@@ -200,7 +200,7 @@ export default function ExamEditorGeminiGenerationSection({
         ))}
       {!showPreview && (
         <>
-          <Box sx={{ ...hebrewActionsBarSx, mb: 2 }}>
+          <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
             <Button
               variant="outlined"
               size="small"

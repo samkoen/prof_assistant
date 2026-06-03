@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -14,9 +14,7 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
-import ExamEditorGeminiGenerationSection from "../../components/ExamEditorGeminiGenerationSection";
-import ExamEditorImportSection from "../../components/ExamEditorImportSection";
-import ExamEditorQuestionsSection from "../../components/ExamEditorQuestionsSection";
+import ExamEditorQuestionsPanel from "../../components/ExamEditorQuestionsPanel";
 import ExamEditorSectionAccordion from "../../components/ExamEditorSectionAccordion";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
@@ -29,12 +27,20 @@ import {
   QCM_GEMINI_PROMPT,
   toImportPayload,
 } from "../../utils/qcmImportParser";
+import {
+  questionsFingerprint,
+  revertExamQuestionsToBaseline,
+} from "../../utils/examEditorChanges";
 import { he } from "../../i18n/he";
+
+type ExamBaseline = {
+  title: string;
+  questions: Question[];
+};
 
 export default function TeacherExamEditorPage() {
   const { examId } = useParams<{ examId: string }>();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const returnTo = searchParams.get("return") || "/teacher/exams";
   const id = Number(examId);
   const [exam, setExam] = useState<ExamDetail | null>(null);
@@ -50,6 +56,8 @@ export default function TeacherExamEditorPage() {
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
   const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [baseline, setBaseline] = useState<ExamBaseline | null>(null);
+  const [discarding, setDiscarding] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -59,6 +67,7 @@ export default function TeacherExamEditorPage() {
       const data = await api<ExamDetail>(`/api/exams/${id}`);
       setExam(data);
       setTitleDraft(data.title);
+      setBaseline((prev) => prev ?? { title: data.title, questions: data.questions });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -71,8 +80,14 @@ export default function TeacherExamEditorPage() {
   }, [load]);
 
   const parseResult = useMemo(() => parseQcmText(paste), [paste]);
-  const titleChanged = titleDraft.trim() !== exam?.title;
+  const titleChanged = titleDraft.trim() !== (baseline?.title ?? exam?.title ?? "");
   const titleValid = titleDraft.trim().length > 0;
+  const questionsChanged = useMemo(() => {
+    if (!exam || !baseline) return false;
+    return questionsFingerprint(exam.questions) !== questionsFingerprint(baseline.questions);
+  }, [exam, baseline]);
+  const hasChanges = titleChanged || questionsChanged;
+  const backLabel = returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
 
   const importQuestions = async () => {
     if (parseResult.errors.length > 0 || parseResult.questions.length === 0) return;
@@ -110,6 +125,7 @@ export default function TeacherExamEditorPage() {
       });
       setExam((prev) => (prev ? { ...prev, title: updated.title } : prev));
       setTitleDraft(updated.title);
+      setBaseline((prev) => (prev ? { ...prev, title: updated.title } : prev));
       return true;
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -119,8 +135,35 @@ export default function TeacherExamEditorPage() {
     }
   };
 
-  const finishEditing = async () => {
-    if (await saveTitle()) navigate(returnTo);
+  const discardChanges = async () => {
+    if (!baseline || !exam || !hasChanges) return;
+    setDiscarding(true);
+    setError("");
+    try {
+      setTitleDraft(baseline.title);
+      if (questionsChanged) {
+        await revertExamQuestionsToBaseline(id, baseline.questions, exam.questions);
+        await load();
+      } else {
+        setExam((prev) => (prev ? { ...prev, title: baseline.title } : prev));
+      }
+      setSuccess(he.examChangesDiscarded);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setDiscarding(false);
+    }
+  };
+
+  const saveChanges = async () => {
+    if (!titleValid) {
+      setError(he.examTitleRequired);
+      return;
+    }
+    if (!(await saveTitle())) return;
+    if (!exam) return;
+    setBaseline({ title: titleDraft.trim(), questions: exam.questions });
+    setSuccess(he.examSaved);
   };
 
   const moveQuestion = async (index: number, direction: -1 | 1) => {
@@ -184,7 +227,7 @@ export default function TeacherExamEditorPage() {
         size="small"
         sx={{ mb: 1 }}
       >
-        {he.cancel}
+        {backLabel}
       </Button>
 
       <PageHeroBanner title={he.editExam} subtitle={editBannerSubtitle} />
@@ -200,7 +243,7 @@ export default function TeacherExamEditorPage() {
         </Alert>
       )}
 
-      <ExamEditorSectionAccordion title={he.examTitle} defaultExpanded={false}>
+      <ExamEditorSectionAccordion title={he.examSettings} defaultExpanded={false}>
         <TextField
           label={he.examTitle}
           value={titleDraft}
@@ -219,13 +262,11 @@ export default function TeacherExamEditorPage() {
               if (await saveTitle()) setSuccess(he.examTitleSaved);
             }}
             disabled={savingTitle}
+            sx={{ mb: 3 }}
           >
             {savingTitle ? he.loading : he.saveExamTitle}
           </Button>
         )}
-      </ExamEditorSectionAccordion>
-
-      <ExamEditorSectionAccordion title={he.examScope} defaultExpanded={false}>
         <ExamScopeEditor
           exam={exam}
           editable={exam.is_editable}
@@ -236,12 +277,13 @@ export default function TeacherExamEditorPage() {
       </ExamEditorSectionAccordion>
 
       <ExamEditorSectionAccordion
-        title={he.existingQuestions}
+        title={he.examQuestions}
         subtitle={`${exam.question_count} ${he.questionsInExam}`}
-        defaultExpanded={false}
-        detailsDir="ltr"
+        defaultExpanded
+        detailsDir="rtl"
       >
-        <ExamEditorQuestionsSection
+        <ExamEditorQuestionsPanel
+          examId={id}
           exam={exam}
           reordering={reordering}
           deletingQuestionId={deletingQuestionId}
@@ -251,30 +293,10 @@ export default function TeacherExamEditorPage() {
             setQuestionToEdit(q);
           }}
           onDelete={setQuestionToDelete}
-          onAdd={
-            exam.is_editable
-              ? () => {
-                  setQuestionToEdit(null);
-                  setCreateQuestionOpen(true);
-                }
-              : undefined
-          }
-        />
-      </ExamEditorSectionAccordion>
-
-      <ExamEditorSectionAccordion title={he.geminiGenerateQuestions} defaultExpanded={false}>
-        <ExamEditorGeminiGenerationSection
-          examId={id}
-          exam={exam}
-          onImported={load}
-          onSuccess={setSuccess}
-          onError={setError}
-        />
-      </ExamEditorSectionAccordion>
-
-      <ExamEditorSectionAccordion title={he.pasteQcm} defaultExpanded={false}>
-        <ExamEditorImportSection
-          exam={exam}
+          onAddManual={() => {
+            setQuestionToEdit(null);
+            setCreateQuestionOpen(true);
+          }}
           paste={paste}
           onPasteChange={setPaste}
           parseResult={parseResult}
@@ -285,21 +307,45 @@ export default function TeacherExamEditorPage() {
           }}
           onLoadExample={() => setPaste(QCM_FORMAT_EXAMPLE)}
           onImport={importQuestions}
+          onReload={load}
+          onSuccess={setSuccess}
+          onError={setError}
         />
       </ExamEditorSectionAccordion>
 
-      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 3 }}>
-        <Button variant="outlined" onClick={() => navigate(returnTo)}>
-          {he.cancel}
-        </Button>
-        <DisabledActionTooltip
-          disabled={savingTitle || !titleValid}
-          disabledReason={!titleValid ? he.examTitleRequired : undefined}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 1,
+          mt: 3,
+          flexWrap: "wrap",
+        }}
+      >
+        <Button
+          component={RouterLink}
+          to={returnTo}
+          startIcon={<ArrowBackIcon />}
+          size="small"
         >
-          <Button variant="contained" onClick={finishEditing}>
-            {savingTitle ? he.loading : he.saveExamDone}
+          {backLabel}
+        </Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button variant="outlined" onClick={discardChanges} disabled={!hasChanges || discarding}>
+            {discarding ? he.loading : he.cancel}
           </Button>
-        </DisabledActionTooltip>
+          <DisabledActionTooltip
+            disabled={savingTitle || discarding || !titleValid || !hasChanges}
+            disabledReason={
+              !titleValid ? he.examTitleRequired : !hasChanges ? he.noChangesToSave : undefined
+            }
+          >
+            <Button variant="contained" onClick={saveChanges}>
+              {savingTitle ? he.loading : he.saveExam}
+            </Button>
+          </DisabledActionTooltip>
+        </Box>
       </Box>
 
       <QuestionEditDialog

@@ -7,6 +7,9 @@ import App from "./App";
 import { theme } from "./theme";
 import { AuthProvider } from "./context/AuthContext";
 import { emotionCache } from "./emotion/caches";
+import { setupBidiShortcuts } from "./utils/setupBidiShortcuts";
+
+setupBidiShortcuts();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
