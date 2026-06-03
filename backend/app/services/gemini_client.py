@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 
 import httpx
 
@@ -161,7 +162,12 @@ async def _generate_with_body(
 ) -> str:
     api_key = (settings.gemini_api_key or "").strip()
     if not api_key:
-        raise GeminiError("שירות ההסבר אינו מוגדר")
+        hint = (
+            "הוסף GEMINI_API_KEY ב-Vercel → Settings → Environment Variables (Production + Preview)."
+            if os.getenv("VERCEL")
+            else "הוסף GEMINI_API_KEY לקובץ backend/.env."
+        )
+        raise GeminiError(f"שירות ההסבר אינו מוגדר. {hint}")
     primary = settings.gemini_model.strip() or "gemini-2.0-flash"
     timeout = timeout_seconds or settings.gemini_timeout_seconds
     models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)

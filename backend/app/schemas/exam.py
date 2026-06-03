@@ -8,9 +8,10 @@ from app.schemas.catalog_scope import CatalogItemScopeFields, CatalogItemScopeRe
 
 
 class QuestionOptionCreate(BaseModel):
-    text: str
+    text: str = ""
     is_correct: bool = False
     order_index: int = 0
+    image_url: str | None = None
 
 
 class QuestionOptionResponse(BaseModel):
@@ -18,12 +19,14 @@ class QuestionOptionResponse(BaseModel):
     text: str
     is_correct: bool | None = None
     order_index: int
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 
 
 class QuestionCreate(BaseModel):
-    text: str
+    text: str = ""
+    image_url: str | None = None
     question_type: QuestionType
     order_index: int = 0
     points: float = 1.0
@@ -32,7 +35,8 @@ class QuestionCreate(BaseModel):
 
 
 class QuestionUpdate(BaseModel):
-    text: str
+    text: str = ""
+    image_url: str | None = None
     question_type: QuestionType
     points: float = 1.0
     multiple_scoring_mode: MultipleScoringMode | None = None
@@ -42,6 +46,7 @@ class QuestionUpdate(BaseModel):
 class QuestionResponse(BaseModel):
     id: int
     text: str
+    image_url: str | None = None
     question_type: QuestionType
     order_index: int
     points: float
@@ -232,6 +237,7 @@ class ExamDetailResponse(ExamResponse):
 class StudentQuestionOptionResponse(BaseModel):
     id: int
     text: str
+    image_url: str | None = None
     order_index: int
 
     model_config = {"from_attributes": True}
@@ -240,6 +246,7 @@ class StudentQuestionOptionResponse(BaseModel):
 class StudentQuestionResponse(BaseModel):
     id: int
     text: str
+    image_url: str | None = None
     question_type: QuestionType
     order_index: int
     points: float
@@ -254,17 +261,20 @@ class ExamTakeResponse(BaseModel):
     duration_minutes: int
     warning_minutes: int
     integrity_mode_enabled: bool = False
+    questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
 
 
 class ExamReviewCorrectOption(BaseModel):
     text: str
+    image_url: str | None = None
 
 
 class ExamReviewQuestion(BaseModel):
     id: int
     text: str
+    image_url: str | None = None
     question_type: QuestionType
     order_index: int
     points: float
@@ -277,5 +287,6 @@ class ExamReviewResponse(BaseModel):
     session_id: int
     exam_title: str
     show_correction: bool
+    questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[ExamReviewQuestion]

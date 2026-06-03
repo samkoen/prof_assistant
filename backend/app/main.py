@@ -12,6 +12,7 @@ from app.routers import (
     exam_gemini_sources,
     exams,
     notifications,
+    question_media,
     students_router,
 )
 
@@ -31,6 +32,7 @@ app.include_router(courses.router, prefix="/api")
 app.include_router(exams.router, prefix="/api")
 app.include_router(exam_gemini_generation.router, prefix="/api")
 app.include_router(exam_gemini_sources.router, prefix="/api")
+app.include_router(question_media.router, prefix="/api")
 app.include_router(ai_explanations.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

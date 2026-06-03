@@ -239,11 +239,14 @@ def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> li
             StudentQuestionResponse(
                 id=q.id,
                 text=q.text,
+                image_url=q.image_url,
                 question_type=q.question_type,
                 order_index=qi,
                 points=q.points,
                 options=[
-                    StudentQuestionOptionResponse(id=o.id, text=o.text, order_index=oi)
+                    StudentQuestionOptionResponse(
+                        id=o.id, text=o.text, image_url=o.image_url, order_index=oi
+                    )
                     for oi, o in enumerate(opts)
                 ],
             )
@@ -986,6 +989,7 @@ async def take_exam_session(
             duration_minutes=exam.duration_minutes,
             warning_minutes=exam.warning_minutes,
             integrity_mode_enabled=session.integrity_mode_enabled,
+            questions_language=exam.questions_language,
             attempt=_attempt_response(existing, exam.id),
             questions=[],
         )
@@ -1005,6 +1009,7 @@ async def take_exam_session(
             duration_minutes=exam.duration_minutes,
             warning_minutes=exam.warning_minutes,
             integrity_mode_enabled=True,
+            questions_language=exam.questions_language,
             attempt=_attempt_response(attempt, exam.id),
             questions=[],
         )
@@ -1027,6 +1032,7 @@ async def take_exam_session(
         duration_minutes=exam.duration_minutes,
         warning_minutes=exam.warning_minutes,
         integrity_mode_enabled=session.integrity_mode_enabled,
+        questions_language=exam.questions_language,
         attempt=_attempt_response(attempt, exam.id),
         questions=_student_paper(exam, questions, attempt.id),
     )
@@ -1188,6 +1194,7 @@ async def get_session_review(
             session_id=session.id,
             exam_title=exam.title,
             show_correction=False,
+            questions_language=exam.questions_language,
             attempt=attempt_resp,
             questions=[],
         )
@@ -1224,15 +1231,16 @@ async def get_session_review(
             ExamReviewQuestion(
                 id=q.id,
                 text=q.text,
+                image_url=q.image_url,
                 question_type=q.question_type,
                 order_index=sq.order_index,
                 points=q.points,
                 is_correct=is_fully_correct,
                 correct_options=[
-                    ExamReviewCorrectOption(text=o.text) for o in correct_opts
+                    ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in correct_opts
                 ],
                 student_options=(
-                    [ExamReviewCorrectOption(text=o.text) for o in student_opts]
+                    [ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in student_opts]
                     if not is_fully_correct
                     else []
                 ),
@@ -1243,6 +1251,7 @@ async def get_session_review(
         session_id=session.id,
         exam_title=exam.title,
         show_correction=True,
+        questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
     )

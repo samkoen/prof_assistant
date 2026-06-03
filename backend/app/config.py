@@ -93,11 +93,31 @@ class Settings(BaseSettings):
     gemini_source_max_total_chars: int = 120_000
     gemini_source_max_files_per_exam: int = 5
 
+    question_images_dir: str = "data/question_images"
+    question_image_max_bytes: int = 5 * 1024 * 1024
+
     @model_validator(mode="after")
     def apply_vercel_storage_defaults(self) -> "Settings":
         """Vercel serverless : FS éphémère, seul /tmp est inscriptible."""
         if os.getenv("VERCEL") and self.gemini_sources_dir == "data/gemini_sources":
             object.__setattr__(self, "gemini_sources_dir", "/tmp/gemini_sources")
+        if os.getenv("VERCEL") and self.question_images_dir == "data/question_images":
+            object.__setattr__(self, "question_images_dir", "/tmp/question_images")
+        return self
+
+    @model_validator(mode="after")
+    def resolve_gemini_api_key(self) -> "Settings":
+        if (self.gemini_api_key or "").strip():
+            return self
+        for env_name in (
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+            "GOOGLE_GENERATIVE_AI_API_KEY",
+        ):
+            alt = (os.getenv(env_name) or "").strip()
+            if alt:
+                object.__setattr__(self, "gemini_api_key", alt)
+                return self
         return self
 
     @model_validator(mode="before")

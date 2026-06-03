@@ -75,6 +75,7 @@ class Question(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"), index=True)
     text: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     question_type: Mapped[QuestionType] = mapped_column(String(20))
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     points: Mapped[float] = mapped_column(Float, default=1.0)
@@ -90,6 +91,7 @@ class QuestionOption(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), index=True)
     text: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 

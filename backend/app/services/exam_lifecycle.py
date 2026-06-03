@@ -9,9 +9,17 @@ from app.models.exam import (
     Exam,
     ExamSession,
     Question,
+    QuestionAiExplanation,
     QuestionOption,
     StudentExamAttempt,
 )
+from app.models.exam_gemini_generation import (
+    ExamGeminiGenerationMessage,
+    ExamGeminiGenerationSession,
+)
+from app.models.exam_gemini_source import ExamGeminiSource
+from app.models.notification import Notification
+from app.services.question_media import copy_image_url_for_duplicate
 
 
 async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) -> None:
@@ -19,6 +27,12 @@ async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) 
         await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
     ).scalars():
         await db.delete(answer)
+    for expl in (
+        await db.execute(
+            select(QuestionAiExplanation).where(QuestionAiExplanation.attempt_id == attempt.id)
+        )
+    ).scalars():
+        await db.delete(expl)
     for event in (
         await db.execute(
             select(AttemptIntegrityEvent).where(AttemptIntegrityEvent.attempt_id == attempt.id)
@@ -83,6 +97,7 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
         new_q = Question(
             exam_id=copy.id,
             text=q.text,
+            image_url=copy_image_url_for_duplicate(q.image_url, source.id, copy.id),
             question_type=q.question_type,
             order_index=q.order_index,
             points=q.points,
@@ -95,6 +110,7 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
                 QuestionOption(
                     question_id=new_q.id,
                     text=opt.text,
+                    image_url=copy_image_url_for_duplicate(opt.image_url, source.id, copy.id),
                     is_correct=opt.is_correct,
                     order_index=opt.order_index,
                 )
@@ -103,7 +119,41 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
     return copy
 
 
+async def _delete_gemini_generation_for_exam(exam_id: int, db: AsyncSession) -> None:
+    sessions = (
+        await db.execute(
+            select(ExamGeminiGenerationSession).where(ExamGeminiGenerationSession.exam_id == exam_id)
+        )
+    ).scalars().all()
+    for session in sessions:
+        for msg in (
+            await db.execute(
+                select(ExamGeminiGenerationMessage).where(
+                    ExamGeminiGenerationMessage.session_id == session.id
+                )
+            )
+        ).scalars():
+            await db.delete(msg)
+        await db.delete(session)
+
+
+async def _delete_gemini_sources_for_exam(exam_id: int, db: AsyncSession) -> None:
+    for src in (
+        await db.execute(select(ExamGeminiSource).where(ExamGeminiSource.exam_id == exam_id))
+    ).scalars():
+        await db.delete(src)
+
+
+async def _clear_exam_notifications(exam_id: int, db: AsyncSession) -> None:
+    result = await db.execute(select(Notification).where(Notification.related_exam_id == exam_id))
+    for notif in result.scalars():
+        notif.related_exam_id = None
+
+
 async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
+    await _delete_gemini_generation_for_exam(exam_id, db)
+    await _delete_gemini_sources_for_exam(exam_id, db)
+    await _clear_exam_notifications(exam_id, db)
     sessions = (
         await db.execute(select(ExamSession).where(ExamSession.exam_id == exam_id))
     ).scalars().all()

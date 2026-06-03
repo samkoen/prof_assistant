@@ -30,12 +30,16 @@ async def next_question_order_index(exam_id: int, db: AsyncSession) -> int:
     return (max_idx or -1) + 1
 
 
+def _has_content(text: str, image_url: str | None) -> bool:
+    return bool(text.strip()) or bool((image_url or "").strip())
+
+
 def validate_question_body(body: QuestionCreate, index: int) -> None:
     from fastapi import HTTPException
 
     label = f"שאלה {index + 1}"
-    if not body.text.strip():
-        raise HTTPException(status_code=400, detail=f"{label}: טקסט חסר")
+    if not _has_content(body.text, body.image_url):
+        raise HTTPException(status_code=400, detail=f"{label}: נדרש טקסט או תמונה")
     if body.question_type == QuestionType.TRUE_FALSE:
         if len(body.options) != 2:
             raise HTTPException(status_code=400, detail=f"{label}: נדרשות 2 אפשרויות (נכון/לא נכון)")
@@ -48,6 +52,12 @@ def validate_question_body(body: QuestionCreate, index: int) -> None:
         raise HTTPException(status_code=400, detail=f"{label}: לפחות תשובה נכונה אחת")
     if body.question_type == QuestionType.TRUE_FALSE and len(correct) != 1:
         raise HTTPException(status_code=400, detail=f"{label}: נדרשת תשובה נכונה אחת")
+    for opt_idx, opt in enumerate(body.options):
+        if not _has_content(opt.text, opt.image_url):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{label}, אפשרות {opt_idx + 1}: נדרש טקסט או תמונה",
+            )
 
 
 async def persist_question(
@@ -59,6 +69,7 @@ async def persist_question(
     question = Question(
         exam_id=exam_id,
         text=normalize_question_text(body.text),
+        image_url=(body.image_url or None),
         question_type=body.question_type,
         order_index=order_index,
         points=body.points,
@@ -71,6 +82,7 @@ async def persist_question(
             QuestionOption(
                 question_id=question.id,
                 text=normalize_question_text(opt.text),
+                image_url=(opt.image_url or None),
                 is_correct=opt.is_correct,
                 order_index=opt.order_index,
             )
@@ -113,6 +125,7 @@ async def update_question(
 
     create_body = QuestionCreate(
         text=body.text,
+        image_url=body.image_url,
         question_type=body.question_type,
         order_index=question.order_index,
         points=body.points,
@@ -122,6 +135,7 @@ async def update_question(
     validate_question_body(create_body, 0)
 
     question.text = normalize_question_text(body.text)
+    question.image_url = body.image_url or None
     question.question_type = body.question_type
     question.points = body.points
     question.multiple_scoring_mode = body.multiple_scoring_mode
@@ -135,6 +149,7 @@ async def update_question(
             QuestionOption(
                 question_id=question.id,
                 text=normalize_question_text(opt.text),
+                image_url=(opt.image_url or None),
                 is_correct=opt.is_correct,
                 order_index=opt.order_index if opt.order_index else i,
             )
