@@ -36,7 +36,6 @@ import {
   hebrewToolbarTitleSx,
 } from "../../styles/hebrewAlign";
 import {
-  contentDirForExam,
   contentDirForQuestionText,
   formatExamPointsLabel,
 } from "../../utils/examQuestionsLanguage";
@@ -276,8 +275,6 @@ export default function StudentExamTakePage() {
       return remainingMin > 0 && remainingMin <= paper.warning_minutes;
     })();
 
-  const contentDir = contentDirForExam(paper?.questions ?? [], paper?.questions_language);
-
   if (loading && !paper) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -378,7 +375,6 @@ export default function StudentExamTakePage() {
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
-              contentDir={contentDir}
               onSingle={setSingle}
               onToggle={toggleMultiple}
             />
@@ -410,14 +406,12 @@ function QuestionBlock({
   index,
   question,
   selected,
-  contentDir,
   onSingle,
   onToggle,
 }: {
   index: number;
   question: StudentQuestion;
   selected: number[];
-  contentDir: "ltr" | "rtl";
   onSingle: (questionId: number, optionId: number) => void;
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
 }) {
@@ -458,7 +452,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDirForQuestionText(o.text)} />
+                <OptionText text={o.text} imageUrl={o.image_url} />
               </Box>
             ))}
           </Box>
@@ -484,7 +478,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDirForQuestionText(o.text)} />
+                <OptionText text={o.text} imageUrl={o.image_url} />
               </Box>
             ))}
           </FormControl>

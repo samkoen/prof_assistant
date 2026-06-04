@@ -57,7 +57,7 @@ export default function QuestionTextWithIndex({
         component="div"
         gutterBottom={gutterBottom}
         dir="ltr"
-        sx={{ width: "100%", fontWeight, ...examQuestionLtrSx, ...sx }}
+        sx={{ fontWeight, ...examQuestionLtrSx, ...sx }}
       >
         {numberLine}
         {bodyLines}

@@ -112,13 +112,11 @@ export function OptionText({
   imageUrl,
   color,
   variant = "body1",
-  dir = "rtl",
 }: {
   text: string;
   imageUrl?: string | null;
   color?: TypographyProps["color"];
   variant?: TypographyProps["variant"];
-  dir?: "ltr" | "rtl";
 }) {
   const displayText = stripEditorBidiMarks(text);
   const lines = displayText.split("\n");

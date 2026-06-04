@@ -1,4 +1,4 @@
-import { Box, Chip, Typography } from "@mui/material";
+import { Box, Chip } from "@mui/material";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
 import QuestionTextWithIndex from "./QuestionTextWithIndex";
@@ -50,7 +50,6 @@ export function ExamQuestionReadView({
   questionType,
   points,
   options,
-  contentDir = "rtl",
 }: ExamQuestionReadViewProps) {
   const qDir = contentDirForQuestionText(text);
   const ltr = qDir === "ltr";

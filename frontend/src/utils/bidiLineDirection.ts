@@ -82,7 +82,7 @@ export function cursorAfterLineReconcile(
 }
 
 export function applyMixedTextChange(
-  prev: string,
+  _prev: string,
   raw: string,
   cursor: number,
 ): { text: string; cursor: number } {
