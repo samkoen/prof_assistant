@@ -42,6 +42,29 @@ async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) 
     await db.delete(attempt)
 
 
+async def ensure_draft_session(
+    exam_id: int, offering_id: int, db: AsyncSession
+) -> ExamSession:
+    """Session brouillon pour un groupe — affichage « טיוטה » et édition avant activation."""
+    result = await db.execute(
+        select(ExamSession).where(
+            ExamSession.exam_id == exam_id,
+            ExamSession.offering_id == offering_id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if session:
+        return session
+    session = ExamSession(
+        exam_id=exam_id,
+        offering_id=offering_id,
+        status=ExamStatus.DRAFT,
+    )
+    db.add(session)
+    await db.flush()
+    return session
+
+
 async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[int, bool]:
     if not exam_ids:
         return {}
@@ -63,7 +86,14 @@ async def exam_has_non_draft_sessions(exam_id: int, db: AsyncSession) -> bool:
     return (count or 0) > 0
 
 
-async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: AsyncSession) -> Exam:
+async def duplicate_exam_to_catalog(
+    source: Exam,
+    *,
+    target_catalog_course_id: int,
+    owner_teacher_id: int,
+    title: str,
+    db: AsyncSession,
+) -> Exam:
     result = await db.execute(
         select(Question)
         .options(selectinload(Question.options))
@@ -73,12 +103,12 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
     questions = result.scalars().all()
 
     copy = Exam(
-        catalog_course_id=source.catalog_course_id,
-        created_by_id=created_by_id,
-        scope_teacher_id=source.scope_teacher_id,
-        scope_academic_year=source.scope_academic_year,
-        scope_semester=source.scope_semester,
-        scope_group_name=source.scope_group_name,
+        catalog_course_id=target_catalog_course_id,
+        created_by_id=owner_teacher_id,
+        scope_teacher_id=owner_teacher_id,
+        scope_academic_year=None,
+        scope_semester=None,
+        scope_group_name=None,
         title=title,
         description=source.description,
         duration_minutes=source.duration_minutes,
@@ -117,6 +147,16 @@ async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: Async
             )
 
     return copy
+
+
+async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: AsyncSession) -> Exam:
+    return await duplicate_exam_to_catalog(
+        source,
+        target_catalog_course_id=source.catalog_course_id,
+        owner_teacher_id=created_by_id,
+        title=title,
+        db=db,
+    )
 
 
 async def _delete_gemini_generation_for_exam(exam_id: int, db: AsyncSession) -> None:

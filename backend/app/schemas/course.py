@@ -18,6 +18,11 @@ class CourseOfferingCreate(BaseModel):
 class CourseOfferingEnrollmentSettingsUpdate(BaseModel):
     is_open_enrollment: bool | None = None
     auto_approve_enrollment: bool | None = None
+    join_link_valid_days: int | None = Field(default=None, ge=1, le=365)
+
+
+class JoinLinkRenewRequest(BaseModel):
+    valid_days: int = Field(default=30, ge=1, le=365)
 
 
 class CourseOfferingResponse(BaseModel):
@@ -33,6 +38,8 @@ class CourseOfferingResponse(BaseModel):
     teacher_name: str
     created_at: datetime
     enrollment_status: EnrollmentStatus | None = None
+    join_token: str | None = None
+    join_token_expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -49,6 +56,8 @@ class JoinPreviewResponse(BaseModel):
     auto_approve_enrollment: bool
     already_enrolled: bool = False
     enrollment_status: EnrollmentStatus | None = None
+    join_link_expired: bool = False
+    join_token_expires_at: datetime | None = None
 
 
 class EnrollmentRequest(BaseModel):
@@ -73,3 +82,10 @@ class EnrollmentResponse(BaseModel):
 
 class EnrollmentReview(BaseModel):
     status: EnrollmentStatus
+
+
+class TeacherOpenOfferingsResponse(BaseModel):
+    teacher_id: int
+    teacher_name: str
+    teacher_email: str
+    offerings: list[CourseOfferingResponse]

@@ -7,12 +7,14 @@ from app.models.enums import EnrollmentStatus
 from app.models.user import User
 from app.schemas.course import JoinPreviewResponse
 from app.services.enrollment_service import find_existing_enrollment
+from app.services.join_token_service import ensure_join_link_valid, is_join_link_valid
 
 
 def build_join_preview(
     offering: CourseOffering,
     enrollment: CourseEnrollment | None,
 ) -> JoinPreviewResponse:
+    link_valid = is_join_link_valid(offering)
     return JoinPreviewResponse(
         offering_id=offering.id,
         catalog_name=offering.catalog_course.name,
@@ -21,16 +23,19 @@ def build_join_preview(
         semester=offering.semester,
         teacher_name=offering.teacher.full_name,
         description=offering.description,
-        is_open_enrollment=offering.is_open_enrollment,
+        is_open_enrollment=offering.is_open_enrollment and link_valid,
         auto_approve_enrollment=offering.auto_approve_enrollment,
         already_enrolled=enrollment is not None,
         enrollment_status=enrollment.status if enrollment else None,
+        join_link_expired=not link_valid,
+        join_token_expires_at=offering.join_token_expires_at,
     )
 
 
 def ensure_offering_open_for_join(offering: CourseOffering | None) -> CourseOffering:
     if not offering or not offering.is_open_enrollment:
         raise HTTPException(status_code=404, detail="הקורס לא זמין להצטרפות")
+    ensure_join_link_valid(offering)
     return offering
 
 

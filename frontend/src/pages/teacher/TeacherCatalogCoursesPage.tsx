@@ -8,10 +8,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Tooltip,
   TextField,
 } from "@mui/material";
+import ShareIcon from "@mui/icons-material/Share";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { CatalogCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
+import ShareWithTeacherDialog from "../../components/ShareWithTeacherDialog";
 import { api, ApiError, type CatalogCourse } from "../../api/client";
 import { he } from "../../i18n/he";
 
@@ -21,6 +24,8 @@ export default function TeacherCatalogCoursesPage() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
+  const [shareCatalog, setShareCatalog] = useState<CatalogCourse | null>(null);
+  const [shareNotice, setShareNotice] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,7 +64,7 @@ export default function TeacherCatalogCoursesPage() {
     <Box sx={{ width: "100%" }}>
       <ListPageToolbar
         title={he.catalogCourses}
-        subtitle={he.catalogCoursesSubtitle}
+        subtitle={`${he.catalogCoursesSubtitle} — ${he.catalogCoursePerTeacherHint}`}
         addLabel={he.createCatalogCourse}
         onAdd={() => setOpen(true)}
       />
@@ -68,6 +73,28 @@ export default function TeacherCatalogCoursesPage() {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+      {shareNotice && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setShareNotice("")}>
+          {shareNotice}
+        </Alert>
+      )}
+
+      {catalogs.length > 0 && (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+          {catalogs.map((c) => (
+            <Tooltip key={c.id} title={he.shareCatalog}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ShareIcon />}
+                onClick={() => setShareCatalog(c)}
+              >
+                {c.name}
+              </Button>
+            </Tooltip>
+          ))}
+        </Box>
       )}
 
       {loading && catalogs.length === 0 ? (
@@ -105,6 +132,15 @@ export default function TeacherCatalogCoursesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ShareWithTeacherDialog
+        open={!!shareCatalog}
+        kind="catalog"
+        catalogId={shareCatalog?.id}
+        itemLabel={shareCatalog?.name ?? ""}
+        onClose={() => setShareCatalog(null)}
+        onSent={() => setShareNotice(he.shareSent)}
+      />
     </Box>
   );
 }

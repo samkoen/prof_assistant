@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import BlockIcon from "@mui/icons-material/Block";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
+import BidiTextField from "../../components/BidiTextField";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
@@ -180,15 +181,16 @@ export default function AdminUsersPage() {
         />
       )}
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm" dir="rtl">
         <DialogTitle>{he.newUser}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <TextField
+          <BidiTextField
             label={he.fullName}
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
             required
             fullWidth
+            showDirectionHint
           />
           <TextField
             label={he.email}
@@ -196,6 +198,9 @@ export default function AdminUsersPage() {
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
             fullWidth
+            dir="ltr"
+            data-bidi="off"
+            slotProps={{ htmlInput: { dir: "ltr" } }}
           />
           <TextField
             label={he.password}
@@ -204,6 +209,9 @@ export default function AdminUsersPage() {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
             fullWidth
+            dir="ltr"
+            data-bidi="off"
+            slotProps={{ htmlInput: { dir: "ltr" } }}
           />
           <TextField
             select

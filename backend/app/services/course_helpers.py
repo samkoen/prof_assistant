@@ -12,6 +12,8 @@ from app.schemas.course import CourseOfferingResponse
 def offering_to_response(
     offering: CourseOffering,
     enrollment_status: EnrollmentStatus | None = None,
+    *,
+    include_join_link: bool = False,
 ) -> CourseOfferingResponse:
     return CourseOfferingResponse(
         id=offering.id,
@@ -26,6 +28,8 @@ def offering_to_response(
         teacher_name=offering.teacher.full_name,
         created_at=offering.created_at,
         enrollment_status=enrollment_status,
+        join_token=offering.join_token if include_join_link else None,
+        join_token_expires_at=offering.join_token_expires_at if include_join_link else None,
     )
 
 
@@ -36,10 +40,13 @@ async def catalog_to_response(catalog: CourseCatalog, db: AsyncSession) -> Catal
     exercise_count = await db.scalar(
         select(func.count()).select_from(Exercise).where(Exercise.catalog_course_id == catalog.id)
     )
+    teacher_name = catalog.teacher.full_name if catalog.teacher else ""
     return CatalogCourseResponse(
         id=catalog.id,
         name=catalog.name,
         description=catalog.description,
+        teacher_id=catalog.teacher_id,
+        teacher_name=teacher_name,
         exam_count=exam_count or 0,
         exercise_count=exercise_count or 0,
         created_at=catalog.created_at,

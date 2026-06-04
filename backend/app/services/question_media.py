@@ -103,7 +103,7 @@ async def assert_can_view_question_images(exam_id: int, user: User, db: AsyncSes
         return
     if user.role == UserRole.TEACHER:
         catalog = await db.get(CourseCatalog, exam.catalog_course_id)
-        if catalog and teacher_can_edit_catalog_item(exam, user, catalog.created_by_id):
+        if catalog and teacher_can_edit_catalog_item(exam, user, catalog.teacher_id):
             return
     count = await db.scalar(
         select(func.count())

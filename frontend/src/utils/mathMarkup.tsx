@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { bidiMixedTextSx } from "../styles/bidiMixedText";
 
 /** Schéma ASCII (arbres AVL, etc.) — ne pas interpréter \\ comme échappement. */
 export function looksLikeAsciiDiagram(text: string): boolean {
@@ -76,8 +77,7 @@ export function renderMathMarkup(text: string): ReactNode[] {
 }
 
 export const mathTextSx = {
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-word",
+  ...bidiMixedTextSx,
   "& sup": {
     fontSize: "0.75em",
     lineHeight: 1,

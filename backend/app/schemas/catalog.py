@@ -8,6 +8,7 @@ from app.schemas.catalog_scope import CatalogItemScopeFields, CatalogItemScopeRe
 class CatalogCourseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    teacher_id: int | None = None
 
 
 class CatalogCourseUpdate(BaseModel):
@@ -19,6 +20,8 @@ class CatalogCourseResponse(BaseModel):
     id: int
     name: str
     description: str | None
+    teacher_id: int
+    teacher_name: str
     exam_count: int = 0
     exercise_count: int = 0
     created_at: datetime

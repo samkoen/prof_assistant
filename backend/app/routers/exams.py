@@ -42,6 +42,7 @@ from app.schemas.exam import (
     QuestionsImportResponse,
     QuestionsReorderRequest,
     StudentExamResultRow,
+    SavedAnswerDraft,
     SubmitExamRequest,
     StudentQuestionOptionResponse,
     StudentQuestionResponse,
@@ -51,6 +52,7 @@ from app.services.exam_lifecycle import (
     delete_exam_cascade,
     student_visible_sessions_clause,
     duplicate_exam,
+    ensure_draft_session,
     exam_has_non_draft_sessions,
     exams_can_delete_map,
 )
@@ -64,6 +66,7 @@ from app.services.exam_questions import (
     validate_question_body,
 )
 from app.services.catalog_item_response import scope_to_response
+from app.services.catalog_teacher import enforce_teacher_scope_id, teacher_owns_catalog
 from app.services.catalog_scope import (
     apply_scope_fields,
     catalog_item_matches_offering,
@@ -76,6 +79,11 @@ from app.services.catalog_scope import (
 
 from app.services.gemini_question_generation import generate_exam_questions_text
 from app.services.exam_pdf import build_exam_pdf_bytes, pdf_content_disposition
+from app.services.exam_submit_service import (
+    auto_submit_if_expired,
+    finalize_exam_submission,
+    save_draft_answers,
+)
 from app.services.scoring import score_question
 from app.services.integrity_service import (
     accept_rules,
@@ -144,7 +152,7 @@ async def _get_teacher_exam(exam_id: int, user: User, db: AsyncSession) -> Exam:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     if user.role == UserRole.ADMIN:
         return exam
-    if not teacher_can_edit_catalog_item(exam, user, catalog.created_by_id):
+    if not teacher_can_edit_catalog_item(exam, user, catalog.teacher_id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     return exam
 
@@ -205,6 +213,28 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
     return session
+
+
+async def _saved_answers_for_attempt(attempt_id: int, db: AsyncSession) -> list[SavedAnswerDraft]:
+    result = await db.execute(select(Answer).where(Answer.attempt_id == attempt_id))
+    return [
+        SavedAnswerDraft(question_id=a.question_id, selected_option_ids=list(a.selected_option_ids or []))
+        for a in result.scalars()
+    ]
+
+
+def _take_meta(session: ExamSession, exam: Exam) -> dict:
+    return {
+        "session_id": session.id,
+        "offering_id": session.offering_id,
+        "exam_title": exam.title,
+        "description": exam.description,
+        "duration_minutes": exam.duration_minutes,
+        "warning_minutes": exam.warning_minutes,
+        "auto_submit_on_timeout": exam.auto_submit_on_timeout,
+        "integrity_mode_enabled": session.integrity_mode_enabled,
+        "questions_language": exam.questions_language,
+    }
 
 
 def _attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptResponse:
@@ -295,13 +325,10 @@ async def create_exam(
     catalog = await db.get(CourseCatalog, body.catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
-    if user.role == UserRole.TEACHER and catalog.created_by_id != user.id:
+    if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="אין הרשאה")
-    if (
-        body.scope_teacher_id is not None
-        and user.role == UserRole.TEACHER
-        and body.scope_teacher_id != user.id
-    ):
+    body.scope_teacher_id = enforce_teacher_scope_id(user, body.scope_teacher_id)
+    if body.scope_teacher_id is not None and user.role == UserRole.TEACHER and body.scope_teacher_id != user.id:
         raise HTTPException(status_code=403, detail="לא ניתן להגביל למורה אחר")
     exam = Exam(
         catalog_course_id=body.catalog_course_id,
@@ -317,6 +344,11 @@ async def create_exam(
     )
     apply_scope_fields(exam, body, user.id)
     db.add(exam)
+    await db.flush()
+    if body.offering_id:
+        offering = await db.get(CourseOffering, body.offering_id)
+        if offering and offering.catalog_course_id == exam.catalog_course_id:
+            await ensure_draft_session(exam.id, offering.id, db)
     await db.commit()
     await db.refresh(exam)
     names = await load_scope_teacher_names(db, [exam])
@@ -333,6 +365,8 @@ async def list_catalog_exams(
     catalog = await db.get(CourseCatalog, catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+    if user.role == UserRole.TEACHER and not teacher_owns_catalog(catalog, user):
+        raise HTTPException(status_code=403, detail="אין הרשאה")
 
     q = select(Exam).where(Exam.catalog_course_id == catalog_course_id)
     if user.role == UserRole.TEACHER:
@@ -461,6 +495,8 @@ async def update_exam(
     non_title = [k for k in data if k != "title"]
     if non_title and await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    if "scope_teacher_id" in data:
+        data["scope_teacher_id"] = enforce_teacher_scope_id(user, data["scope_teacher_id"])
     if (
         data.get("scope_teacher_id") is not None
         and user.role == UserRole.TEACHER
@@ -518,16 +554,11 @@ async def attach_exam_to_offering(
         raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
     if not catalog_item_visible_to_teacher(exam, offering.teacher_id):
         raise HTTPException(status_code=403, detail="אין הרשאה למבחן זה")
-    if catalog_item_matches_offering(exam, offering):
-        cnt = await db.scalar(
-            select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
-        )
-        names = await load_scope_teacher_names(db, [exam])
-        can_delete = not await exam_has_non_draft_sessions(exam_id, db)
-        return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
-    widen_scope_for_offering(exam, offering)
+    if not catalog_item_matches_offering(exam, offering):
+        widen_scope_for_offering(exam, offering)
     if not catalog_item_matches_offering(exam, offering):
         raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
+    await ensure_draft_session(exam_id, body.offering_id, db)
     await db.commit()
     await db.refresh(exam)
     cnt = await db.scalar(
@@ -769,6 +800,12 @@ async def activate_exam(
         db.add(session)
     elif session.status != ExamStatus.DRAFT:
         raise HTTPException(status_code=400, detail="המבחן כבר הופעל")
+    if body.duration_minutes is not None:
+        exam.duration_minutes = body.duration_minutes
+    if body.warning_minutes is not None:
+        exam.warning_minutes = body.warning_minutes
+    if body.auto_submit_on_timeout is not None:
+        exam.auto_submit_on_timeout = body.auto_submit_on_timeout
     session.status = ExamStatus.ACTIVE
     session.activated_at = datetime.now(timezone.utc)
     session.integrity_mode_enabled = body.integrity_mode_enabled
@@ -982,14 +1019,7 @@ async def take_exam_session(
     existing = attempt_result.scalar_one_or_none()
     if existing and existing.submitted_at and not existing.can_resubmit:
         return ExamTakeResponse(
-            session_id=session.id,
-            offering_id=session.offering_id,
-            exam_title=exam.title,
-            description=exam.description,
-            duration_minutes=exam.duration_minutes,
-            warning_minutes=exam.warning_minutes,
-            integrity_mode_enabled=session.integrity_mode_enabled,
-            questions_language=exam.questions_language,
+            **_take_meta(session, exam),
             attempt=_attempt_response(existing, exam.id),
             questions=[],
         )
@@ -1002,40 +1032,50 @@ async def take_exam_session(
         await db.commit()
         await db.refresh(attempt)
         return ExamTakeResponse(
-            session_id=session.id,
-            offering_id=session.offering_id,
-            exam_title=exam.title,
-            description=exam.description,
-            duration_minutes=exam.duration_minutes,
-            warning_minutes=exam.warning_minutes,
+            **_take_meta(session, exam),
             integrity_mode_enabled=True,
-            questions_language=exam.questions_language,
             attempt=_attempt_response(attempt, exam.id),
             questions=[],
         )
 
     attempt = await _ensure_attempt_started(session, user, db)
+    attempt = await auto_submit_if_expired(attempt, session, exam, db)
     q_result = await db.execute(
         select(Question)
         .options(selectinload(Question.options))
         .where(Question.exam_id == exam.id)
         .order_by(Question.order_index, Question.id)
     )
-    questions = q_result.scalars().all()
+    questions = list(q_result.scalars().all())
     await db.commit()
     await db.refresh(attempt)
+    paper = [] if attempt.submitted_at else _student_paper(exam, questions, attempt.id)
+    saved = [] if attempt.submitted_at else await _saved_answers_for_attempt(attempt.id, db)
     return ExamTakeResponse(
-        session_id=session.id,
-        offering_id=session.offering_id,
-        exam_title=exam.title,
-        description=exam.description,
-        duration_minutes=exam.duration_minutes,
-        warning_minutes=exam.warning_minutes,
-        integrity_mode_enabled=session.integrity_mode_enabled,
-        questions_language=exam.questions_language,
+        **_take_meta(session, exam),
         attempt=_attempt_response(attempt, exam.id),
-        questions=_student_paper(exam, questions, attempt.id),
+        questions=paper,
+        saved_answers=saved,
     )
+
+
+@router.put("/sessions/{session_id}/answers")
+async def save_session_answers(
+    session_id: int,
+    body: SubmitExamRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    if session.status != ExamStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="המבחן לא פעיל")
+    exam = session.exam
+    attempt = await _ensure_attempt_started(session, user, db)
+    if session.integrity_mode_enabled and not attempt.rules_accepted_at:
+        raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
+    await save_draft_answers(attempt, exam, body.answers, db)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/sessions/{session_id}/accept-rules", response_model=AttemptResponse)
@@ -1046,6 +1086,7 @@ async def accept_exam_rules(
 ):
     session = await _get_student_active_session(session_id, user, db)
     attempt = await accept_rules(session, user, db)
+    attempt = await _ensure_attempt_started(session, user, db)
     await db.commit()
     await db.refresh(attempt)
     return _attempt_response(attempt, session.exam_id)
@@ -1093,81 +1134,17 @@ async def submit_exam_session(
     attempt = attempt_result.scalar_one_or_none()
     if not attempt or not attempt.started_at:
         raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
+    if attempt.submitted_at and not attempt.can_resubmit:
+        raise HTTPException(status_code=400, detail="כבר הוגש")
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     now = datetime.now(timezone.utc)
-    if attempt.expires_at and now > attempt.expires_at and not attempt.can_resubmit:
-        if not exam.auto_submit_on_timeout:
-            raise HTTPException(status_code=400, detail="הזמן נגמר")
-    q_result = await db.execute(
-        select(Question).options(selectinload(Question.options)).where(Question.exam_id == exam.id)
-    )
-    questions = {q.id: q for q in q_result.scalars().all()}
-    total = 0.0
-    max_total = 0.0
-    for old in (await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))).scalars():
-        await db.delete(old)
-    for item in body.answers:
-        question = questions.get(item.question_id)
-        if not question:
-            continue
-        earned, max_pts = score_question(question, item.selected_option_ids)
-        total += earned
-        max_total += max_pts
-        db.add(
-            Answer(
-                attempt_id=attempt.id,
-                question_id=item.question_id,
-                selected_option_ids=item.selected_option_ids,
-            )
-        )
-    attempt.submitted_at = now
-    attempt.score = total
-    attempt.max_score = max_total
-    attempt.can_resubmit = False
+    if attempt.expires_at and now > attempt.expires_at and not exam.auto_submit_on_timeout:
+        raise HTTPException(status_code=400, detail="הזמן נגמר")
+    await finalize_exam_submission(attempt, session, exam, body.answers, db)
     await db.commit()
-    all_submitted = await _check_all_submitted(session_id, db)
-    if all_submitted and session.status == ExamStatus.ACTIVE:
-        session.status = ExamStatus.CLOSED
-        session.closed_at = now
-        session.results_published = True
-        await db.commit()
     await db.refresh(attempt)
-    return AttemptResponse(
-        id=attempt.id,
-        exam_session_id=attempt.exam_session_id,
-        exam_id=exam.id,
-        started_at=attempt.started_at,
-        expires_at=attempt.expires_at,
-        submitted_at=attempt.submitted_at,
-        score=attempt.score,
-        max_score=attempt.max_score,
-        progress_index=attempt.progress_index,
-        can_resubmit=attempt.can_resubmit,
-    )
-
-
-async def _check_all_submitted(session_id: int, db: AsyncSession) -> bool:
-    session = await db.get(ExamSession, session_id)
-    if not session:
-        return False
-    enrolled = await db.scalar(
-        select(func.count())
-        .select_from(CourseEnrollment)
-        .where(
-            CourseEnrollment.offering_id == session.offering_id,
-            CourseEnrollment.status == EnrollmentStatus.APPROVED,
-        )
-    )
-    submitted = await db.scalar(
-        select(func.count())
-        .select_from(StudentExamAttempt)
-        .where(
-            StudentExamAttempt.exam_session_id == session_id,
-            StudentExamAttempt.submitted_at.isnot(None),
-        )
-    )
-    return enrolled > 0 and submitted >= enrolled
+    return _attempt_response(attempt, exam.id)
 
 
 @router.get("/sessions/{session_id}/review", response_model=ExamReviewResponse)

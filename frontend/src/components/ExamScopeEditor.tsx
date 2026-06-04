@@ -30,7 +30,8 @@ export default function ExamScopeEditor({
   embedded = false,
 }: ExamScopeEditorProps) {
   const { user } = useAuth();
-  const [scopeTeacher, setScopeTeacher] = useState<"any" | "me">("any");
+  const isTeacher = user?.role === "teacher";
+  const [scopeTeacher, setScopeTeacher] = useState<"any" | "me">("me");
   const [scopeYear, setScopeYear] = useState("");
   const [scopeSemester, setScopeSemester] = useState("");
   const [scopeGroup, setScopeGroup] = useState("");
@@ -52,7 +53,7 @@ export default function ExamScopeEditor({
       const updated = await api<Exam>(`/api/exams/${exam.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          scope_teacher_id: scopeTeacher === "me" ? user?.id : null,
+          scope_teacher_id: isTeacher ? user?.id : scopeTeacher === "me" ? user?.id : null,
           scope_academic_year: scopeYear ? Number(scopeYear) : null,
           scope_semester: scopeSemester ? Number(scopeSemester) : null,
           scope_group_name: scopeGroup.trim() || null,
@@ -84,6 +85,7 @@ export default function ExamScopeEditor({
       ) : (
         <>
           <ScopeFields
+            showTeacherSelect={!isTeacher}
             scopeTeacher={scopeTeacher}
             scopeYear={scopeYear}
             scopeSemester={scopeSemester}
@@ -123,6 +125,7 @@ export default function ExamScopeEditor({
 }
 
 function ScopeFields({
+  showTeacherSelect,
   scopeTeacher,
   scopeYear,
   scopeSemester,
@@ -132,6 +135,7 @@ function ScopeFields({
   onSemesterChange,
   onGroupChange,
 }: {
+  showTeacherSelect: boolean;
   scopeTeacher: "any" | "me";
   scopeYear: string;
   scopeSemester: string;
@@ -143,16 +147,18 @@ function ScopeFields({
 }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <TextField
-        select
-        label={he.teacher}
-        value={scopeTeacher}
-        onChange={(e) => onTeacherChange(e.target.value as "any" | "me")}
-        size="small"
-      >
-        <MenuItem value="any">{he.scopeAnyTeacher}</MenuItem>
-        <MenuItem value="me">{he.scopeOnlyMe}</MenuItem>
-      </TextField>
+      {showTeacherSelect && (
+        <TextField
+          select
+          label={he.teacher}
+          value={scopeTeacher}
+          onChange={(e) => onTeacherChange(e.target.value as "any" | "me")}
+          size="small"
+        >
+          <MenuItem value="any">{he.scopeAnyTeacher}</MenuItem>
+          <MenuItem value="me">{he.scopeOnlyMe}</MenuItem>
+        </TextField>
+      )}
       <TextField
         label={he.academicYear}
         value={scopeYear}

@@ -14,6 +14,7 @@ from app.routers import (
     notifications,
     question_media,
     students_router,
+    teacher_shares,
 )
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -37,6 +38,7 @@ app.include_router(ai_explanations.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(students_router.router, prefix="/api")
+app.include_router(teacher_shares.router, prefix="/api")
 
 
 @app.get("/api/health")

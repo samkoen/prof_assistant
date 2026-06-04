@@ -130,7 +130,7 @@ function QuestionRow({
         width: "100%",
       }}
     >
-      <Box flex={1} minWidth={0} sx={ltr ? examQuestionLtrSx : undefined}>
+      <Box flex={1} minWidth={0} sx={ltr ? examQuestionLtrSx : { textAlign: "right", width: "100%" }}>
         {children}
       </Box>
       {actions}

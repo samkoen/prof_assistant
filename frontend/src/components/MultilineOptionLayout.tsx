@@ -1,5 +1,7 @@
 import { Box, Typography, type TypographyProps } from "@mui/material";
 import MathText from "./MathText";
+import { bidiMixedTextSx, mixedLineBlockSx } from "../styles/bidiMixedText";
+import { firstNonEmptyLine, stripEditorBidiMarks } from "../utils/examQuestionsLanguage";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 
 const optionTextSx = {
@@ -16,6 +18,8 @@ type OptionDisplayProps = {
   color?: TypographyProps["color"];
   variant?: TypographyProps["variant"];
   dir?: "ltr" | "rtl";
+  /** Direction de l’examen (question) : préfixe à droite si hébreu. */
+  examDir?: "ltr" | "rtl";
 };
 
 const ltrBlockSx = {
@@ -35,8 +39,9 @@ export function OptionDisplay({
   color,
   variant = "body2",
   dir = "rtl",
+  examDir = "rtl",
 }: OptionDisplayProps) {
-  if (dir === "ltr") {
+  if (dir === "ltr" && examDir === "ltr") {
     return (
       <Box
         component="div"
@@ -75,24 +80,29 @@ export function OptionDisplay({
       </Box>
     );
   }
+  const displayText = stripEditorBidiMarks(text);
+  const lines = displayText.split("\n");
+  const anchorLine = firstNonEmptyLine(lines);
+  const prefixSx =
+    examDir === "rtl"
+      ? { ...bidiMixedTextSx, direction: "rtl" as const, textAlign: "right" as const }
+      : mixedLineBlockSx(anchorLine);
   return (
-    <Typography
-      variant={variant}
-      component="div"
-      color={color}
-      dir={dir}
-      sx={{
-        ...optionTextSx,
-        mt: 0.5,
-        mb: 0.75,
-        textAlign: "start",
-        direction: dir,
-      }}
-    >
-      {`${prefix}\n`}
-      {text.trim() && <MathText text={text} component="span" />}
+    <Box component="div" color={color} sx={{ ...optionTextSx, mt: 0.5, mb: 0.75 }}>
+      <Typography variant={variant} component="div" color={color} sx={prefixSx}>
+        {prefix}
+      </Typography>
+      {lines.map((line, i) => (
+        <Box key={i} sx={mixedLineBlockSx(line)}>
+          {line.length > 0 && (
+            <Typography variant={variant} component="span" color={color}>
+              <MathText text={line} component="span" />
+            </Typography>
+          )}
+        </Box>
+      ))}
       <QuestionImageDisplay url={imageUrl} maxHeight={180} />
-    </Typography>
+    </Box>
   );
 }
 
@@ -110,19 +120,16 @@ export function OptionText({
   variant?: TypographyProps["variant"];
   dir?: "ltr" | "rtl";
 }) {
+  const displayText = stripEditorBidiMarks(text);
+  const lines = displayText.split("\n");
   return (
-    <Typography
-      variant={variant}
-      component="div"
-      color={color}
-      dir={dir}
-      sx={{
-        ...optionTextSx,
-        ...(dir === "ltr" ? { textAlign: "left", direction: "ltr" } : {}),
-      }}
-    >
-      {text.trim() && <MathText text={text} component="span" />}
+    <Box component="div" sx={{ ...optionTextSx, mt: 0.5, mb: 0.75 }}>
+      {lines.map((line, i) => (
+        <Typography key={i} variant={variant} component="div" color={color} sx={mixedLineBlockSx(line)}>
+          {line.length > 0 && <MathText text={line} component="span" />}
+        </Typography>
+      ))}
       <QuestionImageDisplay url={imageUrl} maxHeight={180} />
-    </Typography>
+    </Box>
   );
 }

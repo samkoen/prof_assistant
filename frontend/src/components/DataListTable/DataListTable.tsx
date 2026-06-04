@@ -42,6 +42,12 @@ import type { DataListColumnDef } from "./types";
 
 const headerSx = { fontSize: "0.75rem", fontWeight: 600 };
 
+const hideHorizontalScrollbarSx = {
+  scrollbarWidth: "none",
+  msOverflowStyle: "none",
+  "&::-webkit-scrollbar": { display: "none" },
+} as const;
+
 export interface DataListTableProps<T> {
   viewKey: string;
   rows: T[];
@@ -89,6 +95,8 @@ export default function DataListTable<T>({
   const [tableWidth, setTableWidth] = useState(0);
   const tableWidthRef = useRef(1200);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const headerScrollRef = useRef<HTMLDivElement | null>(null);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
 
   const visibleColumns = useMemo(
     () => columns.filter((c) => visibleKeys.includes(c.key)),
@@ -279,6 +287,25 @@ export default function DataListTable<T>({
 
   const effectiveTableMinW = fitContainer ? "100%" : tableMinW;
 
+  const tableSx = {
+    tableLayout: "fixed" as const,
+    width: fitContainer ? "100%" : "max-content",
+    minWidth: effectiveTableMinW,
+    ...hebrewDataListTableSx,
+  };
+
+  const syncBodyScrollLeft = () => {
+    const body = bodyScrollRef.current;
+    const header = headerScrollRef.current;
+    if (body && header) header.scrollLeft = body.scrollLeft;
+  };
+
+  const syncHeaderScrollLeft = () => {
+    const body = bodyScrollRef.current;
+    const header = headerScrollRef.current;
+    if (body && header) body.scrollLeft = header.scrollLeft;
+  };
+
   return (
     <Box
       ref={setTableContainerRef}
@@ -318,28 +345,19 @@ export default function DataListTable<T>({
         }}
       >
         <Box
+          ref={headerScrollRef}
+          onScroll={syncHeaderScrollLeft}
           sx={{
-            position: "relative",
-            flex: "1 1 auto",
-            minHeight: 0,
+            flexShrink: 0,
             overflowX: "auto",
-            overflowY: "auto",
+            overflowY: "hidden",
             maxWidth: "100%",
+            borderBottom: 1,
+            borderColor: "divider",
+            ...hideHorizontalScrollbarSx,
           }}
         >
-          {loading && (
-            <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} />
-          )}
-          <Table
-            stickyHeader
-            size="small"
-            sx={{
-              tableLayout: "fixed",
-              width: fitContainer ? "100%" : "max-content",
-              minWidth: effectiveTableMinW,
-              ...hebrewDataListTableSx,
-            }}
-          >
+          <Table size="small" sx={tableSx}>
             <TableHead sx={{ "& .MuiTableRow-root": { overflow: "visible" } }}>
               <TableRow>
                 {resizableOrder.map((colKey, idx) => {
@@ -420,6 +438,24 @@ export default function DataListTable<T>({
                 )}
               </TableRow>
             </TableHead>
+          </Table>
+        </Box>
+        <Box
+          ref={bodyScrollRef}
+          onScroll={syncBodyScrollLeft}
+          sx={{
+            position: "relative",
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowX: "auto",
+            overflowY: "auto",
+            maxWidth: "100%",
+          }}
+        >
+          {loading && (
+            <LinearProgress sx={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 }} />
+          )}
+          <Table size="small" sx={tableSx}>
             <TableBody>
               {pagedRows.length === 0 && !loading && (
                 <TableRow>

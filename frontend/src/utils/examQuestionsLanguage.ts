@@ -10,6 +10,32 @@ export type QuestionContentSample = {
   options?: { text: string; order_index?: number }[];
 };
 
+/** Marqueurs invisibles de l’éditeur mixte — à retirer à l’affichage. */
+export function stripEditorBidiMarks(text: string): string {
+  return text.replace(/[\u200E\u200F]/g, "");
+}
+
+/** Direction d’affichage pour une question/réponse (pas seulement la 1ʳᵉ question de l’examen). */
+export function contentDirForQuestionText(text: string): "ltr" | "rtl" {
+  return textLooksHebrew(stripEditorBidiMarks(text)) ? "rtl" : "ltr";
+}
+
+const MATH_NEUTRAL = "+-*/=^_{}().,[]";
+
+export function firstNonEmptyLine(lines: string[]): string {
+  return lines.find((l) => l.trim().length > 0) ?? lines[0] ?? "";
+}
+
+/** Direction d’une ligne selon son premier caractère fort (pas la majorité). */
+export function contentDirForLine(line: string): "ltr" | "rtl" {
+  const body = stripEditorBidiMarks(line);
+  for (const ch of body) {
+    if (HEBREW_RE.test(ch)) return "rtl";
+    if (LATIN_RE.test(ch) || /[0-9]/.test(ch) || MATH_NEUTRAL.includes(ch)) return "ltr";
+  }
+  return "rtl";
+}
+
 export function textLooksHebrew(text: string): boolean {
   const hebrew = (text.match(HEBREW_RE) || []).length;
   const latin = (text.match(LATIN_RE) || []).length;

@@ -3,8 +3,10 @@ import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AutoDeleteIcon from "@mui/icons-material/AutoDelete";
+import ShareIcon from "@mui/icons-material/Share";
 import QuizIcon from "@mui/icons-material/Quiz";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import PersonIcon from "@mui/icons-material/Person";
 import type { ReactNode } from "react";
 import type { UserRole } from "../api/client";
 import { he } from "../i18n/he";
@@ -15,6 +17,14 @@ export interface MenuItemDef {
   path: string;
   matchPathPrefix?: string;
 }
+
+export const PROFILE_PATH = "/profile";
+
+const profileMenuItem: MenuItemDef = {
+  text: he.myProfile,
+  icon: <PersonIcon />,
+  path: PROFILE_PATH,
+};
 
 export function getMenuItems(role: UserRole): MenuItemDef[] {
   if (role === "admin") {
@@ -34,6 +44,8 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.myCourses, icon: <SchoolIcon />, path: "/teacher/courses" },
       { text: he.exams, icon: <QuizIcon />, path: "/teacher/exams" },
       { text: he.pendingApprovals, icon: <SchoolIcon />, path: "/teacher/enrollments" },
+      { text: he.teacherShares, icon: <ShareIcon />, path: "/teacher/shares" },
+      profileMenuItem,
     ];
   }
   return [
@@ -44,7 +56,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       path: "/student/courses",
       matchPathPrefix: "/student/courses",
     },
-    { text: he.openCourses, icon: <SchoolIcon />, path: "/student/open-courses" },
+    { text: he.joinByTeacherTitle, icon: <SchoolIcon />, path: "/student/join-course" },
     {
       text: he.exams,
       icon: <QuizIcon />,
@@ -52,6 +64,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       matchPathPrefix: "/student/exams",
     },
     { text: he.notifications, icon: <NotificationsIcon />, path: "/student/notifications" },
+    profileMenuItem,
   ];
 }
 

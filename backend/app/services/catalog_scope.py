@@ -49,12 +49,12 @@ def widen_scope_for_offering(item, offering: CourseOffering) -> None:
         item.scope_group_name = None
 
 
-def teacher_can_edit_catalog_item(item, user: User, catalog_creator_id: int) -> bool:
+def teacher_can_edit_catalog_item(item, user: User, catalog_teacher_id: int) -> bool:
     if user.role == UserRole.ADMIN:
         return True
     if item.created_by_id == user.id:
         return True
-    return catalog_creator_id == user.id
+    return catalog_teacher_id == user.id
 
 
 def apply_scope_fields(item, scope, created_by_id: int) -> None:

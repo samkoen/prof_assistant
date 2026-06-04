@@ -7,7 +7,7 @@ import { he } from "../i18n/he";
 
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
-  const joinOfferingId = searchParams.get("join");
+  const joinToken = searchParams.get("joinToken") ?? searchParams.get("join");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -43,7 +43,9 @@ export default function RegisterPage() {
     }
   };
 
-  const loginLink = joinOfferingId ? `/login?join=${joinOfferingId}` : "/login";
+  const loginLink = joinToken
+    ? `/login?joinToken=${encodeURIComponent(joinToken)}`
+    : "/login";
 
   if (success) {
     return (

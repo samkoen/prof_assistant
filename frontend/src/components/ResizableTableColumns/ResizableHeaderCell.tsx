@@ -115,7 +115,7 @@ export function ResizableHeaderCell({
         verticalAlign: "center",
         overflow: "visible",
         zIndex: stackZIndex,
-        isolation: "isolate",
+        backgroundColor: theme.palette.background.paper,
         ...sxProps,
       }}
     >

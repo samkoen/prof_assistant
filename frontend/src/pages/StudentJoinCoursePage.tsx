@@ -11,12 +11,25 @@ import {
 } from "@mui/material";
 import { api, ApiError, semesterLabel, type JoinPreview } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { authPathWithJoin } from "../utils/joinCourse";
+import { authPathWithJoin, formatJoinExpiresAt } from "../utils/joinCourse";
 import { he } from "../i18n/he";
 
+function joinPreviewPath(joinToken?: string, legacyOfferingId?: number): string | null {
+  if (joinToken) {
+    return `/api/courses/join-by-token/${encodeURIComponent(joinToken)}/preview`;
+  }
+  if (legacyOfferingId && !Number.isNaN(legacyOfferingId)) {
+    return `/api/courses/${legacyOfferingId}/join-preview`;
+  }
+  return null;
+}
+
 export default function StudentJoinCoursePage() {
-  const { offeringId } = useParams<{ offeringId: string }>();
-  const id = Number(offeringId);
+  const { joinToken, offeringId: legacyOfferingIdParam } = useParams<{
+    joinToken?: string;
+    offeringId?: string;
+  }>();
+  const legacyOfferingId = legacyOfferingIdParam ? Number(legacyOfferingIdParam) : undefined;
   const { user } = useAuth();
   const navigate = useNavigate();
   const [preview, setPreview] = useState<JoinPreview | null>(null);
@@ -25,31 +38,34 @@ export default function StudentJoinCoursePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const previewUrl = joinPreviewPath(joinToken, legacyOfferingId);
+
   const load = useCallback(async () => {
-    if (!id || Number.isNaN(id)) return;
+    if (!previewUrl) return;
     setLoading(true);
     setError("");
     try {
-      setPreview(await api<JoinPreview>(`/api/courses/${id}/join-preview`));
+      setPreview(await api<JoinPreview>(previewUrl));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [previewUrl]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const join = async () => {
+    if (!preview) return;
     setJoining(true);
     setError("");
     setSuccess("");
     try {
       const res = await api<{ status: string }>("/api/enrollments/request", {
         method: "POST",
-        body: JSON.stringify({ offering_id: id }),
+        body: JSON.stringify({ offering_id: preview.offering_id }),
       });
       setSuccess(res.status === "approved" ? he.enrollmentApproved : he.enrollmentRequestSent);
       await load();
@@ -77,6 +93,9 @@ export default function StudentJoinCoursePage() {
   }
 
   const offeringSummary = `${preview.catalog_name} — ${preview.group_name} (${preview.academic_year}, ${semesterLabel(preview.semester)})`;
+  const linkExpired = preview.join_link_expired;
+  const canJoin = preview.is_open_enrollment && !linkExpired;
+  const authJoinRef = joinToken ?? (legacyOfferingId ? String(legacyOfferingId) : "");
 
   return (
     <Box maxWidth={520} mx="auto" mt={6} px={2} dir="rtl">
@@ -100,7 +119,17 @@ export default function StudentJoinCoursePage() {
               {preview.description}
             </Typography>
           )}
-          {!preview.is_open_enrollment && (
+          {linkExpired && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {he.joinLinkExpired}
+            </Alert>
+          )}
+          {!linkExpired && preview.join_token_expires_at && (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              {he.joinLinkValidUntil}: {formatJoinExpiresAt(preview.join_token_expires_at)}
+            </Typography>
+          )}
+          {!canJoin && !linkExpired && (
             <Alert severity="warning" sx={{ mt: 2 }}>
               {he.courseEnrollmentClosed}
             </Alert>
@@ -119,12 +148,12 @@ export default function StudentJoinCoursePage() {
         </Alert>
       )}
 
-      {!user && preview.is_open_enrollment && (
+      {!user && canJoin && authJoinRef && (
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Button variant="contained" component={RouterLink} to={authPathWithJoin("login", id)}>
+          <Button variant="contained" component={RouterLink} to={authPathWithJoin("login", authJoinRef)}>
             {he.login}
           </Button>
-          <Button variant="outlined" component={RouterLink} to={authPathWithJoin("register", id)}>
+          <Button variant="outlined" component={RouterLink} to={authPathWithJoin("register", authJoinRef)}>
             {he.register}
           </Button>
         </Box>
@@ -142,20 +171,21 @@ export default function StudentJoinCoursePage() {
               : he.enrollmentRequestSent}
           </Alert>
           {preview.enrollment_status === "approved" && (
-            <Button variant="contained" onClick={() => navigate(`/student/courses/${id}`)}>
+            <Button
+              variant="contained"
+              onClick={() => navigate(`/student/courses/${preview.offering_id}`)}
+            >
               {he.viewCourseExams}
             </Button>
           )}
         </Box>
       )}
 
-      {user?.role === "student" &&
-        preview.is_open_enrollment &&
-        !preview.already_enrolled && (
-          <Button variant="contained" onClick={join} disabled={joining}>
-            {joining ? he.loading : he.joinCourse}
-          </Button>
-        )}
+      {user?.role === "student" && canJoin && !preview.already_enrolled && (
+        <Button variant="contained" onClick={join} disabled={joining}>
+          {joining ? he.loading : he.joinCourse}
+        </Button>
+      )}
     </Box>
   );
 }

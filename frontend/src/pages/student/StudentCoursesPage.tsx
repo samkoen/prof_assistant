@@ -61,12 +61,12 @@ export default function StudentCoursesPage() {
       <Box sx={{ mb: 2 }}>
         <Button
           component={RouterLink}
-          to="/student/open-courses"
+          to="/student/join-course"
           variant="outlined"
           startIcon={<SchoolIcon />}
           size="small"
         >
-          {he.openCourses}
+          {he.joinByTeacherTitle}
         </Button>
       </Box>
       {error && (
@@ -83,7 +83,7 @@ export default function StudentCoursesPage() {
           <Typography color="text.secondary" sx={{ mb: 2 }}>
             {he.noCoursesJoinHint}
           </Typography>
-          <Button component={RouterLink} to="/student/open-courses" variant="contained" startIcon={<SchoolIcon />}>
+          <Button component={RouterLink} to="/student/join-course" variant="contained" startIcon={<SchoolIcon />}>
             {he.browseOpenCourses}
           </Button>
         </Box>

@@ -8,17 +8,18 @@ from app.models.enums import EnrollmentStatus
 
 
 class CourseCatalog(Base):
-    """Cours catalogue — contenu pédagogique réutilisable (sans prof, élèves, année)."""
+    """Cours catalogue — contenu pédagogique d'un prof (matière), réutilisable entre הרצות."""
 
     __tablename__ = "course_catalogs"
+    __table_args__ = (UniqueConstraint("teacher_id", "name", name="uq_catalog_teacher_name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    creator = relationship("User", back_populates="catalog_courses_created")
+    teacher = relationship("User", back_populates="catalog_courses")
     offerings = relationship("CourseOffering", back_populates="catalog_course")
     exams = relationship("Exam", back_populates="catalog_course")
     exercises = relationship("Exercise", back_populates="catalog_course")
@@ -48,6 +49,8 @@ class CourseOffering(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_open_enrollment: Mapped[bool] = mapped_column(Boolean, default=True)
     auto_approve_enrollment: Mapped[bool] = mapped_column(Boolean, default=False)
+    join_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    join_token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     catalog_course = relationship("CourseCatalog", back_populates="offerings")

@@ -17,9 +17,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import BidiTextField from "./BidiTextField";
 import DirectionalMultilineField from "./DirectionalMultilineField";
-import type { TextDirection } from "../utils/textDirectionShortcut";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { api, ApiError, type Question } from "../api/client";
@@ -158,11 +156,8 @@ export default function QuestionEditDialog({
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [textDir, setTextDir] = useState<TextDirection>("rtl");
-
   useEffect(() => {
     if (!open) return;
-    setTextDir("rtl");
     resetForm(question, {
       setText,
       setImageUrl,
@@ -238,11 +233,10 @@ export default function QuestionEditDialog({
         )}
 
         <DirectionalMultilineField
+          variant="mixed"
           label={he.questionText}
           value={text}
           onChange={setText}
-          direction={textDir}
-          onDirectionChange={setTextDir}
           minRows={4}
           maxRows={12}
           placeholder={he.mathMarkupHint}
@@ -282,6 +276,9 @@ export default function QuestionEditDialog({
 
         <Typography variant="subtitle2" gutterBottom>
           {he.options}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+          {he.textDirectionMixedHint}
         </Typography>
 
         {options.map((opt, i) => (
@@ -361,16 +358,16 @@ function OptionRow({
           </IconButton>
         )}
       </Box>
-      <BidiTextField
+      <DirectionalMultilineField
+        variant="mixed"
         value={opt.text}
-        onChange={(e) => onTextChange(e.target.value)}
-        fullWidth
+        onChange={onTextChange}
         size="small"
-        multiline
         minRows={opt.text.includes("\n") ? 3 : 1}
+        maxRows={8}
         disabled={questionType === "true_false"}
-        showDirectionHint={questionType !== "true_false"}
-        sx={{ mb: 1, "& textarea": { whiteSpace: "pre-wrap", fontFamily: "monospace" } }}
+        showHint={false}
+        sx={{ mb: 1 }}
       />
       <QuestionImageField
         examId={examId}

@@ -45,3 +45,15 @@ class NotificationType(str, enum.Enum):
     EXAM_RESULTS = "exam_results"
     TIME_WARNING = "time_warning"
     TIME_EXPIRED = "time_expired"
+    TEACHER_SHARE_RECEIVED = "teacher_share_received"
+
+
+class TeacherShareType(str, enum.Enum):
+    EXAM = "exam"
+    CATALOG = "catalog"
+
+
+class TeacherShareStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"

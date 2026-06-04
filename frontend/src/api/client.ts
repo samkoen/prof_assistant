@@ -63,6 +63,33 @@ export async function api<T>(
   return res.json() as Promise<T>;
 }
 
+function buildPdfFilename(title: string | undefined, examId: number): string {
+  let base = (title ?? "").trim() || `exam_${examId}`;
+  base = base.replace(/[\r\n"/\\?*:|<>]/g, "").slice(0, 120);
+  return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+}
+
+function filenameFromContentDisposition(
+  header: string,
+  fallbackTitle: string | undefined,
+  examId: number,
+): string {
+  const utf8 = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1].trim());
+    } catch {
+      /* ignore */
+    }
+  }
+  const quoted = header.match(/filename="([^"]+)"/i);
+  if (quoted?.[1]) {
+    const generic = quoted[1] === `exam_${examId}.pdf`;
+    if (!generic || !fallbackTitle?.trim()) return quoted[1];
+  }
+  return buildPdfFilename(fallbackTitle, examId);
+}
+
 export async function downloadExamPdf(examId: number, title?: string): Promise<void> {
   const res = await fetch(`${API_BASE}/api/exams/${examId}/pdf`, {
     credentials: "include",
@@ -79,8 +106,9 @@ export async function downloadExamPdf(examId: number, title?: string): Promise<v
   }
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition") ?? "";
-  const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? `${title?.replace(/\s+/g, "_") || `exam_${examId}`}.pdf`;
+  const filename = disposition
+    ? filenameFromContentDisposition(disposition, title, examId)
+    : buildPdfFilename(title, examId);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -106,10 +134,36 @@ export interface User {
 }
 
 /** Cours catalogue — contenu pédagogique réutilisable. */
+export type TeacherShareType = "exam" | "catalog";
+export type TeacherShareStatus = "pending" | "accepted" | "declined";
+
+export interface TeacherShare {
+  id: number;
+  share_type: TeacherShareType;
+  status: TeacherShareStatus;
+  sender_id: number;
+  sender_name: string;
+  recipient_id: number;
+  recipient_name: string;
+  source_exam_id: number | null;
+  source_exam_title: string | null;
+  source_catalog_id: number | null;
+  source_catalog_name: string | null;
+  source_exam_count: number | null;
+  target_catalog_id: number | null;
+  target_catalog_name: string | null;
+  message: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  suggested_catalog_id: number | null;
+}
+
 export interface CatalogCourse {
   id: number;
   name: string;
   description: string | null;
+  teacher_id: number;
+  teacher_name: string;
   exam_count: number;
   exercise_count: number;
   created_at: string;
@@ -129,6 +183,15 @@ export interface CourseOffering {
   teacher_name: string;
   created_at: string;
   enrollment_status?: "pending" | "approved" | "rejected" | null;
+  join_token?: string | null;
+  join_token_expires_at?: string | null;
+}
+
+export interface TeacherOpenOfferings {
+  teacher_id: number;
+  teacher_name: string;
+  teacher_email: string;
+  offerings: CourseOffering[];
 }
 
 export interface JoinPreview {
@@ -143,6 +206,8 @@ export interface JoinPreview {
   auto_approve_enrollment: boolean;
   already_enrolled: boolean;
   enrollment_status: "pending" | "approved" | "rejected" | null;
+  join_link_expired: boolean;
+  join_token_expires_at: string | null;
 }
 
 export interface CatalogItemScope {
@@ -306,10 +371,12 @@ export interface ExamTake {
   description: string | null;
   duration_minutes: number;
   warning_minutes: number;
+  auto_submit_on_timeout: boolean;
   integrity_mode_enabled: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: StudentQuestion[];
+  saved_answers?: { question_id: number; selected_option_ids: number[] }[];
 }
 
 export interface ExamReviewCorrectOption {
@@ -376,6 +443,27 @@ export interface StudentAccount {
   student_id: string | null;
   email_verified: boolean;
   ai_explanation_language?: ExplanationLanguage;
+}
+
+export interface UserProfileUpdatePayload {
+  full_name?: string;
+  email?: string;
+  phone?: string | null;
+  student_id?: string | null;
+  current_password?: string;
+  new_password?: string;
+}
+
+export interface UserProfileUpdateResult {
+  user: User;
+  email_verification_sent: boolean;
+}
+
+export function updateMyProfile(payload: UserProfileUpdatePayload): Promise<UserProfileUpdateResult> {
+  return api<UserProfileUpdateResult>("/api/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function updateAiExplanationLanguage(language: ExplanationLanguage): Promise<User> {

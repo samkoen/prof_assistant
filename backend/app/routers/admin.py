@@ -161,10 +161,12 @@ async def admin_create_offering(
     catalog = CourseCatalog(
         name=body.catalog_name,
         description=body.catalog_description,
-        created_by_id=teacher.id,
+        teacher_id=teacher.id,
     )
     db.add(catalog)
     await db.flush()
+
+    from app.services.join_token_service import assign_join_token, expires_at_from_valid_days
 
     offering = CourseOffering(
         catalog_course_id=catalog.id,
@@ -174,7 +176,10 @@ async def admin_create_offering(
         semester=body.semester,
         description=body.description,
         is_open_enrollment=body.is_open_enrollment,
+        join_token="pending",
+        join_token_expires_at=expires_at_from_valid_days(1),
     )
+    assign_join_token(offering)
     db.add(offering)
     await db.commit()
 

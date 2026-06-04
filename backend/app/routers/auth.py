@@ -12,8 +12,11 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenResponse,
     UserAiExplanationLanguageUpdateRequest,
+    UserProfileUpdateRequest,
+    UserProfileUpdateResponse,
     UserResponse,
 )
+from app.services.user_profile_service import update_user_profile
 from app.security import (
     COOKIE_NAME,
     create_access_token,
@@ -111,6 +114,19 @@ async def logout(response: Response):
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.patch("/me", response_model=UserProfileUpdateResponse)
+async def update_me(
+    body: UserProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    updated, email_sent = await update_user_profile(db, user, body)
+    return UserProfileUpdateResponse(
+        user=UserResponse.model_validate(updated),
+        email_verification_sent=email_sent,
+    )
 
 
 @router.patch("/me/ai-explanation-language", response_model=UserResponse)

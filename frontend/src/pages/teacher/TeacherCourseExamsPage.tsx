@@ -17,6 +17,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
+import ExamActivateTimingFields from "../../components/ExamActivateTimingFields";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
 import ListPageToolbar from "../../components/ListPageToolbar";
@@ -30,6 +31,12 @@ import {
   type ExamSession,
 } from "../../api/client";
 import { he } from "../../i18n/he";
+import {
+  timingActivatePayload,
+  timingFromExam,
+  validateExamTiming,
+  type ExamTimingForm,
+} from "../../utils/examActivateTiming";
 
 export default function TeacherCourseExamsPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -46,6 +53,11 @@ export default function TeacherCourseExamsPage() {
   const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
   const [activateExam, setActivateExam] = useState<Exam | null>(null);
   const [activateIntegrity, setActivateIntegrity] = useState(false);
+  const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
+    durationMinutes: "45",
+    warningMinutes: "10",
+    autoSubmitOnTimeout: true,
+  });
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -96,6 +108,11 @@ export default function TeacherCourseExamsPage() {
 
   const confirmStartExam = async () => {
     if (!offering || !activateExam) return;
+    const timingError = validateExamTiming(activateTiming);
+    if (timingError) {
+      setError(timingError);
+      return;
+    }
     setActivatingId(activateExam.id);
     setError("");
     setSuccess("");
@@ -105,6 +122,7 @@ export default function TeacherCourseExamsPage() {
         body: JSON.stringify({
           offering_id: offering.id,
           integrity_mode_enabled: activateIntegrity,
+          ...timingActivatePayload(activateTiming),
         }),
       });
       setSuccess(`${he.examActivated}: ${activateExam.title}`);
@@ -253,6 +271,7 @@ export default function TeacherCourseExamsPage() {
             onError={setError}
             onStartClick={(exam) => {
               setActivateIntegrity(false);
+              setActivateTiming(timingFromExam(exam));
               setActivateExam(exam);
             }}
             onCloseClick={setCloseSession}
@@ -294,6 +313,7 @@ export default function TeacherCourseExamsPage() {
           <Typography variant="caption" color="text.secondary" display="block">
             {he.integrityModeHint}
           </Typography>
+          <ExamActivateTimingFields value={activateTiming} onChange={setActivateTiming} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActivateExam(null)}>{he.cancel}</Button>

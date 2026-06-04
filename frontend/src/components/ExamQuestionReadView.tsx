@@ -1,10 +1,11 @@
 import { Box, Chip, Typography } from "@mui/material";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
-import MathText from "./MathText";
+import QuestionTextWithIndex from "./QuestionTextWithIndex";
 import { OptionDisplay } from "./MultilineOptionLayout";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import { he } from "../i18n/he";
+import { contentDirForQuestionText } from "../utils/examQuestionsLanguage";
 
 const typeLabelRtl: Record<string, string> = {
   single: he.questionTypeSingle,
@@ -51,38 +52,27 @@ export function ExamQuestionReadView({
   options,
   contentDir = "rtl",
 }: ExamQuestionReadViewProps) {
-  const ltr = contentDir === "ltr";
+  const qDir = contentDirForQuestionText(text);
+  const ltr = qDir === "ltr";
   const typeLabel = ltr ? typeLabelLtr : typeLabelRtl;
   const body = (
     <Box
       flex={1}
       minWidth={0}
       width="100%"
-      dir={contentDir}
-      sx={ltr ? examQuestionLtrSx : { textAlign: "start", direction: contentDir }}
+      dir={qDir}
+      sx={ltr ? examQuestionLtrSx : { textAlign: "right", direction: "rtl" }}
     >
-      <Typography
-        fontWeight={600}
-        component="div"
-        dir={contentDir}
-        sx={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          mb: 0.5,
-          ...(ltr ? examQuestionLtrSx : { textAlign: "start", width: "100%" }),
-        }}
-      >
-        {index}. <MathText text={text} component="span" />
-      </Typography>
+      <QuestionTextWithIndex index={index} text={text} sx={{ mb: 0.5 }} />
       <QuestionImageDisplay url={imageUrl} />
       <Box
-        dir={contentDir}
+        dir={qDir}
         display="flex"
         flexDirection="row"
         justifyContent="flex-start"
         gap={0.5}
         flexWrap="wrap"
-        sx={{ mb: 0.5, ...(ltr ? examQuestionLtrSx : {}) }}
+        sx={{ mb: 0.5, ...(ltr ? examQuestionLtrSx : { width: "100%" }) }}
       >
         <Chip size="small" label={typeLabel[questionType] ?? questionType} />
         {points != null && (
@@ -96,7 +86,8 @@ export function ExamQuestionReadView({
           text={o.text}
           imageUrl={o.image_url}
           color={o.is_correct ? "success.main" : "text.secondary"}
-          dir={contentDir}
+          dir={contentDirForQuestionText(o.text)}
+          examDir={qDir}
         />
       ))}
     </Box>

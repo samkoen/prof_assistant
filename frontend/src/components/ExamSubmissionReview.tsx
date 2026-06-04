@@ -2,16 +2,14 @@ import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import { OptionDisplay } from "./MultilineOptionLayout";
-import MathText from "./MathText";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import QuestionAiExplanation from "./QuestionAiExplanation";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
+import QuestionTextWithIndex from "./QuestionTextWithIndex";
+import { contentDirForQuestionText } from "../utils/examQuestionsLanguage";
 import { useAuth } from "../context/AuthContext";
 import type { ExamReview, ExamReviewCorrectOption, ExamReviewQuestion, ExplanationLanguage } from "../api/client";
-import {
-  contentDirForExam,
-  formatExamPointsLabel,
-} from "../utils/examQuestionsLanguage";
+import { formatExamPointsLabel } from "../utils/examQuestionsLanguage";
 import { he } from "../i18n/he";
 
 interface ExamSubmissionReviewProps {
@@ -28,12 +26,12 @@ function ReviewOptions({
   options,
   mark,
   color,
-  contentDir,
+  examDir,
 }: {
   options: ExamReviewCorrectOption[];
   mark?: string;
   color: string;
-  contentDir: "ltr" | "rtl";
+  examDir: "ltr" | "rtl";
 }) {
   return (
     <>
@@ -44,7 +42,8 @@ function ReviewOptions({
           text={o.text}
           imageUrl={o.image_url}
           color={color}
-          dir={contentDir}
+          dir={contentDirForQuestionText(o.text)}
+          examDir={examDir}
         />
       ))}
     </>
@@ -56,17 +55,16 @@ function ReviewQuestionCard({
   index,
   sessionId,
   language,
-  contentDir,
 }: {
   q: ExamReviewQuestion;
   index: number;
   sessionId: number;
   language: ExplanationLanguage;
-  contentDir: "ltr" | "rtl";
 }) {
   const wrong = !q.is_correct;
-  const ltr = contentDir === "ltr";
-  const pointsLabel = formatExamPointsLabel(q.points, contentDir);
+  const qDir = contentDirForQuestionText(q.text);
+  const ltr = qDir === "ltr";
+  const pointsLabel = formatExamPointsLabel(q.points, qDir);
 
   return (
     <Card
@@ -77,7 +75,7 @@ function ReviewQuestionCard({
         bgcolor: wrong ? "rgba(211, 47, 47, 0.04)" : "rgba(76, 175, 80, 0.04)",
       }}
     >
-      <CardContent dir={contentDir} sx={ltr ? examQuestionLtrSx : undefined}>
+      <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
         <Box display="flex" alignItems="flex-start" gap={1} flexWrap="wrap" mb={1}>
           <Chip
             size="small"
@@ -92,20 +90,12 @@ function ReviewQuestionCard({
             }}
           />
         </Box>
-        <Typography
-          fontWeight={600}
-          component="div"
-          sx={{
-            whiteSpace: "pre-wrap",
-            mb: 1.5,
-            ...(ltr ? { textAlign: "left", direction: "ltr" } : {}),
-          }}
-        >
-          {index + 1}. <MathText text={q.text} component="span" />{" "}
+        <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
+          {" "}
           <Typography component="span" variant="body2" color="text.secondary">
             ({pointsLabel})
           </Typography>
-        </Typography>
+        </QuestionTextWithIndex>
         <QuestionImageDisplay url={q.image_url} />
         {wrong && (
           <>
@@ -117,7 +107,7 @@ function ReviewQuestionCard({
                 options={q.student_options}
                 mark="✗"
                 color="error.main"
-                contentDir={contentDir}
+                examDir={qDir}
               />
             ) : (
               <Typography variant="body2" color="error.main" sx={{ mb: 1.5 }}>
@@ -129,7 +119,7 @@ function ReviewQuestionCard({
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           {he.correctAnswerLabel}
         </Typography>
-        <ReviewOptions options={q.correct_options} color="success.main" contentDir={contentDir} />
+        <ReviewOptions options={q.correct_options} color="success.main" examDir={qDir} />
         <QuestionAiExplanation sessionId={sessionId} questionId={q.id} language={language} />
       </CardContent>
     </Card>
@@ -139,8 +129,6 @@ function ReviewQuestionCard({
 export default function ExamSubmissionReview({ review }: ExamSubmissionReviewProps) {
   const { user } = useAuth();
   const language: ExplanationLanguage = user?.ai_explanation_language ?? "he";
-  const contentDir = contentDirForExam(review.questions, review.questions_language);
-
   if (!review.show_correction || review.questions.length === 0) {
     return null;
   }
@@ -157,7 +145,6 @@ export default function ExamSubmissionReview({ review }: ExamSubmissionReviewPro
           index={i}
           sessionId={review.session_id}
           language={language}
-          contentDir={contentDir}
         />
       ))}
     </Box>

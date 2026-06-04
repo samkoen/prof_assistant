@@ -40,3 +40,17 @@ class TokenResponse(BaseModel):
 
 class UserAiExplanationLanguageUpdateRequest(BaseModel):
     language: GeminiSeriesLanguage
+
+
+class UserProfileUpdateRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2)
+    email: AppEmail | None = None
+    phone: str | None = None
+    student_id: str | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(default=None, min_length=6)
+
+
+class UserProfileUpdateResponse(BaseModel):
+    user: UserResponse
+    email_verification_sent: bool = False

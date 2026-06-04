@@ -58,6 +58,7 @@ class QuestionResponse(BaseModel):
 
 class ExamCreate(CatalogItemScopeFields):
     catalog_course_id: int
+    offering_id: int | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
     duration_minutes: int = Field(default=45, ge=1, le=300)
@@ -130,6 +131,9 @@ class ExamSessionResponse(BaseModel):
 class ExamSessionActivate(BaseModel):
     offering_id: int
     integrity_mode_enabled: bool = False
+    duration_minutes: int | None = Field(default=None, ge=1, le=300)
+    warning_minutes: int | None = Field(default=None, ge=1, le=60)
+    auto_submit_on_timeout: bool | None = None
 
 
 class IntegrityEventItem(BaseModel):
@@ -149,6 +153,11 @@ class SubmitAnswerItem(BaseModel):
 
 class SubmitExamRequest(BaseModel):
     answers: list[SubmitAnswerItem]
+
+
+class SavedAnswerDraft(BaseModel):
+    question_id: int
+    selected_option_ids: list[int]
 
 
 class AttemptResponse(BaseModel):
@@ -260,10 +269,12 @@ class ExamTakeResponse(BaseModel):
     description: str | None
     duration_minutes: int
     warning_minutes: int
+    auto_submit_on_timeout: bool = True
     integrity_mode_enabled: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
+    saved_answers: list[SavedAnswerDraft] = []
 
 
 class ExamReviewCorrectOption(BaseModel):

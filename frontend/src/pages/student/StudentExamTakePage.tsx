@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import {
   Alert,
@@ -13,9 +13,9 @@ import {
   Typography,
 } from "@mui/material";
 import { OptionText } from "../../components/MultilineOptionLayout";
-import MathText from "../../components/MathText";
 import QuestionImageDisplay from "../../components/QuestionImageDisplay";
 import { examQuestionLtrSx } from "../../components/examQuestionLtrStyles";
+import QuestionTextWithIndex from "../../components/QuestionTextWithIndex";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   api,
@@ -26,7 +26,6 @@ import {
   type StudentQuestion,
 } from "../../api/client";
 import ExamSubmissionReview from "../../components/ExamSubmissionReview";
-import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamFocusOverlay from "../../components/ExamFocusOverlay";
 import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
 import { useExamIntegrity } from "../../hooks/useExamIntegrity";
@@ -38,8 +37,29 @@ import {
 } from "../../styles/hebrewAlign";
 import {
   contentDirForExam,
+  contentDirForQuestionText,
   formatExamPointsLabel,
 } from "../../utils/examQuestionsLanguage";
+
+function answersFromSaved(saved: ExamTake["saved_answers"]): Record<number, number[]> {
+  const out: Record<number, number[]> = {};
+  for (const row of saved ?? []) {
+    out[row.question_id] = row.selected_option_ids;
+  }
+  return out;
+}
+
+function buildAnswersPayload(
+  questions: StudentQuestion[],
+  answers: Record<number, number[]>,
+) {
+  return {
+    answers: questions.map((q) => ({
+      question_id: q.id,
+      selected_option_ids: answers[q.id] ?? [],
+    })),
+  };
+}
 
 function formatRemaining(expiresAt: string | null): string {
   if (!expiresAt) return "—";
@@ -65,6 +85,12 @@ export default function StudentExamTakePage() {
   const [review, setReview] = useState<ExamReview | null>(null);
   const [timeLeft, setTimeLeft] = useState("");
   const [tabHidden, setTabHidden] = useState(false);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const paperRef = useRef<ExamTake | null>(null);
+  const answersRef = useRef<Record<number, number[]>>({});
+  const submittingRef = useRef(false);
+  paperRef.current = paper;
+  answersRef.current = answers;
 
   const loadReview = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -84,10 +110,16 @@ export default function StudentExamTakePage() {
       setPaper(data);
       setAttempt(data.attempt);
       if (data.attempt.submitted_at) {
-        setSuccess(he.examSubmitted);
+        const timedOut =
+          !!data.attempt.expires_at &&
+          new Date(data.attempt.expires_at).getTime() <= Date.now();
+        setSuccess(timedOut ? he.examAutoSubmitted : he.examSubmitted);
+        setAutoSubmitted(timedOut);
         await loadReview();
       } else {
         setReview(null);
+        setAutoSubmitted(false);
+        setAnswers(answersFromSaved(data.saved_answers));
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -144,11 +176,6 @@ export default function StudentExamTakePage() {
     }
   };
 
-  const allAnswered = useMemo(() => {
-    if (!paper) return false;
-    return paper.questions.every((q) => (answers[q.id]?.length ?? 0) > 0);
-  }, [paper, answers]);
-
   const setSingle = (questionId: number, optionId: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: [optionId] }));
   };
@@ -161,32 +188,65 @@ export default function StudentExamTakePage() {
     });
   };
 
-  const submit = async (force = false) => {
-    if (!paper || (!force && !allAnswered)) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/submit`, {
-        method: "POST",
-        body: JSON.stringify({
-          answers: paper.questions.map((q) => ({
-            question_id: q.id,
-            selected_option_ids: answers[q.id] ?? [],
-          })),
-        }),
-      });
-      setAttempt(res);
-      setSuccess(he.examSubmitted);
-      await loadReview();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const saveDraft = useCallback(async () => {
+    const p = paperRef.current;
+    const a = answersRef.current;
+    if (!p?.questions.length || p.attempt.submitted_at) return;
+    await api(`/api/exams/sessions/${id}/answers`, {
+      method: "PUT",
+      body: JSON.stringify(buildAnswersPayload(p.questions, a)),
+    });
+  }, [id]);
 
   useEffect(() => {
-    if (!paper || !attempt?.expires_at || attempt.submitted_at || submitting || rulesPending) {
+    if (submitted || rulesPending || !paper?.questions.length) return;
+    const t = window.setTimeout(() => {
+      saveDraft().catch(() => {});
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [answers, submitted, rulesPending, paper?.session_id, saveDraft]);
+
+  const submit = useCallback(
+    async (force = false) => {
+      const p = paperRef.current;
+      const a = answersRef.current;
+      if (!p?.questions.length || submittingRef.current) return;
+      submittingRef.current = true;
+      setSubmitting(true);
+      setError("");
+      try {
+        const payload = buildAnswersPayload(p.questions, a);
+        await api(`/api/exams/sessions/${id}/answers`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/submit`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setAttempt(res);
+        setPaper((prev) => (prev ? { ...prev, attempt: { ...prev.attempt, ...res } } : prev));
+        setSuccess(force ? he.examAutoSubmitted : he.examSubmitted);
+        setAutoSubmitted(force);
+        await loadReview();
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
+    },
+    [id, loadReview],
+  );
+
+  useEffect(() => {
+    if (
+      !paper?.auto_submit_on_timeout ||
+      !attempt?.expires_at ||
+      attempt.submitted_at ||
+      submitting ||
+      rulesPending
+    ) {
       return;
     }
     const ms = new Date(attempt.expires_at).getTime() - Date.now();
@@ -196,8 +256,15 @@ export default function StudentExamTakePage() {
     }
     const t = window.setTimeout(() => submit(true), ms);
     return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt?.expires_at, attempt?.submitted_at, submitting, paper?.session_id, rulesPending]);
+  }, [
+    attempt?.expires_at,
+    attempt?.submitted_at,
+    submitting,
+    paper?.session_id,
+    paper?.auto_submit_on_timeout,
+    rulesPending,
+    submit,
+  ]);
 
   const showTimeWarning =
     paper &&
@@ -316,17 +383,21 @@ export default function StudentExamTakePage() {
               onToggle={toggleMultiple}
             />
           ))}
-          <DisabledActionTooltip
-            disabled={!allAnswered || submitting}
-            disabledReason={!allAnswered ? he.answerAllQuestions : undefined}
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => submit()}
+            disabled={submitting}
+            sx={{ mt: 2 }}
           >
-            <Button variant="contained" size="large" onClick={() => submit()} sx={{ mt: 2 }}>
-              {submitting ? he.loading : he.submitExam}
-            </Button>
-          </DisabledActionTooltip>
-          {!allAnswered && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              {he.answerAllQuestions}
+            {submitting ? he.loading : he.submitExam}
+          </Button>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            {he.submitExamPartialHint}
+          </Typography>
+          {autoSubmitted && (
+            <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 0.5 }}>
+              {he.examAutoSubmittedHint}
             </Typography>
           )}
         </>
@@ -351,25 +422,19 @@ function QuestionBlock({
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
 }) {
   const isMultiple = question.question_type === "multiple";
-  const ltr = contentDir === "ltr";
-  const pointsLabel = formatExamPointsLabel(question.points, contentDir);
+  const qDir = contentDirForQuestionText(question.text);
+  const ltr = qDir === "ltr";
+  const pointsLabel = formatExamPointsLabel(question.points, qDir);
 
   return (
     <Card sx={{ mb: 2 }}>
-      <CardContent dir={contentDir} sx={ltr ? examQuestionLtrSx : undefined}>
-        <Typography
-          fontWeight={600}
-          gutterBottom
-          sx={{
-            whiteSpace: "pre-wrap",
-            ...(ltr ? { textAlign: "left", direction: "ltr" } : {}),
-          }}
-        >
-          {index}. <MathText text={question.text} component="span" />{" "}
+      <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
+        <QuestionTextWithIndex index={index} text={question.text} gutterBottom>
+          {" "}
           <Typography component="span" variant="body2" color="text.secondary">
             ({pointsLabel})
           </Typography>
-        </Typography>
+        </QuestionTextWithIndex>
         <QuestionImageDisplay url={question.image_url} />
         {isMultiple ? (
           <Box>
@@ -383,7 +448,7 @@ function QuestionBlock({
                   cursor: "pointer",
                   borderRadius: 1,
                   "&:hover": { bgcolor: "action.hover" },
-                  ...(ltr ? { textAlign: "left" } : {}),
+                  ...(ltr ? { textAlign: "left" } : { textAlign: "right" }),
                 }}
               >
                 <Box sx={{ direction: "ltr", display: "inline-flex" }}>
@@ -393,7 +458,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDir} />
+                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDirForQuestionText(o.text)} />
               </Box>
             ))}
           </Box>
@@ -409,7 +474,7 @@ function QuestionBlock({
                   cursor: "pointer",
                   borderRadius: 1,
                   "&:hover": { bgcolor: "action.hover" },
-                  ...(ltr ? { textAlign: "left" } : {}),
+                  ...(ltr ? { textAlign: "left" } : { textAlign: "right" }),
                 }}
               >
                 <Box sx={{ direction: "ltr", display: "inline-flex" }}>
@@ -419,7 +484,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDir} />
+                <OptionText text={o.text} imageUrl={o.image_url} dir={contentDirForQuestionText(o.text)} />
               </Box>
             ))}
           </FormControl>

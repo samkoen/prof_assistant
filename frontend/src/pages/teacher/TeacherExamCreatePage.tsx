@@ -31,7 +31,7 @@ const emptyForm = {
   catalog_course_id: "",
   title: "",
   audience: "all" as "all" | "this_group",
-  scope_teacher: "any" as "any" | "me",
+  scope_teacher: "me" as "me",
   scope_academic_year: "",
   scope_semester: "",
   scope_group_name: "",
@@ -70,9 +70,13 @@ export default function TeacherExamCreatePage() {
 
   useEffect(() => {
     if (prefillCatalog) {
-      setForm((f) => ({ ...f, catalog_course_id: prefillCatalog }));
+      setForm((f) => ({
+        ...f,
+        catalog_course_id: prefillCatalog,
+        audience: prefillOfferingId ? "this_group" : f.audience,
+      }));
     }
-  }, [prefillCatalog]);
+  }, [prefillCatalog, prefillOfferingId]);
 
   const resetForm = () => {
     setForm({
@@ -90,7 +94,7 @@ export default function TeacherExamCreatePage() {
     setSaving(true);
     setError("");
     try {
-      let scope_teacher_id: number | null = form.scope_teacher === "me" ? user?.id ?? null : null;
+      let scope_teacher_id: number | null = user?.id ?? null;
       let scope_academic_year: number | null = form.scope_academic_year
         ? Number(form.scope_academic_year)
         : null;
@@ -113,6 +117,7 @@ export default function TeacherExamCreatePage() {
         method: "POST",
         body: JSON.stringify({
           catalog_course_id: Number(form.catalog_course_id),
+          offering_id: fromGroup && offering ? offering.id : null,
           title: form.title.trim() || "מבחן חדש",
           shuffle_questions: true,
           shuffle_options: true,
@@ -208,16 +213,6 @@ export default function TeacherExamCreatePage() {
             <Typography variant="subtitle2" color="text.secondary" sx={{ width: "100%", textAlign: "right" }}>
               {he.scopeRestriction}
             </Typography>
-            <TextField
-              select
-              fullWidth
-              label={he.teacher}
-              value={form.scope_teacher}
-              onChange={(e) => setForm({ ...form, scope_teacher: e.target.value as "any" | "me" })}
-            >
-              <MenuItem value="any">{he.scopeAnyTeacher}</MenuItem>
-              <MenuItem value="me">{he.scopeOnlyMe}</MenuItem>
-            </TextField>
             <TextField
               fullWidth
               label={he.academicYear}

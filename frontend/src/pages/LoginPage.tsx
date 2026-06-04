@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const joinOfferingId = searchParams.get("join");
+  const joinToken = searchParams.get("joinToken") ?? searchParams.get("join");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,9 +19,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      navigate(joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/", { replace: true });
+      navigate(joinToken ? joinRedirectPath(joinToken) : "/", { replace: true });
     }
-  }, [user, navigate, joinOfferingId]);
+  }, [user, navigate, joinToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate(joinOfferingId ? joinRedirectPath(Number(joinOfferingId)) : "/", { replace: true });
+      navigate(joinToken ? joinRedirectPath(joinToken) : "/", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : he.errorGeneric);
     } finally {
@@ -71,7 +71,7 @@ export default function LoginPage() {
         אין לך חשבון?{" "}
         <Link
           component={RouterLink}
-          to={joinOfferingId ? `/register?join=${joinOfferingId}` : "/register"}
+          to={joinToken ? `/register?joinToken=${encodeURIComponent(joinToken)}` : "/register"}
           fontWeight={600}
         >
           {he.register}

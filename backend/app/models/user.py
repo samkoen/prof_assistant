@@ -32,7 +32,7 @@ class User(Base):
     ai_explanation_language: Mapped[str] = mapped_column(String(2), default="he")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    catalog_courses_created = relationship("CourseCatalog", back_populates="creator")
+    catalog_courses = relationship("CourseCatalog", back_populates="teacher")
     offerings_teaching = relationship("CourseOffering", back_populates="teacher")
     enrollments = relationship("CourseEnrollment", back_populates="student")
     notifications = relationship("Notification", back_populates="user")

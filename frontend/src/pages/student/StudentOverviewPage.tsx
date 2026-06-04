@@ -90,11 +90,11 @@ export default function StudentOverviewPage() {
           <HighlightCard
             accent="secondary"
             icon={<SchoolIcon />}
-            title={he.openCourses}
-            description={he.joinCourse}
+            title={he.joinByTeacherTitle}
+            description={he.joinByTeacherSubtitle}
             footer={
-              <Button component={RouterLink} to="/student/open-courses" variant="outlined" fullWidth>
-                {he.openCourses}
+              <Button component={RouterLink} to="/student/join-course" variant="outlined" fullWidth>
+                {he.joinByTeacherTitle}
               </Button>
             }
           />

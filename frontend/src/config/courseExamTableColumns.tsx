@@ -20,7 +20,7 @@ function statusProps(session: ExamSession | undefined) {
   if (session?.status === "closed") {
     return { color: "default" as const, label: he.examClosed };
   }
-  return { color: "warning" as const, label: he.examNotActive };
+  return { color: "warning" as const, label: he.examDraftStatus };
 }
 
 export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] {

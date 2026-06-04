@@ -104,15 +104,20 @@ async def create_student_enrollment(
     return enrollment
 
 
-async def load_offering_for_join(offering_id: int, db: AsyncSession) -> CourseOffering | None:
-    result = await db.execute(
-        select(CourseOffering)
-        .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
-        )
-        .where(CourseOffering.id == offering_id)
+def _offering_join_query():
+    return select(CourseOffering).options(
+        selectinload(CourseOffering.catalog_course),
+        selectinload(CourseOffering.teacher),
     )
+
+
+async def load_offering_for_join(offering_id: int, db: AsyncSession) -> CourseOffering | None:
+    result = await db.execute(_offering_join_query().where(CourseOffering.id == offering_id))
+    return result.scalar_one_or_none()
+
+
+async def load_offering_for_join_by_token(join_token: str, db: AsyncSession) -> CourseOffering | None:
+    result = await db.execute(_offering_join_query().where(CourseOffering.join_token == join_token))
     return result.scalar_one_or_none()
 
 

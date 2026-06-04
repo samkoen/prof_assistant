@@ -15,10 +15,11 @@ def normalize_question_text(text: str) -> str:
 
 
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
+    """Vrai seulement si une session est encore active (pas brouillon / fermée)."""
     count = await db.scalar(
         select(func.count())
         .select_from(ExamSession)
-        .where(ExamSession.exam_id == exam_id, ExamSession.status != ExamStatus.DRAFT)
+        .where(ExamSession.exam_id == exam_id, ExamSession.status == ExamStatus.ACTIVE)
     )
     return (count or 0) > 0
 

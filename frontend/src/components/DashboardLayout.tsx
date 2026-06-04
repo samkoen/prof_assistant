@@ -22,7 +22,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import QuizIcon from "@mui/icons-material/Quiz";
 import { useAuth } from "../context/AuthContext";
-import { getMenuItems, roleLabel } from "../config/menuItems";
+import { getMenuItems, PROFILE_PATH, roleLabel } from "../config/menuItems";
 import { he } from "../i18n/he";
 import { SIDEBAR_WIDTH } from "../constants/layout";
 import {
@@ -138,7 +138,21 @@ export default function DashboardLayout() {
       {user && (
         <>
           <Divider sx={{ borderColor: alpha("#fff", 0.12) }} />
-          <Box sx={{ p: 2 }}>
+          <Box
+            sx={{
+              p: 2,
+              cursor: "pointer",
+              borderRadius: 2,
+              mx: 1,
+              "&:hover": { bgcolor: alpha("#fff", 0.08) },
+            }}
+            onClick={() => handleNavigation(PROFILE_PATH)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") handleNavigation(PROFILE_PATH);
+            }}
+          >
             <Box display="flex" alignItems="center" gap={1.5}>
               <Avatar
                 sx={{
@@ -223,7 +237,13 @@ export default function DashboardLayout() {
                 <Typography
                   variant="body2"
                   fontWeight={600}
-                  sx={{ display: { xs: "none", md: "block" }, color: brand.slate600 }}
+                  onClick={() => navigate(PROFILE_PATH)}
+                  sx={{
+                    display: { xs: "none", md: "block" },
+                    color: brand.slate600,
+                    cursor: "pointer",
+                    "&:hover": { color: brand.violet700 },
+                  }}
                 >
                   {user.full_name}
                 </Typography>

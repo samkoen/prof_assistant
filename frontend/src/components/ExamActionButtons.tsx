@@ -12,11 +12,13 @@ import {
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ShareIcon from "@mui/icons-material/Share";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
+import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
 import { api, ApiError, type Exam } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -40,6 +42,7 @@ export function ExamActionButtons({
 }: ExamActionButtonsProps) {
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [busy, setBusy] = useState<"duplicate" | "delete" | null>(null);
   const canDelete = exam.can_delete !== false;
 
@@ -133,11 +136,33 @@ export function ExamActionButtons({
     </Button>
   );
 
+  const shareBtn = iconOnly ? (
+    <Tooltip title={he.shareExam}>
+      <IconButton size="small" aria-label={he.shareExam} onClick={() => setShareOpen(true)}>
+        <ShareIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  ) : (
+    <Button size={size} variant="outlined" startIcon={<ShareIcon />} onClick={() => setShareOpen(true)}>
+      {he.shareExam}
+    </Button>
+  );
+
   return (
     <>
       {duplicateBtn}
+      {shareBtn}
       <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
       {(!hideInactive || canDelete) && deleteBtn}
+
+      <ShareWithTeacherDialog
+        open={shareOpen}
+        kind="exam"
+        examId={exam.id}
+        itemLabel={exam.title}
+        onClose={() => setShareOpen(false)}
+        onSent={onChanged}
+      />
 
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs">
         <DialogTitle>{he.deleteExam}</DialogTitle>

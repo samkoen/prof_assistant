@@ -34,6 +34,7 @@ import TeacherExamResultsPage from "./pages/teacher/TeacherExamResultsPage";
 import TeacherEnrollmentsPage from "./pages/teacher/TeacherEnrollmentsPage";
 
 import TeacherCatalogCoursesPage from "./pages/teacher/TeacherCatalogCoursesPage";
+import TeacherSharesPage from "./pages/teacher/TeacherSharesPage";
 
 import TeacherExamsPage from "./pages/teacher/TeacherExamsPage";
 
@@ -51,9 +52,10 @@ import StudentExamTakePage from "./pages/student/StudentExamTakePage";
 
 import StudentAllExamsPage from "./pages/student/StudentAllExamsPage";
 
-import StudentOpenCoursesPage from "./pages/student/StudentOpenCoursesPage";
+import StudentJoinByTeacherPage from "./pages/student/StudentJoinByTeacherPage";
 
 import StudentJoinCoursePage from "./pages/StudentJoinCoursePage";
+import ProfilePage from "./pages/ProfilePage";
 
 import { useAuth } from "./context/AuthContext";
 
@@ -84,6 +86,7 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
 
+      <Route path="/join/t/:joinToken" element={<StudentJoinCoursePage />} />
       <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 
 
@@ -104,7 +107,7 @@ export default function App() {
 
         <Route path="/" element={<HomeRedirect />} />
 
-
+        <Route path="/profile" element={<ProfilePage />} />
 
         <Route element={<ProtectedRoute roles={["admin"]} />}>
 
@@ -140,6 +143,7 @@ export default function App() {
           />
 
           <Route path="/teacher/enrollments" element={<TeacherEnrollmentsPage />} />
+          <Route path="/teacher/shares" element={<TeacherSharesPage />} />
 
           <Route path="/teacher/catalog-courses" element={<TeacherCatalogCoursesPage />} />
 
@@ -165,7 +169,8 @@ export default function App() {
 
           <Route path="/student/exams/:sessionId" element={<StudentExamTakePage />} />
 
-          <Route path="/student/open-courses" element={<StudentOpenCoursesPage />} />
+          <Route path="/student/join-course" element={<StudentJoinByTeacherPage />} />
+          <Route path="/student/open-courses" element={<StudentJoinByTeacherPage />} />
 
         </Route>
 

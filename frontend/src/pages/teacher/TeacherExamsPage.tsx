@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import StopIcon from "@mui/icons-material/Stop";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import ExamActivateTimingFields from "../../components/ExamActivateTimingFields";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { ExamActionButtons, ExamEditLink } from "../../components/ExamActionButtons";
@@ -35,6 +36,12 @@ import {
   type ExamSession,
 } from "../../api/client";
 import { he } from "../../i18n/he";
+import {
+  timingActivatePayload,
+  timingFromExam,
+  validateExamTiming,
+  type ExamTimingForm,
+} from "../../utils/examActivateTiming";
 
 export default function TeacherExamsPage() {
   const navigate = useNavigate();
@@ -47,6 +54,11 @@ export default function TeacherExamsPage() {
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [activateOfferingId, setActivateOfferingId] = useState("");
   const [activateIntegrity, setActivateIntegrity] = useState(false);
+  const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
+    durationMinutes: "45",
+    warningMinutes: "10",
+    autoSubmitOnTimeout: true,
+  });
   const [confirmDeactivateSession, setConfirmDeactivateSession] = useState<ExamSession | null>(null);
   const [confirmCloseSession, setConfirmCloseSession] = useState<ExamSession | null>(null);
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
@@ -85,17 +97,24 @@ export default function TeacherExamsPage() {
     setSelectedExam(exam);
     setActivateOfferingId("");
     setActivateIntegrity(false);
+    setActivateTiming(timingFromExam(exam));
     setActivateOpen(true);
   };
 
   const activate = async () => {
     if (!selectedExam || !activateOfferingId) return;
+    const timingError = validateExamTiming(activateTiming);
+    if (timingError) {
+      setError(timingError);
+      return;
+    }
     try {
       await api(`/api/exams/${selectedExam.id}/activate`, {
         method: "POST",
         body: JSON.stringify({
           offering_id: Number(activateOfferingId),
           integrity_mode_enabled: activateIntegrity,
+          ...timingActivatePayload(activateTiming),
         }),
       });
       setActivateOpen(false);
@@ -240,6 +259,7 @@ export default function TeacherExamsPage() {
           <Typography variant="caption" color="text.secondary" display="block">
             {he.integrityModeHint}
           </Typography>
+          <ExamActivateTimingFields value={activateTiming} onChange={setActivateTiming} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActivateOpen(false)}>{he.cancel}</Button>

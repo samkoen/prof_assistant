@@ -19,7 +19,15 @@ from app.schemas.course import (
     EnrollmentRequest,
     EnrollmentResponse,
     EnrollmentReview,
+    JoinLinkRenewRequest,
     JoinPreviewResponse,
+    TeacherOpenOfferingsResponse,
+)
+from app.schemas.types import AppEmail
+from app.services.teacher_offerings_lookup import (
+    find_teacher_by_email,
+    load_teacher_open_offerings,
+    offerings_to_responses,
 )
 from app.schemas.student import AddStudentToCourseRequest, CourseEnrollmentDetail
 from app.schemas.exam import StudentOfferingExamResultRow, StudentOfferingExamResultsResponse
@@ -33,9 +41,11 @@ from app.services.enrollment_service import (
     find_existing_enrollment,
     find_sibling_enrollment,
     load_offering_for_join,
+    load_offering_for_join_by_token,
     load_student_enrolled_session_keys,
     reject_sibling_pending_enrollments,
 )
+from app.services.join_token_service import assign_join_token, expires_at_from_valid_days
 from app.services.join_preview import (
     build_join_preview,
     ensure_no_existing_enrollment,
@@ -72,7 +82,7 @@ async def create_offering(
     catalog = await db.get(CourseCatalog, body.catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
-    if user.role == UserRole.TEACHER and catalog.created_by_id != user.id:
+    if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="אין הרשאה לקורס קטלוג זה")
 
     teacher_id = user.id
@@ -85,7 +95,10 @@ async def create_offering(
         description=body.description,
         is_open_enrollment=body.is_open_enrollment,
         auto_approve_enrollment=body.auto_approve_enrollment,
+        join_token="pending",
+        join_token_expires_at=expires_at_from_valid_days(1),
     )
+    assign_join_token(offering)
     db.add(offering)
     try:
         await db.commit()
@@ -96,7 +109,27 @@ async def create_offering(
             detail="הרצה זו כבר קיימת (אותו קורס, שנה, סמסטר וקבוצה)",
         )
     result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
-    return offering_to_response(result.scalar_one())
+    return offering_to_response(result.scalar_one(), include_join_link=True)
+
+
+async def _join_preview_response(
+    offering: CourseOffering, user: User | None, db: AsyncSession
+) -> JoinPreviewResponse:
+    if user and user.role == UserRole.STUDENT:
+        return await join_preview_for_student(offering, user, db)
+    return build_join_preview(offering, None)
+
+
+@router.get("/courses/join-by-token/{join_token}/preview", response_model=JoinPreviewResponse)
+async def join_course_preview_by_token(
+    join_token: str,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_current_user),
+):
+    offering = await load_offering_for_join_by_token(join_token, db)
+    if not offering:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    return await _join_preview_response(offering, user, db)
 
 
 @router.get("/courses/{offering_id}/join-preview", response_model=JoinPreviewResponse)
@@ -108,9 +141,18 @@ async def join_course_preview(
     offering = await load_offering_for_join(offering_id, db)
     if not offering:
         raise HTTPException(status_code=404, detail="קורס לא נמצא")
-    if user and user.role == UserRole.STUDENT:
-        return await join_preview_for_student(offering, user, db)
-    return build_join_preview(offering, None)
+    return await _join_preview_response(offering, user, db)
+
+
+async def _apply_enrollment_settings(
+    offering: CourseOffering, body: CourseOfferingEnrollmentSettingsUpdate
+) -> None:
+    data = body.model_dump(exclude_unset=True)
+    valid_days = data.pop("join_link_valid_days", None)
+    for key, value in data.items():
+        setattr(offering, key, value)
+    if valid_days is not None:
+        assign_join_token(offering, valid_days)
 
 
 @router.patch("/courses/{offering_id}/enrollment-settings", response_model=CourseOfferingResponse)
@@ -126,12 +168,29 @@ async def update_enrollment_settings(
         offering = await db.get(CourseOffering, offering_id)
         if not offering:
             raise HTTPException(status_code=404, detail="קורס לא נמצא")
-    data = body.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(offering, key, value)
+    await _apply_enrollment_settings(offering, body)
     await db.commit()
     result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
-    return offering_to_response(result.scalar_one())
+    return offering_to_response(result.scalar_one(), include_join_link=True)
+
+
+@router.post("/courses/{offering_id}/join-link/renew", response_model=CourseOfferingResponse)
+async def renew_join_link(
+    offering_id: int,
+    body: JoinLinkRenewRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    if user.role == UserRole.TEACHER:
+        offering = await _teacher_owns_offering(offering_id, user.id, db)
+    else:
+        offering = await db.get(CourseOffering, offering_id)
+        if not offering:
+            raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    assign_join_token(offering, body.valid_days)
+    await db.commit()
+    result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
+    return offering_to_response(result.scalar_one(), include_join_link=True)
 
 
 @router.get("/courses/{offering_id}/enrollments", response_model=list[CourseEnrollmentDetail])
@@ -400,7 +459,8 @@ async def my_offerings(
     else:
         q = q.order_by(CourseOffering.created_at.desc())
     result = await db.execute(q)
-    return [offering_to_response(o) for o in result.scalars().unique().all()]
+    include_join = user.role in (UserRole.TEACHER, UserRole.ADMIN)
+    return [offering_to_response(o, include_join_link=include_join) for o in result.scalars().unique().all()]
 
 
 @router.get("/courses/mine/pending", response_model=list[CourseOfferingResponse])
@@ -425,6 +485,22 @@ async def my_pending_offerings(
         offering_to_response(offering, enrollment_status=status)
         for offering, status in result.unique().all()
     ]
+
+
+@router.get("/courses/by-teacher-email", response_model=TeacherOpenOfferingsResponse)
+async def offerings_by_teacher_email(
+    email: AppEmail,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    teacher = await find_teacher_by_email(db, email)
+    offerings = await load_teacher_open_offerings(db, teacher.id, user.id, _offering_query())
+    return TeacherOpenOfferingsResponse(
+        teacher_id=teacher.id,
+        teacher_name=teacher.full_name,
+        teacher_email=teacher.email,
+        offerings=offerings_to_responses(offerings),
+    )
 
 
 @router.get("/courses/open", response_model=list[CourseOfferingResponse])

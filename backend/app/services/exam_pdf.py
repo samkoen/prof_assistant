@@ -14,7 +14,15 @@ from fpdf.enums import XPos, YPos
 from app.models.enums import ExamQuestionsLanguage, QuestionType
 from app.models.exam import Exam, Question
 from app.services.question_media import local_path_from_image_url, open_image_for_pdf
-from app.utils.math_markup import contains_math_markup, markup_to_html
+from app.utils.content_direction import (
+    content_dir_for_question_text,
+    first_non_empty_line,
+    line_html_align_dir,
+    prefix_html_align_dir,
+    strip_editor_bidi_marks,
+)
+from app.utils.math_markup import contains_math_markup
+from app.utils.mixed_bidi_html import mixed_text_to_html, needs_mixed_html
 from app.utils.text_direction import exam_content_is_rtl
 
 FONT_FAMILY = "ExamSans"
@@ -145,11 +153,6 @@ def _cover_strings(layout: PdfLayout, exam: Exam, q_count: int, total_pts: float
     }
 
 
-def _question_badge(index: int, layout: PdfLayout) -> str:
-    labels = {"he": "שאלה {}", "fr": "Question {}", "en": "Question {}", "ru": "Вопрос {}"}
-    return labels.get(layout.lang, labels["en"]).format(index)
-
-
 def _points_meta(points: float, q_type: str, layout: PdfLayout) -> str:
     label = _question_type_label(q_type, layout.lang)
     if layout.lang == "he":
@@ -204,19 +207,27 @@ def _resolve_bold_font_path(regular: Path) -> Path:
     return regular
 
 
-def _ascii_filename(exam_id: int, title: str = "") -> str:
-    ascii_title = re.sub(r"[^A-Za-z0-9\s_-]", "", title).strip()
+def _pdf_download_filename(title: str | None, exam_id: int) -> str:
+    base = (title or "").strip() or f"exam_{exam_id}"
+    base = re.sub(r'[\r\n"/\\]', "", base)[:120]
+    if not base.lower().endswith(".pdf"):
+        base = f"{base}.pdf"
+    return base
+
+
+def _ascii_filename_fallback(title: str | None, exam_id: int) -> str:
+    """Nom ASCII uniquement — en-tête HTTP latin-1 (Starlette)."""
+    ascii_title = re.sub(r"[^A-Za-z0-9\s_-]", "", title or "").strip()
     ascii_title = re.sub(r"\s+", "_", ascii_title)[:60]
     base = ascii_title or f"exam_{exam_id}"
     return f"{base}.pdf"
 
 
 def pdf_content_disposition(exam: Exam) -> str:
-    fallback = _ascii_filename(exam.id, exam.title)
-    display = (exam.title or fallback.removesuffix(".pdf")).strip()
-    display = re.sub(r'[\r\n"]', "", display)[:120] or fallback.removesuffix(".pdf")
-    encoded = quote(f"{display}.pdf", safe="")
-    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{encoded}"
+    display = _pdf_download_filename(exam.title, exam.id)
+    encoded = quote(display, safe="")
+    fallback = _ascii_filename_fallback(exam.title, exam.id)
+    return f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{encoded}'
 
 
 def _page_footer_prefix(lang: str) -> str:
@@ -251,18 +262,51 @@ def _create_pdf(layout: PdfLayout) -> _ExamPdf:
     return pdf
 
 
-def _html_indent(layout: PdfLayout, indent: float) -> str:
+def _html_indent(indent: float, *, rtl: bool) -> str:
     if not indent:
         return ""
-    side = "padding-inline-end" if layout.rtl else "padding-inline-start"
+    side = "padding-inline-end" if rtl else "padding-inline-start"
     return f"{side}:{indent}mm;"
 
 
-def _write_text_html(pdf: FPDF, text: str, layout: PdfLayout, *, indent: float = 0) -> None:
-    body = markup_to_html(text or "")
-    pad = _html_indent(layout, indent)
+def _fpdf_align(html_align: str) -> str:
+    return "R" if html_align == "right" else "L"
+
+
+def _write_html_paragraph(
+    pdf: FPDF,
+    text: str,
+    *,
+    html_align: str,
+    html_dir: str,
+    indent: float,
+    wrap_ltr: bool,
+) -> None:
+    body = mixed_text_to_html(text or "", wrap_ltr=wrap_ltr)
+    pad = _html_indent(indent, rtl=html_dir == "rtl")
     pdf.write_html(
-        f'<p align="{layout.html_align}" dir="{layout.html_dir}" style="{pad}">{body}</p>'
+        f'<p align="{html_align}" dir="{html_dir}" style="{pad}">{body}</p>'
+    )
+
+
+def _write_text_html(
+    pdf: FPDF,
+    text: str,
+    layout: PdfLayout,
+    *,
+    indent: float = 0,
+    html_align: str | None = None,
+    html_dir: str | None = None,
+) -> None:
+    align = html_align or layout.html_align
+    direction = html_dir or layout.html_dir
+    _write_html_paragraph(
+        pdf,
+        text,
+        html_align=align,
+        html_dir=direction,
+        indent=indent,
+        wrap_ltr=direction == "rtl",
     )
 
 
@@ -276,21 +320,111 @@ def _write_text(
     style: str = "",
     color: tuple[int, int, int] = (15, 23, 42),
     indent: float = 0,
+    html_align: str | None = None,
+    html_dir: str | None = None,
 ) -> None:
+    align = html_align or layout.html_align
+    direction = html_dir or layout.html_dir
     pdf.set_font(FONT_FAMILY, style=style, size=size)
     pdf.set_text_color(*color)
-    if contains_math_markup(text or ""):
-        _write_text_html(pdf, text, layout, indent=indent)
+    body = text or ""
+    if contains_math_markup(body) or needs_mixed_html(body, rtl=direction == "rtl"):
+        _write_text_html(
+            pdf, body, layout, indent=indent, html_align=align, html_dir=direction
+        )
         return
     if indent:
         pdf.set_x(pdf.l_margin + indent)
     pdf.multi_cell(
         w=pdf.epw - indent,
         h=h,
-        text=text or "",
-        align=layout.align,
+        text=body,
+        align=_fpdf_align(align),
         new_x=XPos.LMARGIN,
         new_y=YPos.NEXT,
+    )
+
+
+def _split_display_lines(text: str) -> list[str]:
+    return strip_editor_bidi_marks(text or "").split("\n")
+
+
+def _write_content_line(
+    pdf: FPDF,
+    line: str,
+    layout: PdfLayout,
+    *,
+    html_align: str,
+    html_dir: str,
+    size: int = 11,
+    h: float = 7,
+    style: str = "",
+    color: tuple[int, int, int] = (15, 23, 42),
+    indent: float = 0,
+) -> None:
+    _write_text(
+        pdf,
+        line,
+        layout,
+        size=size,
+        h=h,
+        style=style,
+        color=color,
+        indent=indent,
+        html_align=html_align,
+        html_dir=html_dir,
+    )
+
+
+def _write_multiline_content(
+    pdf: FPDF,
+    text: str,
+    layout: PdfLayout,
+    *,
+    question_rtl: bool,
+    size: int = 11,
+    h: float = 7,
+    style: str = "",
+    color: tuple[int, int, int] = (15, 23, 42),
+    indent: float = 0,
+) -> None:
+    for line in _split_display_lines(text):
+        html_align, html_dir = line_html_align_dir(line, default_rtl=question_rtl)
+        _write_content_line(
+            pdf,
+            line,
+            layout,
+            html_align=html_align,
+            html_dir=html_dir,
+            size=size,
+            h=h,
+            style=style,
+            color=color,
+            indent=indent,
+        )
+
+
+def _write_index_line(
+    pdf: FPDF,
+    index: int,
+    question_text: str,
+    layout: PdfLayout,
+    *,
+    question_rtl: bool,
+) -> None:
+    lines = _split_display_lines(question_text)
+    anchor = first_non_empty_line(lines)
+    html_align, html_dir = line_html_align_dir(anchor, default_rtl=question_rtl)
+    _write_content_line(
+        pdf,
+        f"{index}.",
+        layout,
+        html_align=html_align,
+        html_dir=html_dir,
+        size=11,
+        h=7,
+        style="B",
+        color=(15, 23, 42),
     )
 
 
@@ -372,19 +506,42 @@ def _write_option_line(
     is_correct: bool,
     *,
     include_answers: bool,
+    question_rtl: bool,
 ) -> None:
     y0 = pdf.get_y()
     show_correct = include_answers and is_correct
+    lines = _split_display_lines(text)
+    est_rows = 1 + max(1, len(lines))
     if show_correct:
         pdf.set_fill_color(*COLOR_CORRECT_BG)
-        pdf.rect(pdf.l_margin, y0, pdf.epw, OPTION_ROW_H, style="F")
+        pdf.rect(pdf.l_margin, y0, pdf.epw, OPTION_ROW_H * est_rows, style="F")
         pdf.set_y(y0)
     mark = " ✓" if show_correct else ""
     color = COLOR_CORRECT_TEXT if show_correct else (51, 65, 85)
-    prefix = f"{label}."
-    body = text.strip()
-    line = f"{prefix} {body}{mark}" if body else f"{prefix}{mark}"
-    _write_text(pdf, line, layout, size=10, h=OPTION_ROW_H, color=color, indent=OPTION_INDENT)
+    anchor = first_non_empty_line(lines)
+    html_align, html_dir = prefix_html_align_dir(anchor, question_rtl=question_rtl)
+    _write_content_line(
+        pdf,
+        f"{label}.{mark}",
+        layout,
+        html_align=html_align,
+        html_dir=html_dir,
+        size=10,
+        h=OPTION_ROW_H,
+        color=color,
+        indent=OPTION_INDENT,
+    )
+    if text.strip():
+        _write_multiline_content(
+            pdf,
+            text,
+            layout,
+            question_rtl=question_rtl,
+            size=10,
+            h=OPTION_ROW_H,
+            color=color,
+            indent=OPTION_INDENT,
+        )
     _write_embedded_image(
         pdf,
         image_url,
@@ -403,15 +560,10 @@ def _write_question(
 ) -> None:
     pdf.ln(3)
     y0 = pdf.get_y()
-    _write_text(
-        pdf,
-        _question_badge(index, layout),
-        layout,
-        size=12,
-        h=8,
-        style="B",
-        color=COLOR_PRIMARY_DARK,
-    )
+    q_text = question.text or ""
+    question_rtl = content_dir_for_question_text(q_text) == "rtl"
+    q_align = "right" if question_rtl else "left"
+    q_dir = "rtl" if question_rtl else "ltr"
     _write_text(
         pdf,
         _points_meta(question.points, question.question_type, layout),
@@ -419,10 +571,21 @@ def _write_question(
         size=9,
         h=5,
         color=COLOR_MUTED,
+        html_align=q_align,
+        html_dir=q_dir,
     )
     pdf.ln(1)
-    if (question.text or "").strip():
-        _write_text(pdf, question.text, layout, size=11, h=7, color=(15, 23, 42))
+    _write_index_line(pdf, index, q_text, layout, question_rtl=question_rtl)
+    if q_text.strip():
+        _write_multiline_content(
+            pdf,
+            q_text,
+            layout,
+            question_rtl=question_rtl,
+            size=11,
+            h=7,
+            color=(15, 23, 42),
+        )
     _write_embedded_image(pdf, question.image_url)
     pdf.ln(1)
     options = sorted(question.options, key=lambda o: o.order_index)
@@ -435,6 +598,7 @@ def _write_question(
             opt.image_url,
             bool(opt.is_correct),
             include_answers=include_answers,
+            question_rtl=question_rtl,
         )
     y1 = pdf.get_y()
     _draw_question_border(pdf, y0, y1)
@@ -463,4 +627,4 @@ def build_exam_pdf_bytes(
 
 
 def pdf_filename_for_exam(exam: Exam) -> str:
-    return _ascii_filename(exam.id, exam.title)
+    return _pdf_download_filename(exam.title, exam.id)
