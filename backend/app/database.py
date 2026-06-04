@@ -10,7 +10,7 @@ _connect_args = {"ssl": True} if settings.database_ssl else {}
 engine = create_async_engine(
     settings.database_url,
     connect_args=_connect_args,
-    echo=settings.environment == "development",
+    echo=settings.sqlalchemy_echo(),
 )
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

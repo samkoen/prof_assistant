@@ -1,4 +1,5 @@
 from app.models.exam_gemini_source import ExamGeminiSource, ExamGeminiSourceType
+from app.services.gemini_text_cleanup import clean_gemini_source_text
 
 _TYPE_LABELS = {
     ExamGeminiSourceType.EXERCISES_FILE: "קובץ תרגילים לדוגמה",
@@ -23,7 +24,7 @@ def build_sources_context_block(sources: list[ExamGeminiSource]) -> str:
         sections.append(
             f"### מקור: {src.original_filename} ({label})\n"
             f"שימוש: {role_text}\n\n"
-            f"{src.extracted_text.strip()}"
+            f"{clean_gemini_source_text(src.extracted_text)}"
         )
     if not sections:
         return ""

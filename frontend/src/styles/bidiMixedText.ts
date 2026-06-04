@@ -23,8 +23,8 @@ export function bidiMixedDisplaySx(contentDir: "ltr" | "rtl" = "rtl") {
 }
 
 /** Affichage lecture : une ligne = alignement explicite droite (RTL) ou gauche (LTR). */
-export function mixedLineBlockSx(line: string) {
-  const dir = contentDirForLine(line);
+export function mixedLineBlockSx(line: string, questionText?: string) {
+  const dir = contentDirForLine(line, questionText);
   return {
     display: "block",
     width: "100%",

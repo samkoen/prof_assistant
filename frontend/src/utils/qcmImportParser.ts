@@ -36,9 +36,11 @@ const HEADER_RE =
 const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/i;
 const HEBREW_OPTION_RE = /^([א-ת])\)\s*(.*)$/u;
 /** Ligne dédiée : * ou ✓ seul (réponse correcte avant contenu multiligne). */
-const MARKER_ONLY_RE = /^[*✓✔]\s*$/u;
+const MARKER_ONLY_RE = /^[*✓✔★]\s*$/u;
 const CORRECT_SUFFIX_RE =
-  /\s*(?:[\(\[]\s*)?(?:נכון|תשובה\s*נכונה|correct)(?:\s*[\)\]])?\s*$/iu;
+  /\s*(?:[\(\[]\s*)?(?:תשובה\s*נכונה|correct|vrai|true)(?:\s*[\)\]])?\s*$/iu;
+const CORRECT_SUFFIX_HE_OK = /(?:^|[\(\[]\s*)נכון(?:\s*[\)\]])?\s*$/u;
+const TRAILING_MARK_RE = /\s*[*✓✔★]\s*$/u;
 const TF_RE =
   /^(?:Vrai|Faux|True|False|נכון|לא נכון|לא|Верно|Неверно|Да|Нет)\s*(\*)?\s*$/iu;
 
@@ -67,14 +69,33 @@ function splitBlocks(raw: string): string[] {
     .filter(Boolean);
 }
 
+const CORRECT_SUFFIX_HE_PARENS = /\s*[\(\[]\s*נכון\s*[\)\]]\s*$/u;
+
+function hasHebrewCorrectSuffix(trimmed: string): boolean {
+  if (/לא\s*נכון/i.test(trimmed)) return false;
+  return CORRECT_SUFFIX_HE_OK.test(trimmed) || CORRECT_SUFFIX_HE_PARENS.test(trimmed);
+}
+
+function stripHebrewCorrectSuffix(trimmed: string): string {
+  return trimmed
+    .replace(CORRECT_SUFFIX_HE_PARENS, "")
+    .replace(CORRECT_SUFFIX_HE_OK, "")
+    .trimEnd();
+}
+
 function stripCorrectMarker(line: string): { text: string; marked: boolean } {
   const trimmed = line.trim();
   if (MARKER_ONLY_RE.test(trimmed)) return { text: "", marked: true };
-  if (CORRECT_SUFFIX_RE.test(trimmed)) {
-    return { text: trimmed.replace(CORRECT_SUFFIX_RE, "").trimEnd(), marked: true };
+  const prefixStar = /^\*\s+(.+)$/.exec(trimmed);
+  if (prefixStar) return { text: prefixStar[1].trim(), marked: true };
+  if (CORRECT_SUFFIX_RE.test(trimmed) || hasHebrewCorrectSuffix(trimmed)) {
+    const text = CORRECT_SUFFIX_RE.test(trimmed)
+      ? trimmed.replace(CORRECT_SUFFIX_RE, "").trimEnd()
+      : stripHebrewCorrectSuffix(trimmed);
+    return { text, marked: true };
   }
-  if (/\s[*✓✔]\s*$/.test(line.trimEnd())) {
-    return { text: line.replace(/\s*[*✓✔]\s*$/, "").trimEnd(), marked: true };
+  if (TRAILING_MARK_RE.test(line.trimEnd())) {
+    return { text: line.replace(TRAILING_MARK_RE, "").trimEnd(), marked: true };
   }
   return { text: line, marked: false };
 }
@@ -103,6 +124,7 @@ function normalizeGeminiQcmText(raw: string): string {
     .split("\n")
     .map((line) => {
       let out = line.replace(/^\*\*([A-Z])\)\*\*/i, "$1)").replace(/^\*\*([A-Z])\)/i, "$1)");
+      out = out.replace(/^([A-Z])\)\s*[*✓✔★]\s+/i, "$1) * ");
       out = normalizeHebrewOptionLine(out);
       return out;
     })
@@ -150,7 +172,13 @@ function parseLetterOptions(lines: string[]): ParsedQuestionOption[] {
     if (start) {
       flush();
       const rest = start[2].trim();
-      if (rest) chunk.push(rest);
+      if (rest.startsWith("*")) {
+        const after = rest.slice(1).trim();
+        chunk.push("*");
+        if (after) chunk.push(after);
+      } else if (rest) {
+        chunk.push(rest);
+      }
       continue;
     }
     if (trimmed && TF_RE.test(trimmed)) return [];
@@ -223,8 +251,11 @@ function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; er
   if (type === "true_false" && options.length !== 2) {
     return { error: { block: blockIndex, message: "שאלת נכון/לא נכון דורשת 2 אפשרויות" } };
   }
-  if (type !== "multiple" && correct.length !== 1) {
+  if (type !== "multiple" && correct.length === 0) {
     return { error: { block: blockIndex, message: "נדרשת תשובה נכונה אחת (סמן ב-*)" } };
+  }
+  if (type !== "multiple" && correct.length > 1) {
+    return { error: { block: blockIndex, message: "בחירה יחידה: יותר מתשובה נכונה אחת (סמן * רק על אפשרות אחת)" } };
   }
   if (type === "multiple" && correct.length === 0) {
     return { error: { block: blockIndex, message: "לפחות תשובה נכונה אחת (סמן ב-*)" } };

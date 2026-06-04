@@ -2,6 +2,7 @@ export type ExamQuestionsLanguage = "he" | "fr" | "en" | "ru";
 
 const HEBREW_RE = /[\u0590-\u05FF]/;
 const LATIN_RE = /[A-Za-zÀ-ÿĀ-žА-я]/;
+const DIGITS_ONLY_RE = /^[\d\u0660-\u0669\s]+$/;
 
 export type QuestionContentSample = {
   text: string;
@@ -15,9 +16,27 @@ export function stripEditorBidiMarks(text: string): string {
   return text.replace(/[\u200E\u200F]/g, "");
 }
 
-/** Direction d’affichage pour une question/réponse (pas seulement la 1ʳᵉ question de l’examen). */
+export function textIsDigitsOnly(text: string): boolean {
+  const body = stripEditorBidiMarks(text).trim();
+  if (!body) return false;
+  return DIGITS_ONLY_RE.test(body);
+}
+
+export function questionTextIsHebrew(questionText: string): boolean {
+  return textLooksHebrew(stripEditorBidiMarks(questionText));
+}
+
+/** Direction d’affichage pour une question (pas une réponse numérique seule). */
 export function contentDirForQuestionText(text: string): "ltr" | "rtl" {
-  return textLooksHebrew(stripEditorBidiMarks(text)) ? "rtl" : "ltr";
+  return questionTextIsHebrew(text) ? "rtl" : "ltr";
+}
+
+/** Réponse : RTL si la question est en hébreu et la réponse ne contient que des chiffres. */
+export function contentDirForOptionText(optionText: string, questionText: string): "ltr" | "rtl" {
+  const q = stripEditorBidiMarks(questionText);
+  const o = stripEditorBidiMarks(optionText);
+  if (questionTextIsHebrew(q) && textIsDigitsOnly(o)) return "rtl";
+  return contentDirForQuestionText(o);
 }
 
 const MATH_NEUTRAL = "+-*/=^_{}().,[]";
@@ -27,8 +46,11 @@ export function firstNonEmptyLine(lines: string[]): string {
 }
 
 /** Direction d’une ligne selon son premier caractère fort (pas la majorité). */
-export function contentDirForLine(line: string): "ltr" | "rtl" {
+export function contentDirForLine(line: string, questionText?: string): "ltr" | "rtl" {
   const body = stripEditorBidiMarks(line);
+  if (questionText && questionTextIsHebrew(questionText) && textIsDigitsOnly(body)) {
+    return "rtl";
+  }
   for (const ch of body) {
     if (HEBREW_RE.test(ch)) return "rtl";
     if (LATIN_RE.test(ch) || /[0-9]/.test(ch) || MATH_NEUTRAL.includes(ch)) return "ltr";

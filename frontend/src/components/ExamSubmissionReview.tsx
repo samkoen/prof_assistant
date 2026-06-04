@@ -6,7 +6,10 @@ import QuestionImageDisplay from "./QuestionImageDisplay";
 import QuestionAiExplanation from "./QuestionAiExplanation";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import QuestionTextWithIndex from "./QuestionTextWithIndex";
-import { contentDirForQuestionText } from "../utils/examQuestionsLanguage";
+import {
+  contentDirForOptionText,
+  contentDirForQuestionText,
+} from "../utils/examQuestionsLanguage";
 import { useAuth } from "../context/AuthContext";
 import type { ExamReview, ExamReviewCorrectOption, ExamReviewQuestion, ExplanationLanguage } from "../api/client";
 import { formatExamPointsLabel } from "../utils/examQuestionsLanguage";
@@ -27,11 +30,13 @@ function ReviewOptions({
   mark,
   color,
   examDir,
+  questionText,
 }: {
   options: ExamReviewCorrectOption[];
   mark?: string;
   color: string;
   examDir: "ltr" | "rtl";
+  questionText: string;
 }) {
   return (
     <>
@@ -42,8 +47,9 @@ function ReviewOptions({
           text={o.text}
           imageUrl={o.image_url}
           color={color}
-          dir={contentDirForQuestionText(o.text)}
+          dir={contentDirForOptionText(o.text, questionText)}
           examDir={examDir}
+          questionText={questionText}
         />
       ))}
     </>
@@ -108,6 +114,7 @@ function ReviewQuestionCard({
                 mark="✗"
                 color="error.main"
                 examDir={qDir}
+                questionText={q.text}
               />
             ) : (
               <Typography variant="body2" color="error.main" sx={{ mb: 1.5 }}>
@@ -119,7 +126,12 @@ function ReviewQuestionCard({
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
           {he.correctAnswerLabel}
         </Typography>
-        <ReviewOptions options={q.correct_options} color="success.main" examDir={qDir} />
+        <ReviewOptions
+          options={q.correct_options}
+          color="success.main"
+          examDir={qDir}
+          questionText={q.text}
+        />
         <QuestionAiExplanation sessionId={sessionId} questionId={q.id} language={language} />
       </CardContent>
     </Card>

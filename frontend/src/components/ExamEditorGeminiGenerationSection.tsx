@@ -14,6 +14,10 @@ import {
   type GeminiQuestionSeriesDraft,
 } from "../types/geminiQuestionSeries";
 import { parseQcmText, toImportPayload } from "../utils/qcmImportParser";
+import {
+  geminiParseErrorDetail,
+  geminiParseErrorLocation,
+} from "../utils/geminiParseErrors";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
@@ -107,7 +111,7 @@ export default function ExamEditorGeminiGenerationSection({
       });
       setSession(created);
     } catch (e) {
-      onError(e instanceof ApiError ? e.message : he.errorGeneric);
+      onError(resolveGeminiApiError(e));
     } finally {
       setGenerating(false);
     }
@@ -124,7 +128,7 @@ export default function ExamEditorGeminiGenerationSection({
       );
       setSession(updated);
     } catch (e) {
-      onError(e instanceof ApiError ? e.message : he.errorGeneric);
+      onError(resolveGeminiApiError(e));
     } finally {
       setRefining(false);
     }
@@ -237,18 +241,33 @@ export default function ExamEditorGeminiGenerationSection({
           </Typography>
         </>
       )}
-      {rawText && parseResult && parseResult.errors.length > 0 && (
-        <Alert severity="warning" sx={{ mt: 2 }}>
-          {he.geminiParseFailed}
-          {parseResult.errors.map((e) => (
-            <Typography key={e.block} variant="body2">
-              {he.questionBlock} {e.block}: {e.message}
+      {rawText && parseResult && parseResult.errors.length > 0 && session && (
+        <Box sx={{ mt: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              {he.geminiParseFailedTitle}
             </Typography>
-          ))}
-          <Button size="small" onClick={handleReject} sx={{ mt: 1 }}>
+            <Typography variant="body2" paragraph sx={{ mb: 1 }}>
+              {he.geminiParseFailedHint}
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
+              {parseResult.errors.map((e) => (
+                <Typography key={`${e.block}-${e.message}`} component="li" variant="body2">
+                  <strong>{geminiParseErrorLocation(e.block)}:</strong> {geminiParseErrorDetail(e)}
+                </Typography>
+              ))}
+            </Box>
+          </Alert>
+          <GeminiRefinePanel
+            messages={session.messages}
+            refining={refining}
+            disabled={!editable || accepting}
+            onSend={refineSession}
+          />
+          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={refining}>
             {he.geminiRejectQuestions}
           </Button>
-        </Alert>
+        </Box>
       )}
       {showPreview && parseResult && session && (
         <>
@@ -272,4 +291,16 @@ export default function ExamEditorGeminiGenerationSection({
       )}
     </Box>
   );
+}
+
+function resolveGeminiApiError(e: unknown): string {
+  if (!(e instanceof ApiError)) return he.errorGeneric;
+  const msg = e.message.toLowerCase();
+  if (msg.includes("מכסת gemini") || msg.includes("quota")) {
+    return he.geminiQuotaExceeded;
+  }
+  if (msg.includes("עמוס") || msg.includes("busy") || msg.includes("429")) {
+    return he.geminiServiceBusy;
+  }
+  return e.message;
 }

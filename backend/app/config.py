@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     app_name: str = "Assistant AI"
     environment: str = "development"
+    log_level: str = "INFO"
+    sql_echo: bool = False
 
     brevo_api_key: str = ""
     brevo_sender_email: str = ""
@@ -95,6 +97,14 @@ class Settings(BaseSettings):
 
     question_images_dir: str = "data/question_images"
     question_image_max_bytes: int = 5 * 1024 * 1024
+
+    def sqlalchemy_echo(self) -> bool | str:
+        """echo SQLAlchemy : True (INFO) ou 'debug' si LOG_LEVEL=DEBUG."""
+        if not self.sql_echo:
+            return False
+        if self.log_level.strip().upper() == "DEBUG":
+            return "debug"
+        return True
 
     @model_validator(mode="after")
     def apply_vercel_storage_defaults(self) -> "Settings":

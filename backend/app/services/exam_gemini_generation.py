@@ -29,6 +29,7 @@ from app.services.gemini_client import GeminiError, generate_chat
 from app.services.gemini_source_prompt import build_sources_context_block
 from app.services.exam_gemini_source_service import load_sources_for_generation
 from app.services.gemini_question_prompt import build_questions_generation_prompt
+from app.services.gemini_text_cleanup import clean_gemini_user_text
 
 MAX_REFINE_TURNS = 12
 REFINE_USER_PREFIX = """בקשת עדכון מהמורה:
@@ -172,7 +173,7 @@ async def refine_generation_session(
     user_turns = sum(1 for m in session.messages if m.role == "user")
     if user_turns >= MAX_REFINE_TURNS:
         raise HTTPException(status_code=400, detail="הגעתם למספר המקסימלי של בקשות עדכון")
-    refine_text = REFINE_USER_PREFIX.format(message=message.strip())
+    refine_text = REFINE_USER_PREFIX.format(message=clean_gemini_user_text(message))
     await _append_exchange(session, refine_text, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))

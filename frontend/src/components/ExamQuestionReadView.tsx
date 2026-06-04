@@ -5,7 +5,10 @@ import QuestionTextWithIndex from "./QuestionTextWithIndex";
 import { OptionDisplay } from "./MultilineOptionLayout";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import { he } from "../i18n/he";
-import { contentDirForQuestionText } from "../utils/examQuestionsLanguage";
+import {
+  contentDirForOptionText,
+  contentDirForQuestionText,
+} from "../utils/examQuestionsLanguage";
 
 const typeLabelRtl: Record<string, string> = {
   single: he.questionTypeSingle,
@@ -85,8 +88,9 @@ export function ExamQuestionReadView({
           text={o.text}
           imageUrl={o.image_url}
           color={o.is_correct ? "success.main" : "text.secondary"}
-          dir={contentDirForQuestionText(o.text)}
+          dir={contentDirForOptionText(o.text, text)}
           examDir={qDir}
+          questionText={text}
         />
       ))}
     </Box>

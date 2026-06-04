@@ -452,7 +452,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} />
+                <OptionText text={o.text} imageUrl={o.image_url} questionText={question.text} />
               </Box>
             ))}
           </Box>
@@ -478,7 +478,7 @@ function QuestionBlock({
                     sx={{ p: 0.5 }}
                   />
                 </Box>
-                <OptionText text={o.text} imageUrl={o.image_url} />
+                <OptionText text={o.text} imageUrl={o.image_url} questionText={question.text} />
               </Box>
             ))}
           </FormControl>

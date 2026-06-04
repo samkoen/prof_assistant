@@ -9,6 +9,7 @@ from app.models.exam import Answer, ExamSession, Question, QuestionAiExplanation
 from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.gemini_client import GeminiError, generate_text
+from app.services.gemini_text_cleanup import clean_gemini_user_text
 
 _TYPE_LABELS = {
     QuestionType.SINGLE: "בחירה יחידה",
@@ -134,7 +135,7 @@ def _selected_labels(question: Question, selected_ids: list[int]) -> str:
     labels: list[str] = []
     for idx, opt in enumerate(ordered):
         if opt.id in selected_ids:
-            labels.append(f"{_option_label(idx)}) {opt.text.strip()}")
+            labels.append(f"{_option_label(idx)}) {clean_gemini_user_text(opt.text)}")
     if labels:
         return ", ".join(labels)
     return "לא נבחרה תשובה"
@@ -144,7 +145,7 @@ def _build_prompt(
     question: Question, selected_ids: list[int], language: GeminiSeriesLanguage
 ) -> str:
     correct = sorted([o for o in question.options if o.is_correct], key=lambda o: o.order_index)
-    correct_text = "; ".join(o.text.strip() for o in correct) or "—"
+    correct_text = "; ".join(clean_gemini_user_text(o.text) for o in correct) or "—"
     type_label = _TYPE_LABELS.get(question.question_type, question.question_type)
     lang = _LANG_CONFIG.get(language, _LANG_CONFIG["he"])
     return f"""אתה עוזר לימודי למבחן QCM. {lang["instruction"]}
@@ -158,7 +159,7 @@ def _build_prompt(
 סוג שאלה: {type_label}
 
 שאלה:
-{question.text.strip()}
+{clean_gemini_user_text(question.text)}
 
 אפשרויות:
 {_format_options(question)}

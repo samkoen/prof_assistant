@@ -2,6 +2,7 @@ import re
 
 from app.models.enums import QuestionType
 from app.schemas.gemini_questions import GeminiSeriesInput, GeminiSeriesLanguage
+from app.services.gemini_text_cleanup import clean_gemini_user_text
 
 _LEVEL_LABELS = {"easy": "קל", "medium": "בינוני", "hard": "קשה"}
 _TYPE_LABELS = {
@@ -41,7 +42,12 @@ def _format_rules(lang: GeminiSeriesLanguage) -> str:
 - כותרת: Q<num> [single|multiple|true_false] (1 pt) — מספר רץ גלובלי
 - {cfg["write"]}
 - אפשרויות: A) B) C) D) — אחרי A) מותרות שורות נוספות (למשל שרטוט עץ עם / ו- \\)
-- סימון נכון: שורה עם * בלבד מיד אחרי A), או * בסוף השורה האחרונה של אותה אפשרות
+- סימון נכון (חובה): שורה * בלבד מיד אחרי A), או A) * ואז טקסט, או * בסוף שורת התשובה — לא לכתוב «לא נכון» כסימון (רק * או ✓)
+- דוגמה בחירה יחידה:
+  A)
+  *
+  טקסט האפשרות הנכונה
+  B) אפשרות שגויה
 - {cfg["tf"]}
 - בחירה יחידה: בדיוק אפשרות אחת עם * (חובה — בלי * המערכת תדחה)
 - בחירה מרובה: לפחות שתי אפשרויות, לפחות אחת עם *
@@ -89,7 +95,7 @@ def _series_block(index: int, item: GeminiSeriesInput) -> str:
     level = _LEVEL_LABELS[item.level]
     lang = _LANG_CONFIG[item.language]["label"]
     return (
-        f"{index}. הנחיות המורה:\n{item.instructions.strip()}\n"
+        f"{index}. הנחיות המורה:\n{clean_gemini_user_text(item.instructions)}\n"
         f"   מספר שאלות: {item.question_count}\n"
         f"   רמה: {level}\n"
         f"   שפה: {lang}\n"
@@ -104,7 +110,8 @@ def build_questions_generation_prompt(
     sources_block: str = "",
 ) -> str:
     total = sum(s.question_count for s in series)
-    title_line = f"מבחן: {exam_title.strip()}\n" if exam_title and exam_title.strip() else ""
+    title_clean = clean_gemini_user_text(exam_title) if exam_title else ""
+    title_line = f"מבחן: {title_clean}\n" if title_clean else ""
     blocks = "\n".join(_series_block(i + 1, s) for i, s in enumerate(series))
     languages = sorted({s.language for s in series})
     if len(languages) == 1:

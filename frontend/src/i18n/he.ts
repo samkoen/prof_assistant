@@ -159,7 +159,27 @@ export const he = {
   geminiSeriesTotalQuestions: "סה״כ שאלות מבוקשות",
   geminiGenerating: "יוצר שאלות…",
   geminiServiceBusy: "שירות Gemini עמוס — נסו שוב בעוד דקה",
-  geminiParseFailed: "לא ניתן לפרש את התשובה — נסו שוב או ערכו את הסדרות",
+  geminiQuotaExceeded:
+    "מכסת Gemini נגמרה — בדקו חיוב ומכסה ב-Google AI Studio, או נסו שוב מאוחר יותר",
+  geminiParseFailedTitle: "Gemini השיב, אך הפורמט אינו תקין לייבוא",
+  geminiParseFailedHint:
+    "בקשו תיקון בצ'אט למטה (לדוגמה: «סמנו שורת * אחרי התשובה הנכונה בכל שאלת בחירה יחידה»), או לחצו «ביטול» ויצרו מחדש.",
+  geminiParseQuestionLabel: "שאלה",
+  geminiParseErrGeneral: "כללי",
+  geminiParseErrEmptyBlock: "בלוק השאלה ריק — חסר כותרת Q או תוכן",
+  geminiParseErrNoOptions: "לא נמצאו אפשרויות תשובה (A) B) C)…)",
+  geminiParseErrNoOptionsShort: "חסרות אפשרויות תשובה",
+  geminiParseErrMissingText: "חסר טקסט לשאלה",
+  geminiParseErrTfTwo: "שאלת נכון/לא נכון: נדרשות בדיוק שתי שורות (נכון / לא נכון) עם * על הנכונה",
+  geminiParseErrSingleStar:
+    "בחירה יחידה: חסר סימון * — שורת * לבד אחרי A), או A) * ואז טקסט, או * בסוף שורת התשובה הנכונה",
+  geminiParseErrSingleTooMany:
+    "בחירה יחידה: יותר מתשובה אחת מסומנת — השאירו * רק על האפשרות הנכונה",
+  geminiParseErrMultipleStar: "בחירה מרובה: לפחות אפשרות אחת עם *",
+  geminiParseErrMultipleNoCorrect: "בחירה מרובה: חסר סימון * על תשובה נכונה",
+  geminiParseErrSingleNoCorrect: "בחירה יחידה: חסר סימון * על התשובה הנכונה",
+  geminiParseErrNoContent: "אין תוכן בתשובה",
+  geminiParseErrInvalidJson: "פורמט JSON לא תקין",
   geminiPreviewTitle: "תצוגה מקדימה — שאלות שנוצרו",
   geminiPreviewHint: "בדקו את השאלות. רק לאחר אישור הן יתווספו למבחן.",
   geminiAcceptQuestions: "אישור והוספה למבחן",

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app.config import settings
+from app.services.gemini_text_cleanup import clean_gemini_source_text
 
 _ALLOWED_SUFFIXES = {".pdf", ".txt", ".md"}
 
@@ -21,7 +22,7 @@ def assert_allowed_upload(filename: str, size: int) -> str:
 
 
 def truncate_text(text: str) -> tuple[str, int]:
-    cleaned = text.replace("\x00", "").strip()
+    cleaned = clean_gemini_source_text(text)
     limit = settings.gemini_source_max_chars_per_file
     if len(cleaned) <= limit:
         return cleaned, len(cleaned)

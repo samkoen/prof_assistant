@@ -382,6 +382,7 @@ def _write_multiline_content(
     layout: PdfLayout,
     *,
     question_rtl: bool,
+    question_text: str | None = None,
     size: int = 11,
     h: float = 7,
     style: str = "",
@@ -389,7 +390,9 @@ def _write_multiline_content(
     indent: float = 0,
 ) -> None:
     for line in _split_display_lines(text):
-        html_align, html_dir = line_html_align_dir(line, default_rtl=question_rtl)
+        html_align, html_dir = line_html_align_dir(
+            line, default_rtl=question_rtl, question_text=question_text
+        )
         _write_content_line(
             pdf,
             line,
@@ -507,6 +510,7 @@ def _write_option_line(
     *,
     include_answers: bool,
     question_rtl: bool,
+    question_text: str,
 ) -> None:
     y0 = pdf.get_y()
     show_correct = include_answers and is_correct
@@ -537,6 +541,7 @@ def _write_option_line(
             text,
             layout,
             question_rtl=question_rtl,
+            question_text=question_text,
             size=10,
             h=OPTION_ROW_H,
             color=color,
@@ -599,6 +604,7 @@ def _write_question(
             bool(opt.is_correct),
             include_answers=include_answers,
             question_rtl=question_rtl,
+            question_text=q_text,
         )
     y1 = pdf.get_y()
     _draw_question_border(pdf, y0, y1)

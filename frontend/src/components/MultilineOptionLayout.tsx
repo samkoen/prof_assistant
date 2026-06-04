@@ -20,6 +20,8 @@ type OptionDisplayProps = {
   dir?: "ltr" | "rtl";
   /** Direction de l’examen (question) : préfixe à droite si hébreu. */
   examDir?: "ltr" | "rtl";
+  /** Texte de la question — réponses numériques seules → RTL si question en hébreu. */
+  questionText?: string;
 };
 
 const ltrBlockSx = {
@@ -40,6 +42,7 @@ export function OptionDisplay({
   variant = "body2",
   dir = "rtl",
   examDir = "rtl",
+  questionText,
 }: OptionDisplayProps) {
   if (dir === "ltr" && examDir === "ltr") {
     return (
@@ -86,14 +89,14 @@ export function OptionDisplay({
   const prefixSx =
     examDir === "rtl"
       ? { ...bidiMixedTextSx, direction: "rtl" as const, textAlign: "right" as const }
-      : mixedLineBlockSx(anchorLine);
+      : mixedLineBlockSx(anchorLine, questionText);
   return (
     <Box component="div" color={color} sx={{ ...optionTextSx, mt: 0.5, mb: 0.75 }}>
       <Typography variant={variant} component="div" color={color} sx={prefixSx}>
         {prefix}
       </Typography>
       {lines.map((line, i) => (
-        <Box key={i} sx={mixedLineBlockSx(line)}>
+        <Box key={i} sx={mixedLineBlockSx(line, questionText)}>
           {line.length > 0 && (
             <Typography variant={variant} component="span" color={color}>
               <MathText text={line} component="span" />
@@ -112,18 +115,26 @@ export function OptionText({
   imageUrl,
   color,
   variant = "body1",
+  questionText,
 }: {
   text: string;
   imageUrl?: string | null;
   color?: TypographyProps["color"];
   variant?: TypographyProps["variant"];
+  questionText?: string;
 }) {
   const displayText = stripEditorBidiMarks(text);
   const lines = displayText.split("\n");
   return (
     <Box component="div" sx={{ ...optionTextSx, mt: 0.5, mb: 0.75 }}>
       {lines.map((line, i) => (
-        <Typography key={i} variant={variant} component="div" color={color} sx={mixedLineBlockSx(line)}>
+        <Typography
+          key={i}
+          variant={variant}
+          component="div"
+          color={color}
+          sx={mixedLineBlockSx(line, questionText)}
+        >
           {line.length > 0 && <MathText text={line} component="span" />}
         </Typography>
       ))}
