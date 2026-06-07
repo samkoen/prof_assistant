@@ -46,6 +46,9 @@ export default function ExamEditorImportSection({
         </Typography>
       </Box>
       <PasteHints />
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {he.pasteQcmHintCrossEnv}
+      </Typography>
       <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
         <Button size="small" variant="outlined" onClick={onCopyPrompt}>
           {he.copyGeminiPrompt}

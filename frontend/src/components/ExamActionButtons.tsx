@@ -12,12 +12,14 @@ import {
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import FileUploadIcon from "@mui/icons-material/FileUpload";
 import ShareIcon from "@mui/icons-material/Share";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
+import ExamPortableExportDialog from "./ExamPortableExportDialog";
 import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
 import { api, ApiError, type Exam } from "../api/client";
 import { he } from "../i18n/he";
@@ -43,6 +45,7 @@ export function ExamActionButtons({
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [busy, setBusy] = useState<"duplicate" | "delete" | null>(null);
   const canDelete = exam.can_delete !== false;
 
@@ -136,6 +139,18 @@ export function ExamActionButtons({
     </Button>
   );
 
+  const exportBtn = iconOnly ? (
+    <Tooltip title={he.portableExportExam}>
+      <IconButton size="small" aria-label={he.portableExportExam} onClick={() => setExportOpen(true)}>
+        <FileUploadIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  ) : (
+    <Button size={size} variant="outlined" startIcon={<FileUploadIcon />} onClick={() => setExportOpen(true)}>
+      {he.portableExportExam}
+    </Button>
+  );
+
   const shareBtn = iconOnly ? (
     <Tooltip title={he.shareExam}>
       <IconButton size="small" aria-label={he.shareExam} onClick={() => setShareOpen(true)}>
@@ -151,9 +166,17 @@ export function ExamActionButtons({
   return (
     <>
       {duplicateBtn}
+      {exportBtn}
       {shareBtn}
       <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
       {(!hideInactive || canDelete) && deleteBtn}
+
+      <ExamPortableExportDialog
+        open={exportOpen}
+        examId={exam.id}
+        examTitle={exam.title}
+        onClose={() => setExportOpen(false)}
+      />
 
       <ShareWithTeacherDialog
         open={shareOpen}
