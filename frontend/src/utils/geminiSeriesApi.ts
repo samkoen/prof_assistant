@@ -1,4 +1,5 @@
 import type { GeminiQuestionSeriesDraft } from "../types/geminiQuestionSeries";
+import { stripEditorBidiMarks } from "./examQuestionsLanguage";
 
 export interface GeminiSeriesApiPayload {
   instructions: string;
@@ -12,7 +13,7 @@ export function seriesListToApiPayload(
   series: GeminiQuestionSeriesDraft[],
 ): GeminiSeriesApiPayload[] {
   return series.map((s) => ({
-    instructions: s.instructions.trim(),
+    instructions: stripEditorBidiMarks(s.instructions).trim(),
     question_count: s.questionCount,
     level: s.level,
     question_types: s.questionTypes,

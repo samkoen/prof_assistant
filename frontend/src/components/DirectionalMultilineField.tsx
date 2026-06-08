@@ -1,12 +1,14 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
-import { Box, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Box, IconButton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
 import type { TextFieldProps } from "@mui/material";
+import CodeIcon from "@mui/icons-material/Code";
 import FormatTextdirectionLToR from "@mui/icons-material/FormatTextdirectionLToR";
 import FormatTextdirectionRToL from "@mui/icons-material/FormatTextdirectionRToL";
 import type { TextDirection } from "../utils/textDirectionShortcut";
 import { bidiInputSlotProps, useRegisterBidiFocus } from "../hooks/useBidiTextField";
 import { he } from "../i18n/he";
+import { toggleCodeMarkup } from "../utils/codeBlockMarkup";
 import { applyMixedTextChange, tryInsertMixedNewline } from "../utils/bidiLineDirection";
 import { bidiMixedEditSx } from "../styles/bidiMixedText";
 
@@ -25,6 +27,11 @@ interface DirectionalMultilineFieldProps
   onDirectionChange?: (dir: TextDirection) => void;
   /** Afficher la légende RTL/LTR ou mixte au-dessus du champ. */
   showHint?: boolean;
+  /** Mode mixte : Maj+Entrée = nouvelle ligne bidi ; Entrée seule = comportement natif (ex. envoi). */
+  mixedNewlineOnShiftEnter?: boolean;
+  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Bouton code : entoure la sélection avec ``` … ``` */
+  enableCodeMarkup?: boolean;
 }
 
 function DirectionToolbar({
@@ -80,17 +87,23 @@ export default function DirectionalMultilineField({
   size,
   sx,
   showHint = true,
+  mixedNewlineOnShiftEnter = false,
+  onKeyDown,
+  enableCodeMarkup = false,
 }: DirectionalMultilineFieldProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingCursorRef = useRef<number | null>(null);
+  const pendingSelectionEndRef = useRef<number | null>(null);
   const isMixed = variant === "mixed";
 
   useLayoutEffect(() => {
-    const pos = pendingCursorRef.current;
-    if (pos == null || !inputRef.current) return;
-    inputRef.current.selectionStart = pos;
-    inputRef.current.selectionEnd = pos;
+    const start = pendingCursorRef.current;
+    if (start == null || !inputRef.current) return;
+    const end = pendingSelectionEndRef.current ?? start;
+    inputRef.current.selectionStart = start;
+    inputRef.current.selectionEnd = end;
     pendingCursorRef.current = null;
+    pendingSelectionEndRef.current = null;
   }, [value]);
 
   const emitMixedChange = useCallback(
@@ -104,13 +117,20 @@ export default function DirectionalMultilineField({
 
   const handleMixedKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      const nextCursor = tryInsertMixedNewline(e, value, (next) => {
-        const pos = e.currentTarget.selectionStart ?? 0;
-        emitMixedChange(next, pos);
-      });
-      if (nextCursor != null) pendingCursorRef.current = nextCursor;
+      const shouldInsert =
+        mixedNewlineOnShiftEnter
+          ? e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey
+          : e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (shouldInsert) {
+        const nextCursor = tryInsertMixedNewline(e, value, (next) => {
+          const pos = e.currentTarget.selectionStart ?? 0;
+          emitMixedChange(next, pos);
+        });
+        if (nextCursor != null) pendingCursorRef.current = nextCursor;
+      }
+      onKeyDown?.(e);
     },
-    [value, emitMixedChange],
+    [value, emitMixedChange, mixedNewlineOnShiftEnter, onKeyDown],
   );
 
   const handleMixedChange = useCallback(
@@ -126,6 +146,18 @@ export default function DirectionalMultilineField({
     },
     [isMixed, onDirectionChange],
   );
+  const handleCodeToggle = useCallback(() => {
+    const el = inputRef.current;
+    if (!el || disabled) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    if (start >= end) return;
+    const result = toggleCodeMarkup(value, start, end);
+    onChange(result.text);
+    pendingCursorRef.current = result.selectionStart;
+    pendingSelectionEndRef.current = result.selectionEnd;
+  }, [value, onChange, disabled]);
+
   useRegisterBidiFocus(inputRef, onDirection);
   const slotProps = isMixed
     ? {
@@ -136,7 +168,7 @@ export default function DirectionalMultilineField({
 
   return (
     <Box sx={sx}>
-      {showHint && (
+      {(showHint || enableCodeMarkup) && (
         <Box
           sx={{
             display: "flex",
@@ -147,12 +179,32 @@ export default function DirectionalMultilineField({
             mb: 0.5,
           }}
         >
-          <Typography variant="caption" color="text.secondary">
-            {isMixed ? he.textDirectionMixedHint : he.textDirectionHint}
-          </Typography>
-          {!isMixed && onDirectionChange && (
-            <DirectionToolbar direction={direction} onDirection={onDirectionChange} disabled={disabled} />
+          {showHint ? (
+            <Typography variant="caption" color="text.secondary">
+              {isMixed ? he.textDirectionMixedHint : he.textDirectionHint}
+            </Typography>
+          ) : (
+            <span />
           )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {enableCodeMarkup && (
+              <Tooltip title={he.markSelectionAsCode}>
+                <span>
+                  <IconButton
+                    size="small"
+                    aria-label={he.markSelectionAsCode}
+                    onClick={handleCodeToggle}
+                    disabled={disabled}
+                  >
+                    <CodeIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            {!isMixed && onDirectionChange && (
+              <DirectionToolbar direction={direction} onDirection={onDirectionChange} disabled={disabled} />
+            )}
+          </Box>
         </Box>
       )}
       <TextField

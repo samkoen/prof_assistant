@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Box, Button, TextField, Typography } from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
+import DirectionalMultilineField from "./DirectionalMultilineField";
 import type { GeminiGenerationMessage } from "../types/geminiQuestionSeries";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
@@ -64,24 +65,26 @@ export default function GeminiRefinePanel({ messages, refining, disabled, onSend
         >
           {refining ? he.geminiRefining : he.geminiSendRefinement}
         </Button>
-        <TextField
-          fullWidth
-          size="small"
-          multiline
-          minRows={2}
-          maxRows={4}
-          placeholder={he.geminiRefinePlaceholder}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          disabled={disabled || refining}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          sx={{ ...hebrewAlignRightSx }}
-        />
+        <Box sx={{ flex: 1, minWidth: 0, ...hebrewAlignRightSx }}>
+          <DirectionalMultilineField
+            variant="mixed"
+            mixedNewlineOnShiftEnter
+            showHint={false}
+            size="small"
+            value={draft}
+            onChange={setDraft}
+            minRows={2}
+            maxRows={4}
+            placeholder={he.geminiRefinePlaceholder}
+            disabled={disabled || refining}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+          />
+        </Box>
       </Box>
     </Box>
   );

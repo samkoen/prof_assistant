@@ -66,3 +66,12 @@ class GeminiSessionResponse(BaseModel):
 
 class GeminiSessionAcceptResponse(BaseModel):
     imported_count: int
+
+
+class GeminiParseErrorItem(BaseModel):
+    block: int = 0
+    message: str = Field(min_length=1, max_length=500)
+
+
+class GeminiParseErrorReportRequest(BaseModel):
+    errors: list[GeminiParseErrorItem] = Field(min_length=1, max_length=50)

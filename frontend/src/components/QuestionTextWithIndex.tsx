@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Box, Typography, type SxProps, type Theme } from "@mui/material";
-import MathText from "./MathText";
+import CodeMarkedText from "./CodeMarkedText";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
-import { mixedLineBlockSx } from "../styles/bidiMixedText";
+import { mixedLineDisplaySx } from "../utils/mixedLineDisplay";
+import { parseMarkedTextSegments } from "../utils/codeBlockMarkup";
 import {
   contentDirForQuestionText,
   firstNonEmptyLine,
@@ -18,13 +19,13 @@ type QuestionTextWithIndexProps = {
   children?: ReactNode;
 };
 
-function QuestionLine({ line, children }: { line: string; children?: ReactNode }) {
-  return (
-    <Box sx={mixedLineBlockSx(line)}>
-      <MathText text={line} component="span" />
-      {children}
-    </Box>
-  );
+function anchorLineForNumber(text: string): string {
+  for (const seg of parseMarkedTextSegments(text)) {
+    if (seg.kind !== "text") continue;
+    const line = firstNonEmptyLine(seg.content.split("\n"));
+    if (line.trim()) return line;
+  }
+  return firstNonEmptyLine(text.split("\n"));
 }
 
 /** Ligne 1 = numéro seul (aligné comme la 1ʳᵉ ligne de texte) ; puis le texte ligne par ligne. */
@@ -37,19 +38,16 @@ export default function QuestionTextWithIndex({
   children,
 }: QuestionTextWithIndexProps) {
   const displayText = stripEditorBidiMarks(text);
-  const lines = displayText.split("\n");
-  const anchorLine = firstNonEmptyLine(lines);
+  const anchorLine = anchorLineForNumber(displayText);
   const ltr = contentDirForQuestionText(displayText) === "ltr";
 
   const numberLine = (
-    <Box sx={{ ...mixedLineBlockSx(anchorLine), fontWeight }}>{index}.</Box>
+    <Box sx={{ ...mixedLineDisplaySx(anchorLine, displayText), fontWeight }}>{index}.</Box>
   );
 
-  const bodyLines = lines.map((line, i) => (
-    <QuestionLine key={i} line={line}>
-      {i === 0 ? children : undefined}
-    </QuestionLine>
-  ));
+  const bodyLines = (
+    <CodeMarkedText text={displayText} questionText={displayText} firstLineExtra={children} />
+  );
 
   if (ltr) {
     return (

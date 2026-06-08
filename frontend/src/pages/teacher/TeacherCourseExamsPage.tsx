@@ -19,6 +19,7 @@ import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
 import ExamActivateTimingFields from "../../components/ExamActivateTimingFields";
 import DataListTable from "../../components/DataListTable/DataListTable";
+import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { getCourseExamTableColumns } from "../../config/courseExamTableColumns";
@@ -61,6 +62,7 @@ export default function TeacherCourseExamsPage() {
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [examsTab, setExamsTab] = useState<ExamsStatusTab>("open");
 
   const columns = useMemo(() => getCourseExamTableColumns(), []);
 
@@ -105,6 +107,16 @@ export default function TeacherCourseExamsPage() {
     () => exams.map((exam) => ({ exam, session: sessionByExamId.get(exam.id) })),
     [exams, sessionByExamId],
   );
+
+  const openRows = useMemo(
+    () => tableRows.filter((row) => row.session?.status !== "closed"),
+    [tableRows],
+  );
+  const closedRows = useMemo(
+    () => tableRows.filter((row) => row.session?.status === "closed"),
+    [tableRows],
+  );
+  const visibleRows = examsTab === "closed" ? closedRows : openRows;
 
   const confirmStartExam = async () => {
     if (!offering || !activateExam) return;
@@ -178,7 +190,7 @@ export default function TeacherCourseExamsPage() {
   }
 
   return (
-    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }} dir="rtl">
       <Button
         component={RouterLink}
         to="/teacher/courses"
@@ -249,12 +261,19 @@ export default function TeacherCourseExamsPage() {
         </Alert>
       )}
 
+      <ExamsStatusTabs
+        value={examsTab}
+        onChange={setExamsTab}
+        openCount={openRows.length}
+        closedCount={closedRows.length}
+      />
+
       <DataListTable
-        viewKey={`teacher-course-exams-${id}`}
-        rows={tableRows}
+        viewKey={`teacher-course-exams-${id}-${examsTab}`}
+        rows={visibleRows}
         columns={columns}
         loading={loading}
-        emptyMessage={he.noExams}
+        emptyMessage={examsTab === "closed" ? he.noClosedExams : he.noExams}
         getRowId={(row) => row.exam.id}
         actionsColumnPx={210}
         renderActions={(row) => (

@@ -192,6 +192,8 @@ export const he = {
   geminiParseFailedTitle: "Gemini השיב, אך הפורמט אינו תקין לייבוא",
   geminiParseFailedHint:
     "בקשו תיקון בצ'אט למטה (לדוגמה: «סמנו שורת * אחרי התשובה הנכונה בכל שאלת בחירה יחידה»), או לחצו «ביטול» ויצרו מחדש.",
+  geminiParseMovedToPaste:
+    "תשובת Gemini הועתקה ללשונית «הדבקה» — ניתן לתקן ידנית או לייבא לאחר תיקון. הפרומפט נרשם בלוג (קונסול).",
   geminiParseQuestionLabel: "שאלה",
   geminiParseErrGeneral: "כללי",
   geminiParseErrEmptyBlock: "בלוק השאלה ריק — חסר כותרת Q או תוכן",
@@ -273,6 +275,9 @@ export const he = {
   questionImageLabel: "תמונה לשאלה",
   optionImageLabel: "תמונה לאפשרות",
   mathMarkupHint: "סימון מתמטי: n^2, x^{10}, a_i — חזקות (^) ואינדקסים (_). לכתיבת ^ או _ כרגיל: \\^ \\_",
+  markSelectionAsCode: "סימון כקוד — בחרו טקסט ולחצו",
+  questionCodeMarkupHint:
+    "Enter — שורה חדשה (גם שורה ריקה נשמרת). לסימון קוד: בחרו טקסט ולחצו על אייקון הקוד (```). לחיצה חוזרת מסירה את הסימון.",
   minTwoOptionsRequired: "נדרשות לפחות 2 אפשרויות",
   tfTwoOptionsRequired: "נדרשות 2 אפשרויות (נכון/לא נכון)",
   oneCorrectRequired: "נדרשת תשובה נכונה אחת",
@@ -441,6 +446,9 @@ export const he = {
   errorGeneric: "אירעה שגיאה",
   noExams: "אין מבחנים",
   activeExams: "מבחנים פעילים",
+  examsTabOpen: "פעילים וטיוטות",
+  examsTabClosed: "סגורים",
+  noClosedExams: "אין מבחנים סגורים",
   draftExams: "טיוטות",
   notifications: "התראות",
   studentId: "מספר תלמיד",

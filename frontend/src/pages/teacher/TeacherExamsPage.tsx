@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -19,6 +19,8 @@ import {
 } from "@mui/material";
 import StopIcon from "@mui/icons-material/Stop";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import GradingIcon from "@mui/icons-material/Grading";
+import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
 import ExamActivateTimingFields from "../../components/ExamActivateTimingFields";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ListPageToolbar from "../../components/ListPageToolbar";
@@ -43,6 +45,18 @@ import {
   type ExamTimingForm,
 } from "../../utils/examActivateTiming";
 
+function splitSessions(sessions: ExamSession[]) {
+  const open = sessions.filter((s) => s.status !== "closed");
+  const closed = sessions.filter((s) => s.status === "closed");
+  return { open, closed };
+}
+
+function sessionStatusLabel(status: ExamSession["status"]): string {
+  if (status === "active") return he.examAlreadyActive;
+  if (status === "closed") return he.examClosed;
+  return he.examDraftStatus;
+}
+
 export default function TeacherExamsPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<ExamSession[]>([]);
@@ -50,6 +64,7 @@ export default function TeacherExamsPage() {
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [examsTab, setExamsTab] = useState<ExamsStatusTab>("open");
   const [activateOpen, setActivateOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [activateOfferingId, setActivateOfferingId] = useState("");
@@ -64,6 +79,11 @@ export default function TeacherExamsPage() {
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
   const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
   const [examsRefreshKey, setExamsRefreshKey] = useState(0);
+
+  const { open: openSessions, closed: closedSessions } = useMemo(
+    () => splitSessions(sessions),
+    [sessions],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,7 +180,7 @@ export default function TeacherExamsPage() {
     : [];
 
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%" }} dir="rtl">
       <ListPageToolbar
         title={he.exams}
         subtitle={he.catalogCoursesSubtitle}
@@ -174,152 +194,192 @@ export default function TeacherExamsPage() {
         </Alert>
       )}
 
+      <ExamsStatusTabs
+        value={examsTab}
+        onChange={setExamsTab}
+        openCount={openSessions.length}
+        closedCount={closedSessions.length}
+      />
+
       {loading ? (
         <Box display="flex" justifyContent="center" py={8}>
           <CircularProgress />
         </Box>
-      ) : sessions.length === 0 ? (
-        <Typography color="text.secondary">{he.noExams}</Typography>
+      ) : examsTab === "open" ? (
+        <OpenExamsTab
+          sessions={openSessions}
+          catalogs={catalogs}
+          examsRefreshKey={examsRefreshKey}
+          closingSessionId={closingSessionId}
+          deactivatingSessionId={deactivatingSessionId}
+          onCloseClick={setConfirmCloseSession}
+          onDeactivateClick={setConfirmDeactivateSession}
+          onActivate={openActivate}
+          onError={setError}
+          onChanged={refreshExams}
+        />
       ) : (
-        sessions.map((s) => (
-          <Card key={s.id} sx={{ mb: 1 }}>
-            <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-              <Box flex={1} minWidth={200}>
-                <Typography fontWeight={600}>{s.exam_title}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) —{" "}
-                  {s.status} — {s.question_count} שאלות
-                </Typography>
-              </Box>
-              {s.status === "active" && (
-                <>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    startIcon={<DoneAllIcon />}
-                    disabled={closingSessionId === s.id}
-                    onClick={() => setConfirmCloseSession(s)}
-                  >
-                    {closingSessionId === s.id ? he.loading : he.closeExam}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="warning"
-                    startIcon={<StopIcon />}
-                    disabled={deactivatingSessionId === s.id}
-                    onClick={() => setConfirmDeactivateSession(s)}
-                  >
-                    {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))
+        <ClosedExamsTab sessions={closedSessions} />
       )}
 
+      <ActivateExamDialog
+        open={activateOpen}
+        exam={selectedExam}
+        offerings={matchingOfferings}
+        offeringId={activateOfferingId}
+        integrity={activateIntegrity}
+        timing={activateTiming}
+        onOfferingChange={setActivateOfferingId}
+        onIntegrityChange={setActivateIntegrity}
+        onTimingChange={setActivateTiming}
+        onClose={() => setActivateOpen(false)}
+        onActivate={activate}
+      />
+
+      <CloseSessionDialog
+        session={confirmCloseSession}
+        closing={closingSessionId != null}
+        onClose={() => setConfirmCloseSession(null)}
+        onConfirm={closeSession}
+      />
+
+      <DeactivateSessionDialog
+        session={confirmDeactivateSession}
+        deactivating={deactivatingSessionId != null}
+        onClose={() => setConfirmDeactivateSession(null)}
+        onConfirm={deactivateSession}
+      />
+    </Box>
+  );
+}
+
+function OpenExamsTab({
+  sessions,
+  catalogs,
+  examsRefreshKey,
+  closingSessionId,
+  deactivatingSessionId,
+  onCloseClick,
+  onDeactivateClick,
+  onActivate,
+  onError,
+  onChanged,
+}: {
+  sessions: ExamSession[];
+  catalogs: CatalogCourse[];
+  examsRefreshKey: number;
+  closingSessionId: number | null;
+  deactivatingSessionId: number | null;
+  onCloseClick: (s: ExamSession) => void;
+  onDeactivateClick: (s: ExamSession) => void;
+  onActivate: (exam: Exam) => void;
+  onError: (message: string) => void;
+  onChanged: () => void;
+}) {
+  return (
+    <>
+      {sessions.length === 0 ? (
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          {he.noExams}
+        </Typography>
+      ) : (
+        sessions.map((s) => (
+          <ExamSessionCard
+            key={s.id}
+            session={s}
+            closingSessionId={closingSessionId}
+            deactivatingSessionId={deactivatingSessionId}
+            onCloseClick={onCloseClick}
+            onDeactivateClick={onDeactivateClick}
+          />
+        ))
+      )}
       <Typography variant="h6" sx={{ mt: 4, mb: 1 }}>
         {he.draftExams}
       </Typography>
       <CatalogExamsList
         key={examsRefreshKey}
         catalogs={catalogs}
-        onActivate={openActivate}
-        onError={setError}
-        onChanged={refreshExams}
+        onActivate={onActivate}
+        onError={onError}
+        onChanged={onChanged}
       />
+    </>
+  );
+}
 
-      <Dialog open={activateOpen} onClose={() => setActivateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{he.activateExam}</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <TextField
-            select
-            fullWidth
-            label={he.myCourses}
-            value={activateOfferingId}
-            onChange={(e) => setActivateOfferingId(e.target.value)}
-          >
-            {matchingOfferings.map((o) => (
-              <MenuItem key={o.id} value={String(o.id)}>
-                {offeringLabel(o)}
-              </MenuItem>
-            ))}
-          </TextField>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={activateIntegrity}
-                onChange={(e) => setActivateIntegrity(e.target.checked)}
-              />
-            }
-            label={he.integrityMode}
-          />
-          <Typography variant="caption" color="text.secondary" display="block">
-            {he.integrityModeHint}
+function ClosedExamsTab({ sessions }: { sessions: ExamSession[] }) {
+  if (sessions.length === 0) {
+    return <Typography color="text.secondary">{he.noClosedExams}</Typography>;
+  }
+  return sessions.map((s) => <ExamSessionCard key={s.id} session={s} closedTab />);
+}
+
+function ExamSessionCard({
+  session: s,
+  closedTab = false,
+  closingSessionId,
+  deactivatingSessionId,
+  onCloseClick,
+  onDeactivateClick,
+}: {
+  session: ExamSession;
+  closedTab?: boolean;
+  closingSessionId?: number | null;
+  deactivatingSessionId?: number | null;
+  onCloseClick?: (s: ExamSession) => void;
+  onDeactivateClick?: (s: ExamSession) => void;
+}) {
+  const gradesPath = `/teacher/courses/${s.offering_id}/exams/sessions/${s.id}/results`;
+
+  return (
+    <Card key={s.id} sx={{ mb: 1 }}>
+      <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+        <Box flex={1} minWidth={200}>
+          <Typography fontWeight={600}>{s.exam_title}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) —{" "}
+            {sessionStatusLabel(s.status)} — {s.question_count} שאלות
           </Typography>
-          <ExamActivateTimingFields value={activateTiming} onChange={setActivateTiming} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setActivateOpen(false)}>{he.cancel}</Button>
-          <DisabledActionTooltip
-            disabled={!activateOfferingId}
-            disabledReason={!activateOfferingId ? he.selectOfferingToActivate : undefined}
-          >
-            <Button variant="contained" onClick={activate}>
-              {he.activateExam}
-            </Button>
-          </DisabledActionTooltip>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={!!confirmCloseSession}
-        onClose={() => setConfirmCloseSession(null)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>{he.closeExam}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.closeExamConfirm}</Typography>
-          {confirmCloseSession && (
-            <Typography fontWeight={600} sx={{ mt: 1 }}>
-              {confirmCloseSession.exam_title}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmCloseSession(null)}>{he.cancel}</Button>
+        </Box>
+        {closedTab ? (
           <Button
-            variant="contained"
-            color="primary"
-            onClick={closeSession}
-            disabled={closingSessionId != null}
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            to={gradesPath}
+            startIcon={<GradingIcon />}
           >
-            {closingSessionId != null ? he.loading : he.closeExam}
+            {he.viewExamGrades}
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={!!confirmDeactivateSession}
-        onClose={() => setConfirmDeactivateSession(null)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>{he.cancelActivation}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.cancelActivationConfirm}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDeactivateSession(null)}>{he.cancel}</Button>
-          <Button variant="contained" color="warning" onClick={deactivateSession}>
-            {he.cancelActivation}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        ) : (
+          s.status === "active" && (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<DoneAllIcon />}
+                disabled={closingSessionId === s.id}
+                onClick={() => onCloseClick?.(s)}
+              >
+                {closingSessionId === s.id ? he.loading : he.closeExam}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                startIcon={<StopIcon />}
+                disabled={deactivatingSessionId === s.id}
+                onClick={() => onDeactivateClick?.(s)}
+              >
+                {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
+              </Button>
+            </>
+          )
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -373,4 +433,134 @@ function CatalogExamsList({
       </CardContent>
     </Card>
   ));
+}
+
+function ActivateExamDialog({
+  open,
+  exam,
+  offerings,
+  offeringId,
+  integrity,
+  timing,
+  onOfferingChange,
+  onIntegrityChange,
+  onTimingChange,
+  onClose,
+  onActivate,
+}: {
+  open: boolean;
+  exam: Exam | null;
+  offerings: CourseOffering[];
+  offeringId: string;
+  integrity: boolean;
+  timing: ExamTimingForm;
+  onOfferingChange: (id: string) => void;
+  onIntegrityChange: (v: boolean) => void;
+  onTimingChange: (v: ExamTimingForm) => void;
+  onClose: () => void;
+  onActivate: () => void;
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" dir="rtl">
+      <DialogTitle>{he.activateExam}</DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        {exam && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {exam.title}
+          </Typography>
+        )}
+        <TextField
+          select
+          fullWidth
+          label={he.myCourses}
+          value={offeringId}
+          onChange={(e) => onOfferingChange(e.target.value)}
+        >
+          {offerings.map((o) => (
+            <MenuItem key={o.id} value={String(o.id)}>
+              {offeringLabel(o)}
+            </MenuItem>
+          ))}
+        </TextField>
+        <FormControlLabel
+          control={<Checkbox checked={integrity} onChange={(e) => onIntegrityChange(e.target.checked)} />}
+          label={he.integrityMode}
+        />
+        <Typography variant="caption" color="text.secondary" display="block">
+          {he.integrityModeHint}
+        </Typography>
+        <ExamActivateTimingFields value={timing} onChange={onTimingChange} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{he.cancel}</Button>
+        <DisabledActionTooltip
+          disabled={!offeringId}
+          disabledReason={!offeringId ? he.selectOfferingToActivate : undefined}
+        >
+          <Button variant="contained" onClick={onActivate}>
+            {he.activateExam}
+          </Button>
+        </DisabledActionTooltip>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function CloseSessionDialog({
+  session,
+  closing,
+  onClose,
+  onConfirm,
+}: {
+  session: ExamSession | null;
+  closing: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={!!session} onClose={onClose} fullWidth maxWidth="xs" dir="rtl">
+      <DialogTitle>{he.closeExam}</DialogTitle>
+      <DialogContent>
+        <Typography>{he.closeExamConfirm}</Typography>
+        {session && (
+          <Typography fontWeight={600} sx={{ mt: 1 }}>
+            {session.exam_title}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{he.cancel}</Button>
+        <Button variant="contained" color="primary" onClick={onConfirm} disabled={closing}>
+          {closing ? he.loading : he.closeExam}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function DeactivateSessionDialog({
+  session,
+  deactivating,
+  onClose,
+  onConfirm,
+}: {
+  session: ExamSession | null;
+  deactivating: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={!!session} onClose={onClose} fullWidth maxWidth="xs" dir="rtl">
+      <DialogTitle>{he.cancelActivation}</DialogTitle>
+      <DialogContent>
+        <Typography>{he.cancelActivationConfirm}</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{he.cancel}</Button>
+        <Button variant="contained" color="warning" onClick={onConfirm} disabled={deactivating}>
+          {deactivating ? he.loading : he.cancelActivation}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 }

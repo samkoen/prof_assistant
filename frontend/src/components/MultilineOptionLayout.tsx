@@ -1,5 +1,5 @@
 import { Box, Typography, type TypographyProps } from "@mui/material";
-import MathText from "./MathText";
+import CodeMarkedText from "./CodeMarkedText";
 import { bidiMixedTextSx, mixedLineBlockSx } from "../styles/bidiMixedText";
 import { firstNonEmptyLine, stripEditorBidiMarks } from "../utils/examQuestionsLanguage";
 import QuestionImageDisplay from "./QuestionImageDisplay";
@@ -69,13 +69,8 @@ export function OptionDisplay({
         </Typography>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {text.trim() && (
-            <Typography
-              variant={variant}
-              component="span"
-              color={color}
-              sx={{ ...optionTextSx, textAlign: "left" }}
-            >
-              <MathText text={text} component="span" />
+            <Typography variant={variant} component="div" color={color} sx={{ ...optionTextSx, textAlign: "left" }}>
+              <CodeMarkedText text={text} questionText={questionText} />
             </Typography>
           )}
           <QuestionImageDisplay url={imageUrl} maxHeight={180} />
@@ -84,8 +79,7 @@ export function OptionDisplay({
     );
   }
   const displayText = stripEditorBidiMarks(text);
-  const lines = displayText.split("\n");
-  const anchorLine = firstNonEmptyLine(lines);
+  const anchorLine = firstNonEmptyLine(displayText.split("\n"));
   const prefixSx =
     examDir === "rtl"
       ? { ...bidiMixedTextSx, direction: "rtl" as const, textAlign: "right" as const }
@@ -95,15 +89,7 @@ export function OptionDisplay({
       <Typography variant={variant} component="div" color={color} sx={prefixSx}>
         {prefix}
       </Typography>
-      {lines.map((line, i) => (
-        <Box key={i} sx={mixedLineBlockSx(line, questionText)}>
-          {line.length > 0 && (
-            <Typography variant={variant} component="span" color={color}>
-              <MathText text={line} component="span" />
-            </Typography>
-          )}
-        </Box>
-      ))}
+      <CodeMarkedText text={displayText} questionText={questionText} />
       <QuestionImageDisplay url={imageUrl} maxHeight={180} />
     </Box>
   );
@@ -124,20 +110,11 @@ export function OptionText({
   questionText?: string;
 }) {
   const displayText = stripEditorBidiMarks(text);
-  const lines = displayText.split("\n");
   return (
     <Box component="div" sx={{ ...optionTextSx, mt: 0.5, mb: 0.75 }}>
-      {lines.map((line, i) => (
-        <Typography
-          key={i}
-          variant={variant}
-          component="div"
-          color={color}
-          sx={mixedLineBlockSx(line, questionText)}
-        >
-          {line.length > 0 && <MathText text={line} component="span" />}
-        </Typography>
-      ))}
+      <Typography variant={variant} component="div" color={color} sx={{ m: 0, p: 0 }}>
+        <CodeMarkedText text={displayText} questionText={questionText} />
+      </Typography>
       <QuestionImageDisplay url={imageUrl} maxHeight={180} />
     </Box>
   );

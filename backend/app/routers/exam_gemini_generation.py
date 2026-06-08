@@ -7,6 +7,7 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.exam import QuestionsImportRequest
 from app.schemas.gemini_questions import (
+    GeminiParseErrorReportRequest,
     GeminiSessionAcceptResponse,
     GeminiSessionCreateRequest,
     GeminiSessionRefineRequest,
@@ -19,6 +20,7 @@ from app.services.exam_gemini_generation import (
     get_active_session_for_exam,
     get_generation_session,
     refine_generation_session,
+    report_gemini_parse_error,
 )
 from app.routers.exams import _get_teacher_exam
 
@@ -73,6 +75,18 @@ async def abandon_gemini_session(
 ):
     await abandon_generation_session(session_id, user, db)
     return {"ok": True}
+
+
+@router.post("/gemini-sessions/{session_id}/report-parse-error")
+async def report_gemini_parse_error_route(
+    session_id: int,
+    body: GeminiParseErrorReportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    errors = [e.model_dump() for e in body.errors]
+    sent = await report_gemini_parse_error(session_id, user, errors, db)
+    return {"ok": True, "email_sent": sent}
 
 
 @router.post("/gemini-sessions/{session_id}/accept", response_model=GeminiSessionAcceptResponse)

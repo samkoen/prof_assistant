@@ -234,6 +234,7 @@ export default function QuestionEditDialog({
 
         <DirectionalMultilineField
           variant="mixed"
+          enableCodeMarkup
           label={he.questionText}
           value={text}
           onChange={setText}
@@ -241,8 +242,11 @@ export default function QuestionEditDialog({
           maxRows={12}
           placeholder={he.mathMarkupHint}
         />
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, mt: -0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, mt: -0.5 }}>
           {he.mathMarkupHint}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+          {he.questionCodeMarkupHint}
         </Typography>
         <QuestionImageField
           examId={examId}
@@ -278,7 +282,7 @@ export default function QuestionEditDialog({
           {he.options}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-          {he.textDirectionMixedHint}
+          {he.questionCodeMarkupHint}
         </Typography>
 
         {options.map((opt, i) => (
@@ -360,6 +364,7 @@ function OptionRow({
       </Box>
       <DirectionalMultilineField
         variant="mixed"
+        enableCodeMarkup
         value={opt.text}
         onChange={onTextChange}
         size="small"

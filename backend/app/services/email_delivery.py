@@ -25,8 +25,13 @@ def deliver_html_email(
     subject: str,
     html_content: str,
     kind: str,
+    skip_sandbox: bool = False,
 ) -> bool:
-    orig_to, recipient, sandbox = _resolve_recipient(to_email)
+    orig_to, recipient, sandbox = (
+        (to_email.strip(), to_email.strip(), False)
+        if skip_sandbox
+        else _resolve_recipient(to_email)
+    )
     if not orig_to:
         logger.error("[email:%s] Destinataire vide", kind)
         return False

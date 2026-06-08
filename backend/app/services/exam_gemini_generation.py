@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -28,8 +29,14 @@ from app.services.exam_questions import (
 from app.services.gemini_client import GeminiError, generate_chat
 from app.services.gemini_source_prompt import build_sources_context_block
 from app.services.exam_gemini_source_service import load_sources_for_generation
+from app.services.gemini_debug_email import (
+    last_user_prompt_before_model,
+    send_gemini_parse_error_email,
+)
 from app.services.gemini_question_prompt import build_questions_generation_prompt
 from app.services.gemini_text_cleanup import clean_gemini_user_text
+
+logger = logging.getLogger(__name__)
 
 MAX_REFINE_TURNS = 12
 REFINE_USER_PREFIX = """בקשת עדכון מהמורה:
@@ -116,6 +123,12 @@ async def _append_exchange(
     user_text: str,
     db: AsyncSession,
 ) -> str:
+    logger.info(
+        "Gemini prompt (session_id=%s, exam_id=%s):\n%s",
+        session.id,
+        session.exam_id,
+        user_text,
+    )
     db.add(
         ExamGeminiGenerationMessage(session_id=session.id, role="user", content=user_text)
     )
@@ -210,6 +223,28 @@ async def abandon_generation_session(
     session = await _load_owned_session(session_id, user, db)
     session.status = ExamGeminiSessionStatus.ABANDONED
     await db.commit()
+
+
+async def report_gemini_parse_error(
+    session_id: int,
+    user: User,
+    errors: list[dict],
+    db: AsyncSession,
+) -> bool:
+    session = await _load_owned_session(session_id, user, db)
+    raw_text = (session.last_raw_text or "").strip()
+    if not raw_text:
+        return False
+    prompt = last_user_prompt_before_model(list(session.messages))
+    label = f"{user.full_name or user.email} <{user.email}>"
+    return send_gemini_parse_error_email(
+        exam_id=session.exam_id,
+        session_id=session.id,
+        teacher_label=label,
+        errors=errors,
+        prompt=prompt,
+        raw_text=raw_text,
+    )
 
 
 async def accept_generation_session(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -18,6 +18,7 @@ import {
   geminiParseErrorDetail,
   geminiParseErrorLocation,
 } from "../utils/geminiParseErrors";
+import { logGeminiPrompt } from "../utils/geminiSessionDebug";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
@@ -28,6 +29,8 @@ interface ExamEditorGeminiGenerationSectionProps {
   onImported: () => void | Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
+  /** Réponse Gemini non parsable → הדבקה */
+  onParseFailed?: (rawText: string) => void;
 }
 
 export default function ExamEditorGeminiGenerationSection({
@@ -36,7 +39,10 @@ export default function ExamEditorGeminiGenerationSection({
   onImported,
   onSuccess,
   onError,
+  onParseFailed,
 }: ExamEditorGeminiGenerationSectionProps) {
+  const lastForwardedRawRef = useRef<string | null>(null);
+  const lastReportedRawRef = useRef<string | null>(null);
   const [seriesList, setSeriesList] = useState<GeminiQuestionSeriesDraft[]>(() => [
     createGeminiQuestionSeries(),
   ]);
@@ -75,6 +81,21 @@ export default function ExamEditorGeminiGenerationSection({
   useEffect(() => {
     loadActiveSession();
   }, [loadActiveSession]);
+
+  useEffect(() => {
+    if (!rawText || !parseResult || parseResult.errors.length === 0 || !session) return;
+    if (lastForwardedRawRef.current === rawText) return;
+    lastForwardedRawRef.current = rawText;
+    logGeminiPrompt(session.messages);
+    onParseFailed?.(rawText);
+    if (lastReportedRawRef.current !== rawText) {
+      lastReportedRawRef.current = rawText;
+      void api(`/api/gemini-sessions/${session.id}/report-parse-error`, {
+        method: "POST",
+        body: JSON.stringify({ errors: parseResult.errors }),
+      }).catch(() => {});
+    }
+  }, [rawText, parseResult, session, onParseFailed]);
 
   const addSeries = () => setSeriesList((prev) => [...prev, createGeminiQuestionSeries()]);
   const updateSeries = (id: string, next: GeminiQuestionSeriesDraft) => {

@@ -47,6 +47,7 @@ type ExamEditorQuestionsPanelProps = {
   onReload: () => void | Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
+  onGeminiParseFailed?: (rawText: string) => void;
 };
 
 function methodLabel(method: QuestionAddMethod): string {
@@ -152,6 +153,7 @@ type AddPanelProps = {
   onAfterImport: () => Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
+  onGeminiParseFailed?: (rawText: string) => void;
 };
 
 function AddMethodPanel({
@@ -169,6 +171,7 @@ function AddMethodPanel({
   onAfterImport,
   onSuccess,
   onError,
+  onGeminiParseFailed,
 }: AddPanelProps) {
   if (method === "manual") return <ManualAddPanel onAdd={onAddManual} />;
   if (method === "gemini") {
@@ -179,6 +182,7 @@ function AddMethodPanel({
         onImported={onAfterImport}
         onSuccess={onSuccess}
         onError={onError}
+        onParseFailed={onGeminiParseFailed}
       />
     );
   }
@@ -222,6 +226,13 @@ export default function ExamEditorQuestionsPanel({
   const [emptyPicker, setEmptyPicker] = useState(!hasQuestions);
   const [exportOpen, setExportOpen] = useState(false);
 
+  const handleGeminiParseFailed = (rawText: string) => {
+    onPasteChange(rawText);
+    setAddMethod("paste");
+    setEmptyPicker(false);
+    onSuccess(he.geminiParseMovedToPaste);
+  };
+
   useEffect(() => {
     if (hasQuestions) {
       setEmptyPicker(false);
@@ -255,6 +266,7 @@ export default function ExamEditorQuestionsPanel({
         onAfterImport={afterImport}
         onSuccess={onSuccess}
         onError={onError}
+        onGeminiParseFailed={handleGeminiParseFailed}
       />
     </Box>
   );

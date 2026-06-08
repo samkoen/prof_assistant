@@ -1,3 +1,5 @@
+import { stripEditorBidiMarks } from "./examQuestionsLanguage";
+
 export type QuestionType = "single" | "multiple" | "true_false";
 
 export interface ParsedQuestionOption {
@@ -37,8 +39,10 @@ const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/i;
 const HEBREW_OPTION_RE = /^([א-ת])\)\s*(.*)$/u;
 /** Ligne dédiée : * ou ✓ seul (réponse correcte avant contenu multiligne). */
 const MARKER_ONLY_RE = /^[*✓✔★]\s*$/u;
-const CORRECT_SUFFIX_RE =
-  /\s*(?:[\(\[]\s*)?(?:תשובה\s*נכונה|correct|vrai|true)(?:\s*[\)\]])?\s*$/iu;
+const CORRECT_SUFFIX_RE = /\s*(?:[\(\[]\s*)?(?:תשובה\s*נכונה|correct)(?:\s*[\)\]])?\s*$/iu;
+/** Vrai/True/Faux/False — uniquement ligne entière (pas « retourner vrai » dans du pseudo-code). */
+const STANDALONE_TF_MARK_RE =
+  /^(?:[\(\[]\s*)?(?:vrai|faux|true|false)(?:\s*[\)\]])?\s*[*✓✔★]?\s*$/iu;
 const CORRECT_SUFFIX_HE_OK = /(?:^|[\(\[]\s*)נכון(?:\s*[\)\]])?\s*$/u;
 const TRAILING_MARK_RE = /\s*[*✓✔★]\s*$/u;
 const TF_RE =
@@ -83,11 +87,18 @@ function stripHebrewCorrectSuffix(trimmed: string): string {
     .trimEnd();
 }
 
+function stripStandaloneTfMarker(trimmed: string): string {
+  return trimmed.replace(TRAILING_MARK_RE, "").replace(/^\*+\s*/, "").trim();
+}
+
 function stripCorrectMarker(line: string): { text: string; marked: boolean } {
   const trimmed = line.trim();
   if (MARKER_ONLY_RE.test(trimmed)) return { text: "", marked: true };
   const prefixStar = /^\*\s+(.+)$/.exec(trimmed);
   if (prefixStar) return { text: prefixStar[1].trim(), marked: true };
+  if (STANDALONE_TF_MARK_RE.test(trimmed)) {
+    return { text: stripStandaloneTfMarker(trimmed), marked: true };
+  }
   if (CORRECT_SUFFIX_RE.test(trimmed) || hasHebrewCorrectSuffix(trimmed)) {
     const text = CORRECT_SUFFIX_RE.test(trimmed)
       ? trimmed.replace(CORRECT_SUFFIX_RE, "").trimEnd()
@@ -116,7 +127,7 @@ function normalizeHebrewOptionLine(line: string): string {
 }
 
 function normalizeGeminiQcmText(raw: string): string {
-  let text = raw.trim().replace(/^\uFEFF/, "");
+  let text = stripEditorBidiMarks(raw.trim().replace(/^\uFEFF/, ""));
   if (text.startsWith("```")) {
     text = text.replace(/^```[\w]*\n?/, "").replace(/\n?```\s*$/, "");
   }
@@ -269,7 +280,7 @@ function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; er
 export function parseQcmText(raw: string): ParseResult {
   const trimmed = normalizeGeminiQcmText(raw);
   if (!trimmed) {
-    return { questions: [], errors: [{ block: 0, message: "אין תוכן להדבקה" }] };
+    return { questions: [], errors: [] };
   }
 
   if (trimmed.startsWith("{")) {

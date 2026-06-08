@@ -15,11 +15,7 @@ import type {
   GeminiSeriesLanguage,
   GeminiSeriesLevel,
 } from "../types/geminiQuestionSeries";
-import {
-  defaultInstructionsDir,
-  GEMINI_SERIES_LANGUAGES,
-  GEMINI_SERIES_LEVELS,
-} from "../types/geminiQuestionSeries";
+import { GEMINI_SERIES_LANGUAGES, GEMINI_SERIES_LEVELS } from "../types/geminiQuestionSeries";
 import { hebrewActionsLeftSx, hebrewAlignRightSx, hebrewCardRowSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
@@ -80,11 +76,10 @@ export default function GeminiQuestionSeriesCard({
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <DirectionalMultilineField
+            variant="mixed"
             label={he.geminiSeriesInstructions}
             value={series.instructions}
             onChange={(instructions) => patch({ instructions })}
-            direction={series.instructionsDir ?? defaultInstructionsDir(series.language)}
-            onDirectionChange={(instructionsDir) => patch({ instructionsDir })}
             disabled={disabled}
             required
             placeholder={he.geminiSeriesInstructions}

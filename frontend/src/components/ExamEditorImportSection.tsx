@@ -3,11 +3,11 @@ import {
   Box,
   Button,
   Divider,
-  TextField,
   Typography,
 } from "@mui/material";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import UploadIcon from "@mui/icons-material/Upload";
+import DirectionalMultilineField from "./DirectionalMultilineField";
 import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail } from "../api/client";
@@ -61,15 +61,15 @@ export default function ExamEditorImportSection({
         disabled={!exam.is_editable}
         disabledReason={!exam.is_editable ? he.examNotEditable : undefined}
       >
-        <TextField
-          multiline
-          minRows={12}
-          fullWidth
+        <DirectionalMultilineField
+          variant="mixed"
           value={paste}
-          onChange={(e) => onPasteChange(e.target.value)}
+          onChange={onPasteChange}
           placeholder={QCM_FORMAT_EXAMPLE}
-          dir="rtl"
-          sx={{ fontFamily: "monospace", mb: 2 }}
+          minRows={12}
+          maxRows={24}
+          showHint
+          sx={{ mb: 2, "& textarea": { fontFamily: "monospace" } }}
         />
       </DisabledActionTooltip>
       {parseResult.errors.length > 0 && (

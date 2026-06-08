@@ -97,3 +97,44 @@ def verification_email_html(*, app_name: str, full_name: str, verify_url: str) -
   </table>
 </body>
 </html>"""
+
+
+def _pre_block(text: str) -> str:
+    safe = html.escape(text or "")
+    return (
+        f'<pre style="direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-word;'
+        f'font-size:12px;background:#f5f8fc;border:1px solid #d0dce8;border-radius:4px;'
+        f'padding:12px 14px;margin:0 0 16px;">{safe}</pre>'
+    )
+
+
+def gemini_parse_error_email_html(
+    *,
+    app_name: str,
+    exam_id: int,
+    session_id: int,
+    teacher_label: str,
+    errors: list[str],
+    prompt: str,
+    raw_text: str,
+) -> str:
+    safe_app = html.escape(app_name)
+    safe_teacher = html.escape(teacher_label)
+    err_lines = "".join(
+        f'<li style="margin:0 0 6px;">{html.escape(e)}</li>' for e in errors
+    )
+    return f"""<!DOCTYPE html>
+<html dir="ltr" lang="en">
+<head><meta charset="utf-8"/><title>Gemini parse error</title></head>
+<body style="margin:0;padding:24px;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#1a1a1a;">
+  <h2 style="margin:0 0 12px;font-size:18px;">{safe_app} — Gemini parse error</h2>
+  <p style="margin:0 0 8px;"><strong>Exam:</strong> {exam_id} &nbsp;|&nbsp; <strong>Session:</strong> {session_id}</p>
+  <p style="margin:0 0 16px;"><strong>Teacher:</strong> {safe_teacher}</p>
+  <h3 style="margin:0 0 8px;font-size:15px;">Parse errors</h3>
+  <ul style="margin:0 0 20px;padding-left:20px;">{err_lines}</ul>
+  <h3 style="margin:0 0 8px;font-size:15px;">Last prompt sent to Gemini</h3>
+  {_pre_block(prompt)}
+  <h3 style="margin:0 0 8px;font-size:15px;">Gemini response (unparseable)</h3>
+  {_pre_block(raw_text)}
+</body>
+</html>"""
