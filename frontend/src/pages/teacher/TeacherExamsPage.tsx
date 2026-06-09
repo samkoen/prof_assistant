@@ -113,12 +113,21 @@ export default function TeacherExamsPage() {
     load();
   };
 
-  const openActivate = (exam: Exam) => {
+  const openActivate = (exam: Exam, offeringId = "") => {
     setSelectedExam(exam);
-    setActivateOfferingId("");
+    setActivateOfferingId(offeringId);
     setActivateIntegrity(false);
     setActivateTiming(timingFromExam(exam));
     setActivateOpen(true);
+  };
+
+  const openActivateFromSession = async (session: ExamSession) => {
+    try {
+      const exam = await api<Exam>(`/api/exams/${session.exam_id}`);
+      openActivate(exam, String(session.offering_id));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    }
   };
 
   const activate = async () => {
@@ -215,6 +224,7 @@ export default function TeacherExamsPage() {
           onCloseClick={setConfirmCloseSession}
           onDeactivateClick={setConfirmDeactivateSession}
           onActivate={openActivate}
+          onActivateSession={openActivateFromSession}
           onError={setError}
           onChanged={refreshExams}
         />
@@ -262,6 +272,7 @@ function OpenExamsTab({
   onCloseClick,
   onDeactivateClick,
   onActivate,
+  onActivateSession,
   onError,
   onChanged,
 }: {
@@ -273,6 +284,7 @@ function OpenExamsTab({
   onCloseClick: (s: ExamSession) => void;
   onDeactivateClick: (s: ExamSession) => void;
   onActivate: (exam: Exam) => void;
+  onActivateSession: (session: ExamSession) => void;
   onError: (message: string) => void;
   onChanged: () => void;
 }) {
@@ -291,6 +303,7 @@ function OpenExamsTab({
             deactivatingSessionId={deactivatingSessionId}
             onCloseClick={onCloseClick}
             onDeactivateClick={onDeactivateClick}
+            onActivateSession={onActivateSession}
           />
         ))
       )}
@@ -322,6 +335,7 @@ function ExamSessionCard({
   deactivatingSessionId,
   onCloseClick,
   onDeactivateClick,
+  onActivateSession,
 }: {
   session: ExamSession;
   closedTab?: boolean;
@@ -329,6 +343,7 @@ function ExamSessionCard({
   deactivatingSessionId?: number | null;
   onCloseClick?: (s: ExamSession) => void;
   onDeactivateClick?: (s: ExamSession) => void;
+  onActivateSession?: (session: ExamSession) => void;
 }) {
   const gradesPath = `/teacher/courses/${s.offering_id}/exams/sessions/${s.id}/results`;
 
@@ -352,6 +367,19 @@ function ExamSessionCard({
           >
             {he.viewExamGrades}
           </Button>
+        ) : s.status === "draft" ? (
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <ExamEditLink examId={s.exam_id} returnTo="/teacher/exams" />
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              disabled={s.question_count < 1}
+              onClick={() => onActivateSession?.(s)}
+            >
+              {he.activateExam}
+            </Button>
+          </Box>
         ) : (
           s.status === "active" && (
             <>

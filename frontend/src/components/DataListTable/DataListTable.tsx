@@ -486,8 +486,9 @@ export default function DataListTable<T>({
                         sx={{
                           display: "flex",
                           justifyContent: "flex-end",
-                          flexWrap: "nowrap",
-                          gap: 0,
+                          flexWrap: "wrap",
+                          gap: 0.5,
+                          overflow: "visible",
                         }}
                       >
                         {renderActions!(row)}

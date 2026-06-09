@@ -1,5 +1,5 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import { Box, Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { hebrewActionsLeftSx } from "../styles/hebrewAlign";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
@@ -46,6 +46,7 @@ export default function ExamOfferingRowActions({
   const canClose = isActive && !!session;
   const canDeactivate = isActive && !!session;
   const showStart = (canStart && hasQuestions) || activatingId === exam.id;
+  const showStartBlocked = canStart && !hasQuestions && activatingId !== exam.id;
   const showClose = canClose || closingSessionId === session?.id;
   const showDeactivate = canDeactivate || deactivatingSessionId === session?.id;
   const gradesPath = session
@@ -56,13 +57,29 @@ export default function ExamOfferingRowActions({
   return (
     <Box sx={hebrewActionsLeftSx}>
       <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
-      <ExamActionButtons
-        exam={exam}
-        onChanged={onChanged}
-        onError={onError}
-        iconOnly
-        hideInactive
-      />
+      {showStart && (
+        <Button
+          size="small"
+          variant="contained"
+          color="success"
+          disabled={activatingId === exam.id}
+          onClick={() => onStartClick(exam)}
+          startIcon={
+            activatingId === exam.id ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />
+          }
+        >
+          {activatingId === exam.id ? he.loading : he.activateExam}
+        </Button>
+      )}
+      {showStartBlocked && (
+        <Tooltip title={he.noQuestionsYet}>
+          <span>
+            <Button size="small" variant="outlined" color="success" disabled startIcon={<PlayArrowIcon />}>
+              {he.activateExam}
+            </Button>
+          </span>
+        </Tooltip>
+      )}
       {canViewGrades && (
         <Tooltip title={he.viewExamGrades}>
           <IconButton
@@ -76,23 +93,13 @@ export default function ExamOfferingRowActions({
           </IconButton>
         </Tooltip>
       )}
-      {showStart && (
-        <Tooltip title={activatingId === exam.id ? he.loading : he.startExamNow}>
-          <IconButton
-            size="small"
-            color="success"
-            aria-label={he.startExamNow}
-            disabled={activatingId === exam.id}
-            onClick={() => onStartClick(exam)}
-          >
-            {activatingId === exam.id ? (
-              <CircularProgress size={18} color="inherit" />
-            ) : (
-              <PlayArrowIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-      )}
+      <ExamActionButtons
+        exam={exam}
+        onChanged={onChanged}
+        onError={onError}
+        iconOnly
+        hideInactive
+      />
       {showClose && session && (
         <Tooltip title={closingSessionId === session.id ? he.loading : he.closeExam}>
           <IconButton

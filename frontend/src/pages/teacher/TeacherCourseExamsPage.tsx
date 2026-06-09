@@ -275,7 +275,7 @@ export default function TeacherCourseExamsPage() {
         loading={loading}
         emptyMessage={examsTab === "closed" ? he.noClosedExams : he.noExams}
         getRowId={(row) => row.exam.id}
-        actionsColumnPx={210}
+        actionsColumnPx={320}
         renderActions={(row) => (
           <ExamOfferingRowActions
             exam={row.exam}
