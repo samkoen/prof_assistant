@@ -206,9 +206,15 @@ export function AlignedTableCell({
   children,
   dense = false,
   cellDir = "rtl",
+  contentOverflow = "hidden",
   sx: sxProps,
   ...rest
-}: TableCellProps & { width: number; dense?: boolean; cellDir?: "ltr" | "rtl" }) {
+}: TableCellProps & {
+  width: number;
+  dense?: boolean;
+  cellDir?: "ltr" | "rtl";
+  contentOverflow?: "hidden" | "visible";
+}) {
   const w = num(width, 100);
   return (
     <TableCell
@@ -228,7 +234,7 @@ export function AlignedTableCell({
           pl: 2,
           pr: 2,
           py: dense ? 0.75 : 1.5,
-          overflow: "hidden",
+          overflow: contentOverflow,
           textAlign: "right",
           direction: cellDir,
         }}

@@ -116,6 +116,7 @@ export const he = {
   no: "לא",
   close: "סגירה",
   downloadExamPdf: "הורדת PDF לתלמידים",
+  moreExamActions: "פעולות נוספות",
   deleteExam: "מחיקת מבחן",
   deleteExamConfirm: "למחוק את המבחן? פעולה זו אינה ניתנת לביטול.",
   cannotDeleteExamActivated: "לא ניתן למחוק — המבחן הופעל בעבר",

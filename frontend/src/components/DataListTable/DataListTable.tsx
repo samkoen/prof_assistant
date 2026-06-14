@@ -481,7 +481,12 @@ export default function DataListTable<T>({
                     );
                   })}
                   {hasActions && (
-                    <AlignedTableCell width={fullWidths.actions ?? actionsPx} align="right">
+                    <AlignedTableCell
+                      width={fullWidths.actions ?? actionsPx}
+                      align="right"
+                      contentOverflow="visible"
+                      sx={{ verticalAlign: "top" }}
+                    >
                       <Box
                         sx={{
                           display: "flex",

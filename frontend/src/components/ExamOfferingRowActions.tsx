@@ -1,11 +1,12 @@
-import { Link as RouterLink } from "react-router-dom";
-import { Box, Button, CircularProgress, IconButton, Tooltip } from "@mui/material";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Box, CircularProgress, IconButton, Tooltip } from "@mui/material";
 import { hebrewActionsLeftSx } from "../styles/hebrewAlign";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import GradingIcon from "@mui/icons-material/Grading";
-import { ExamActionButtons, ExamEditLink } from "./ExamActionButtons";
+import { ExamActionButtons, ExamEditLink, type ExamRowMenuExtra } from "./ExamActionButtons";
 import type { Exam, ExamSession } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -25,6 +26,92 @@ type ExamOfferingRowActionsProps = {
   onDeactivateClick: (session: ExamSession) => void;
 };
 
+function LifecycleAction({
+  showDeactivate,
+  showStart,
+  showStartBlocked,
+  session,
+  examId,
+  activatingId,
+  deactivatingSessionId,
+  onStartClick,
+  onDeactivateClick,
+  exam,
+}: {
+  showDeactivate: boolean;
+  showStart: boolean;
+  showStartBlocked: boolean;
+  session?: ExamSession;
+  examId: number;
+  activatingId: number | null;
+  deactivatingSessionId: number | null;
+  onStartClick: (exam: Exam) => void;
+  onDeactivateClick: (session: ExamSession) => void;
+  exam: Exam;
+}) {
+  if (showDeactivate && session) {
+    return (
+      <Tooltip title={deactivatingSessionId === session.id ? he.loading : he.cancelActivation}>
+        <IconButton
+          size="small"
+          color="warning"
+          aria-label={he.cancelActivation}
+          disabled={deactivatingSessionId === session.id}
+          onClick={() => onDeactivateClick(session)}
+        >
+          {deactivatingSessionId === session.id ? (
+            <CircularProgress size={18} color="inherit" />
+          ) : (
+            <StopIcon fontSize="small" />
+          )}
+        </IconButton>
+      </Tooltip>
+    );
+  }
+  if (showStart) {
+    return (
+      <Tooltip title={activatingId === examId ? he.loading : he.activateExam}>
+        <IconButton
+          size="small"
+          color="success"
+          aria-label={he.activateExam}
+          disabled={activatingId === examId}
+          onClick={() => onStartClick(exam)}
+        >
+          {activatingId === examId ? (
+            <CircularProgress size={18} color="inherit" />
+          ) : (
+            <PlayArrowIcon fontSize="small" />
+          )}
+        </IconButton>
+      </Tooltip>
+    );
+  }
+  if (showStartBlocked) {
+    return (
+      <Tooltip title={he.noQuestionsYet}>
+        <span>
+          <IconButton size="small" color="success" aria-label={he.activateExam} disabled>
+            <PlayArrowIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+    );
+  }
+  if (session?.status === "closed") {
+    return (
+      <Tooltip title={he.examClosed}>
+        <span>
+          <IconButton size="small" color="success" aria-label={he.activateExam} disabled>
+            <PlayArrowIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+    );
+  }
+  return null;
+}
+
 export default function ExamOfferingRowActions({
   exam,
   session,
@@ -40,100 +127,74 @@ export default function ExamOfferingRowActions({
   onCloseClick,
   onDeactivateClick,
 }: ExamOfferingRowActionsProps) {
+  const navigate = useNavigate();
   const isActive = session?.status === "active";
   const canStart = !session || session.status === "draft";
   const canViewGrades = !!session && session.status !== "draft";
-  const canClose = isActive && !!session;
-  const canDeactivate = isActive && !!session;
+  const showClose = isActive && !!session;
+  const showDeactivate = isActive && !!session;
   const showStart = (canStart && hasQuestions) || activatingId === exam.id;
   const showStartBlocked = canStart && !hasQuestions && activatingId !== exam.id;
-  const showClose = canClose || closingSessionId === session?.id;
-  const showDeactivate = canDeactivate || deactivatingSessionId === session?.id;
+  const canEdit = exam.can_delete !== false;
+  const canDelete = exam.can_delete !== false;
   const gradesPath = session
     ? `/teacher/courses/${courseId}/exams/sessions/${session.id}/results`
-    : "#";
-  const canEdit = exam.can_delete !== false;
+    : "";
+
+  const menuExtras = useMemo(() => {
+    const items: ExamRowMenuExtra[] = [];
+    if (showClose && session) {
+      items.push({
+        key: "close",
+        label: closingSessionId === session.id ? he.loading : he.closeExam,
+        icon: <DoneAllIcon fontSize="small" />,
+        disabled: closingSessionId === session.id,
+        onClick: () => onCloseClick(session),
+      });
+    }
+    if (canViewGrades && gradesPath) {
+      items.push({
+        key: "grades",
+        label: he.viewExamGrades,
+        icon: <GradingIcon fontSize="small" />,
+        onClick: () => navigate(gradesPath),
+      });
+    }
+    return items;
+  }, [
+    showClose,
+    session,
+    closingSessionId,
+    canViewGrades,
+    gradesPath,
+    onCloseClick,
+    navigate,
+  ]);
 
   return (
     <Box sx={hebrewActionsLeftSx}>
       <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
-      {showStart && (
-        <Button
-          size="small"
-          variant="contained"
-          color="success"
-          disabled={activatingId === exam.id}
-          onClick={() => onStartClick(exam)}
-          startIcon={
-            activatingId === exam.id ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon />
-          }
-        >
-          {activatingId === exam.id ? he.loading : he.activateExam}
-        </Button>
-      )}
-      {showStartBlocked && (
-        <Tooltip title={he.noQuestionsYet}>
-          <span>
-            <Button size="small" variant="outlined" color="success" disabled startIcon={<PlayArrowIcon />}>
-              {he.activateExam}
-            </Button>
-          </span>
-        </Tooltip>
-      )}
-      {canViewGrades && (
-        <Tooltip title={he.viewExamGrades}>
-          <IconButton
-            size="small"
-            component={RouterLink}
-            to={gradesPath}
-            color="primary"
-            aria-label={he.viewExamGrades}
-          >
-            <GradingIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      )}
+      <LifecycleAction
+        showDeactivate={showDeactivate || deactivatingSessionId === session?.id}
+        showStart={showStart}
+        showStartBlocked={showStartBlocked}
+        session={session}
+        examId={exam.id}
+        activatingId={activatingId}
+        deactivatingSessionId={deactivatingSessionId}
+        onStartClick={onStartClick}
+        onDeactivateClick={onDeactivateClick}
+        exam={exam}
+      />
       <ExamActionButtons
         exam={exam}
         onChanged={onChanged}
         onError={onError}
         iconOnly
-        hideInactive
+        courseRowLayout
+        primaryAction={canDelete ? "delete" : "duplicate"}
+        menuExtras={menuExtras}
       />
-      {showClose && session && (
-        <Tooltip title={closingSessionId === session.id ? he.loading : he.closeExam}>
-          <IconButton
-            size="small"
-            color="primary"
-            aria-label={he.closeExam}
-            disabled={closingSessionId === session.id}
-            onClick={() => onCloseClick(session)}
-          >
-            {closingSessionId === session.id ? (
-              <CircularProgress size={18} />
-            ) : (
-              <DoneAllIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-      )}
-      {showDeactivate && session && (
-        <Tooltip title={deactivatingSessionId === session.id ? he.loading : he.cancelActivation}>
-          <IconButton
-            size="small"
-            color="warning"
-            aria-label={he.cancelActivation}
-            disabled={deactivatingSessionId === session.id}
-            onClick={() => onDeactivateClick(session)}
-          >
-            {deactivatingSessionId === session.id ? (
-              <CircularProgress size={18} />
-            ) : (
-              <StopIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-      )}
     </Box>
   );
 }
