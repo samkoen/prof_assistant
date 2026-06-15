@@ -52,6 +52,8 @@ export default function TeacherCourseExamsPage() {
   const [confirmSession, setConfirmSession] = useState<ExamSession | null>(null);
   const [closeSession, setCloseSession] = useState<ExamSession | null>(null);
   const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
+  const [reopenSession, setReopenSession] = useState<ExamSession | null>(null);
+  const [reopeningSessionId, setReopeningSessionId] = useState<number | null>(null);
   const [activateExam, setActivateExam] = useState<Exam | null>(null);
   const [activateIntegrity, setActivateIntegrity] = useState(false);
   const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
@@ -181,6 +183,24 @@ export default function TeacherCourseExamsPage() {
     }
   };
 
+  const reopenExamSession = async () => {
+    if (!reopenSession) return;
+    setReopeningSessionId(reopenSession.id);
+    setError("");
+    setSuccess("");
+    try {
+      await api(`/api/exams/sessions/${reopenSession.id}/reopen`, { method: "POST" });
+      setSuccess(`${he.examReopened}: ${reopenSession.exam_title}`);
+      setReopenSession(null);
+      setExamsTab("open");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setReopeningSessionId(null);
+    }
+  };
+
   if (loading && !offering) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -285,6 +305,7 @@ export default function TeacherCourseExamsPage() {
             activatingId={activatingId}
             closingSessionId={closingSessionId}
             deactivatingSessionId={deactivatingSessionId}
+            reopeningSessionId={reopeningSessionId}
             returnTo={`/teacher/courses/${id}/exams`}
             onChanged={load}
             onError={setError}
@@ -295,6 +316,7 @@ export default function TeacherCourseExamsPage() {
             }}
             onCloseClick={setCloseSession}
             onDeactivateClick={setConfirmSession}
+            onReopenClick={setReopenSession}
           />
         )}
       />
@@ -389,6 +411,29 @@ export default function TeacherCourseExamsPage() {
             disabled={deactivatingSessionId != null}
           >
             {deactivatingSessionId != null ? he.loading : he.cancelActivation}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!reopenSession} onClose={() => setReopenSession(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{he.reopenExam}</DialogTitle>
+        <DialogContent>
+          <Typography>{he.reopenExamConfirm}</Typography>
+          {reopenSession && (
+            <Typography fontWeight={600} sx={{ mt: 1 }}>
+              {reopenSession.exam_title}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReopenSession(null)}>{he.cancel}</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={reopenExamSession}
+            disabled={reopeningSessionId != null}
+          >
+            {reopeningSessionId != null ? he.loading : he.reopenExam}
           </Button>
         </DialogActions>
       </Dialog>

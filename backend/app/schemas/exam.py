@@ -171,6 +171,10 @@ class AttemptResponse(BaseModel):
     max_score: float | None
     progress_index: int
     can_resubmit: bool
+    practice_active: bool = False
+    practice_score: float | None = None
+    practice_max_score: float | None = None
+    practice_submitted_at: datetime | None = None
     rules_accepted_at: datetime | None = None
     focus_loss_count: int = 0
     total_hidden_seconds: int = 0
@@ -301,3 +305,13 @@ class ExamReviewResponse(BaseModel):
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[ExamReviewQuestion]
+    for_practice: bool = False
+
+
+class PracticeResultResponse(BaseModel):
+    id: int
+    score: float
+    max_score: float
+    submitted_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -14,10 +14,12 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
+import HebrewCountPhrase from "../../components/ui/HebrewCountPhrase";
 import { api, ApiError, semesterLabel, type ExamAttempt, type ExamSession } from "../../api/client";
 import { he } from "../../i18n/he";
 import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
 import { studentExamChipProps } from "../../utils/studentExamSessionDisplay";
+import { canStudentAccessExam } from "../../utils/studentExamAccess";
 
 type SessionWithAttempt = ExamSession & { attempt: ExamAttempt | null };
 
@@ -83,6 +85,7 @@ export default function StudentAllExamsPage() {
           {sessions.map((s) => {
           const submitted = !!s.attempt?.submitted_at;
           const inProgress = !!s.attempt?.started_at && !submitted;
+          const canAccess = canStudentAccessExam(s, s.attempt);
           const chip = studentExamChipProps(s, s.attempt);
           return (
             <HebrewCardRow
@@ -91,9 +94,9 @@ export default function StudentAllExamsPage() {
               text={
                 <>
                   <Box sx={examListRowDetailsSx}>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" component="span">
                       {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
-                      {s.question_count} {he.questionsInExam}
+                      <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
                       {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
                         <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
                       )}
@@ -107,15 +110,18 @@ export default function StudentAllExamsPage() {
                 </>
               }
               actions={
-                <Tooltip title={actionLabel(s.attempt)}>
-                  <IconButton
-                    size="small"
-                    color={submitted ? "primary" : "success"}
-                    onClick={() => navigate(`/student/exams/${s.id}`)}
-                    aria-label={actionLabel(s.attempt)}
-                  >
-                    {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                  </IconButton>
+                <Tooltip title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      color={submitted ? "primary" : "success"}
+                      onClick={() => navigate(`/student/exams/${s.id}`)}
+                      disabled={!canAccess}
+                      aria-label={actionLabel(s.attempt)}
+                    >
+                      {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                    </IconButton>
+                  </span>
                 </Tooltip>
               }
               sx={{

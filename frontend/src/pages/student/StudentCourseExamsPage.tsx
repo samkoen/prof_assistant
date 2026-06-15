@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -24,9 +24,15 @@ import {
 import ListPageToolbar from "../../components/ListPageToolbar";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
+import HebrewCountPhrase from "../../components/ui/HebrewCountPhrase";
 import { he } from "../../i18n/he";
 import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
 import { studentExamChipProps } from "../../utils/studentExamSessionDisplay";
+import { canStudentAccessExam } from "../../utils/studentExamAccess";
+import {
+  examSessionRowId,
+  parseFocusSessionId,
+} from "../../utils/studentCourseExamsNav";
 
 type SessionWithAttempt = ExamSession & { attempt: ExamAttempt | null };
 
@@ -34,10 +40,13 @@ export default function StudentCourseExamsPage() {
   const { offeringId } = useParams<{ offeringId: string }>();
   const id = Number(offeringId);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [offering, setOffering] = useState<CourseOffering | null>(null);
   const [sessions, setSessions] = useState<SessionWithAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [highlightSessionId, setHighlightSessionId] = useState<number | null>(null);
+  const focusSessionId = parseFocusSessionId(searchParams.get("focusSession"));
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -75,6 +84,31 @@ export default function StudentCourseExamsPage() {
     const interval = window.setInterval(load, 15000);
     return () => window.clearInterval(interval);
   }, [load]);
+
+  useEffect(() => {
+    if (!focusSessionId || loading) return;
+    if (!sessions.some((s) => s.id === focusSessionId)) return;
+
+    const scrollToRow = () => {
+      document.getElementById(examSessionRowId(focusSessionId))?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    };
+
+    const scrollTimer = window.setTimeout(scrollToRow, 80);
+    setHighlightSessionId(focusSessionId);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("focusSession");
+    setSearchParams(next, { replace: true });
+
+    const clearTimer = window.setTimeout(() => setHighlightSessionId(null), 3000);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [focusSessionId, loading, sessions, searchParams, setSearchParams]);
 
   const startExam = (sessionId: number) => {
     navigate(`/student/exams/${sessionId}`);
@@ -138,17 +172,20 @@ export default function StudentCourseExamsPage() {
       {sessions.map((s) => {
         const submitted = !!s.attempt?.submitted_at;
         const inProgress = !!s.attempt?.started_at && !submitted;
+        const canAccess = canStudentAccessExam(s, s.attempt);
         const chip = studentExamChipProps(s, s.attempt);
+        const focused = highlightSessionId === s.id;
 
         return (
           <HebrewCardRow
             key={s.id}
+            id={examSessionRowId(s.id)}
             examList
             text={
               <>
                 <Box sx={examListRowDetailsSx}>
-                  <Typography variant="body2" color="text.secondary">
-                    {s.question_count} {he.questionsInExam}
+                  <Typography variant="body2" color="text.secondary" component="span">
+                    <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
                     {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
                       <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
                     )}
@@ -162,22 +199,31 @@ export default function StudentCourseExamsPage() {
               </>
             }
             actions={
-              <Tooltip title={actionLabel(s.attempt)}>
-                <IconButton
-                  size="small"
-                  color={submitted ? "primary" : "success"}
-                  onClick={() => startExam(s.id)}
-                  aria-label={actionLabel(s.attempt)}
-                >
-                  {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                </IconButton>
+              <Tooltip title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
+                <span>
+                  <IconButton
+                    size="small"
+                    color={submitted ? "primary" : "success"}
+                    onClick={() => startExam(s.id)}
+                    disabled={!canAccess}
+                    aria-label={actionLabel(s.attempt)}
+                  >
+                    {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                  </IconButton>
+                </span>
               </Tooltip>
             }
             sx={{
               mb: 2,
               border: "2px solid",
-              borderColor: submitted ? "grey.300" : "success.light",
-              bgcolor: submitted ? "grey.50" : "rgba(76, 175, 80, 0.08)",
+              borderColor: focused ? "warning.main" : submitted ? "grey.300" : "success.light",
+              bgcolor: focused
+                ? "rgba(255, 193, 7, 0.12)"
+                : submitted
+                  ? "grey.50"
+                  : "rgba(76, 175, 80, 0.08)",
+              boxShadow: focused ? (theme) => `0 0 0 1px ${theme.palette.warning.main}` : undefined,
+              transition: "border-color 0.3s, background-color 0.3s, box-shadow 0.3s",
             }}
           />
         );

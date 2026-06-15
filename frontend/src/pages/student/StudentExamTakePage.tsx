@@ -23,9 +23,11 @@ import {
   type ExamAttempt,
   type ExamReview,
   type ExamTake,
+  type PracticeResult,
   type StudentQuestion,
 } from "../../api/client";
 import ExamSubmissionReview from "../../components/ExamSubmissionReview";
+import ExamScoresPanel from "../../components/ExamScoresPanel";
 import ExamFocusOverlay from "../../components/ExamFocusOverlay";
 import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
 import { useExamIntegrity } from "../../hooks/useExamIntegrity";
@@ -39,6 +41,7 @@ import {
   contentDirForQuestionText,
   formatExamPointsLabel,
 } from "../../utils/examQuestionsLanguage";
+import { studentCourseExamsPath } from "../../utils/studentCourseExamsNav";
 
 function answersFromSaved(saved: ExamTake["saved_answers"]): Record<number, number[]> {
   const out: Record<number, number[]> = {};
@@ -70,6 +73,8 @@ function formatRemaining(expiresAt: string | null): string {
   return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+type PagePhase = "exam" | "final" | "practice" | "practice_review";
+
 export default function StudentExamTakePage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const id = Number(sessionId);
@@ -77,11 +82,14 @@ export default function StudentExamTakePage() {
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [startingPractice, setStartingPractice] = useState(false);
   const [acceptingRules, setAcceptingRules] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [attempt, setAttempt] = useState<ExamAttempt | null>(null);
   const [review, setReview] = useState<ExamReview | null>(null);
+  const [practiceResults, setPracticeResults] = useState<PracticeResult[]>([]);
+  const [phase, setPhase] = useState<PagePhase>("exam");
   const [timeLeft, setTimeLeft] = useState("");
   const [tabHidden, setTabHidden] = useState(false);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
@@ -91,12 +99,57 @@ export default function StudentExamTakePage() {
   paperRef.current = paper;
   answersRef.current = answers;
 
+  const loadPracticeHistory = useCallback(async () => {
+    if (!id || Number.isNaN(id)) return;
+    try {
+      setPracticeResults(
+        await api<PracticeResult[]>(`/api/exams/sessions/${id}/practice/history`),
+      );
+    } catch {
+      setPracticeResults([]);
+    }
+  }, [id]);
+
   const loadReview = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
     try {
       setReview(await api<ExamReview>(`/api/exams/sessions/${id}/review`));
+    } catch (e) {
+      setReview(null);
+      if (e instanceof ApiError) {
+        setError(e.message);
+      }
+    }
+    await loadPracticeHistory();
+  }, [id, loadPracticeHistory]);
+
+  const loadPracticeReview = useCallback(async () => {
+    if (!id || Number.isNaN(id)) return;
+    try {
+      setReview(await api<ExamReview>(`/api/exams/sessions/${id}/practice/review`));
     } catch {
       setReview(null);
+    }
+    await loadPracticeHistory();
+  }, [id, loadPracticeHistory]);
+
+  const loadPractice = useCallback(async () => {
+    if (!id || Number.isNaN(id)) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await api<ExamTake>(`/api/exams/sessions/${id}/practice/take`);
+      setPaper(data);
+      setAttempt(data.attempt);
+      setPhase("practice");
+      setReview(null);
+      setSuccess("");
+      setAutoSubmitted(false);
+      setAnswers(answersFromSaved(data.saved_answers));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
@@ -114,10 +167,15 @@ export default function StudentExamTakePage() {
           new Date(data.attempt.expires_at).getTime() <= Date.now();
         setSuccess(timedOut ? he.examAutoSubmitted : he.examSubmitted);
         setAutoSubmitted(timedOut);
+        setPhase("final");
         await loadReview();
+      } else if (data.attempt.practice_active) {
+        await loadPractice();
       } else {
+        setPhase("exam");
         setReview(null);
         setAutoSubmitted(false);
+        setSuccess("");
         setAnswers(answersFromSaved(data.saved_answers));
       }
     } catch (e) {
@@ -125,7 +183,7 @@ export default function StudentExamTakePage() {
     } finally {
       setLoading(false);
     }
-  }, [id, loadReview]);
+  }, [id, loadReview, loadPractice]);
 
   useEffect(() => {
     load();
@@ -134,9 +192,9 @@ export default function StudentExamTakePage() {
   const integrityActive = !!paper?.integrity_mode_enabled;
   const rulesAcceptedAt = attempt?.rules_accepted_at ?? paper?.attempt.rules_accepted_at;
   const rulesPending =
-    integrityActive && paper && !rulesAcceptedAt && !paper.attempt.submitted_at;
-  const submitted = !!attempt?.submitted_at;
-  const examInProgress = integrityActive && !!attempt?.started_at && !submitted;
+    integrityActive && paper && !rulesAcceptedAt && !paper.attempt.submitted_at && phase === "exam";
+  const submitted = phase === "final" || phase === "practice_review";
+  const examInProgress = integrityActive && !!attempt?.started_at && phase === "exam";
 
   useExamIntegrity(examInProgress, attempt?.id ?? null, submitted);
 
@@ -190,20 +248,67 @@ export default function StudentExamTakePage() {
   const saveDraft = useCallback(async () => {
     const p = paperRef.current;
     const a = answersRef.current;
-    if (!p?.questions.length || p.attempt.submitted_at) return;
-    await api(`/api/exams/sessions/${id}/answers`, {
+    if (!p?.questions.length) return;
+    const path =
+      phase === "practice"
+        ? `/api/exams/sessions/${id}/practice/answers`
+        : `/api/exams/sessions/${id}/answers`;
+    if (phase !== "practice" && p.attempt.submitted_at) return;
+    await api(path, {
       method: "PUT",
       body: JSON.stringify(buildAnswersPayload(p.questions, a)),
     });
-  }, [id]);
+  }, [id, phase]);
 
   useEffect(() => {
-    if (submitted || rulesPending || !paper?.questions.length) return;
+    if (phase !== "exam" && phase !== "practice") return;
+    if (rulesPending || !paper?.questions.length) return;
     const t = window.setTimeout(() => {
       saveDraft().catch(() => {});
     }, 400);
     return () => window.clearTimeout(t);
-  }, [answers, submitted, rulesPending, paper?.session_id, saveDraft]);
+  }, [answers, phase, rulesPending, paper?.session_id, saveDraft]);
+
+  const startPractice = async () => {
+    setStartingPractice(true);
+    setError("");
+    try {
+      const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/practice/start`, {
+        method: "POST",
+      });
+      setAttempt(res);
+      await loadPractice();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setStartingPractice(false);
+    }
+  };
+
+  const submitPractice = useCallback(async () => {
+    const p = paperRef.current;
+    const a = answersRef.current;
+    if (!p?.questions.length || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError("");
+    try {
+      const payload = buildAnswersPayload(p.questions, a);
+      const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/practice/submit`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setAttempt(res);
+      setSuccess(he.practiceSubmitted);
+      setPhase("practice_review");
+      await loadPracticeReview();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }, [id, loadPracticeReview]);
 
   const submit = useCallback(
     async (force = false) => {
@@ -227,6 +332,7 @@ export default function StudentExamTakePage() {
         setPaper((prev) => (prev ? { ...prev, attempt: { ...prev.attempt, ...res } } : prev));
         setSuccess(force ? he.examAutoSubmitted : he.examSubmitted);
         setAutoSubmitted(force);
+        setPhase("final");
         await loadReview();
       } catch (e) {
         setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -240,6 +346,7 @@ export default function StudentExamTakePage() {
 
   useEffect(() => {
     if (
+      phase !== "exam" ||
       !paper?.auto_submit_on_timeout ||
       !attempt?.expires_at ||
       attempt.submitted_at ||
@@ -259,6 +366,7 @@ export default function StudentExamTakePage() {
     attempt?.expires_at,
     attempt?.submitted_at,
     submitting,
+    phase,
     paper?.session_id,
     paper?.auto_submit_on_timeout,
     rulesPending,
@@ -266,9 +374,9 @@ export default function StudentExamTakePage() {
   ]);
 
   const showTimeWarning =
+    phase === "exam" &&
     paper &&
     attempt?.expires_at &&
-    !attempt.submitted_at &&
     !rulesPending &&
     (() => {
       const remainingMin = (new Date(attempt.expires_at).getTime() - Date.now()) / 60000;
@@ -297,15 +405,15 @@ export default function StudentExamTakePage() {
         onAccept={acceptRules}
       />
 
-      {!submitted && !integrityActive && (
+      {paper && (
         <Button
           component={RouterLink}
-          to={`/student/courses/${paper.offering_id}`}
+          to={studentCourseExamsPath(paper.offering_id, id)}
           startIcon={<ArrowBackIcon />}
           size="small"
           sx={{ mb: 2 }}
         >
-          {he.backToCourse}
+          {he.backToCourseExams}
         </Button>
       )}
 
@@ -320,7 +428,7 @@ export default function StudentExamTakePage() {
             </Typography>
           )}
         </Box>
-        {!submitted && attempt?.started_at && (
+        {!submitted && attempt?.started_at && phase === "exam" && (
           <Typography variant="h6" color="primary" fontWeight={700} sx={{ flexShrink: 0 }}>
             {he.timeRemaining}: {timeLeft}
           </Typography>
@@ -352,22 +460,64 @@ export default function StudentExamTakePage() {
           }}
         >
           {success}
-          {attempt?.score != null && attempt.max_score != null && (
-            <Typography variant="body2" sx={{ mt: 1, textAlign: "inherit" }}>
-              {he.yourScore}: {attempt.score} / {attempt.max_score}
-            </Typography>
-          )}
+        </Alert>
+      )}
+
+      {phase === "practice" && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {he.practiceModeHint}
         </Alert>
       )}
 
       {submitted ? (
         <>
+          {attempt && (
+            <ExamScoresPanel attempt={attempt} practiceResults={practiceResults} />
+          )}
           {review && <ExamSubmissionReview review={review} />}
-          <Button component={RouterLink} to="/student/courses" variant="outlined" sx={{ mt: 2 }}>
-            {he.backToCourses}
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
+            {(phase === "final" || phase === "practice_review") && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={startPractice}
+                disabled={startingPractice}
+              >
+                {startingPractice ? he.loading : he.startPracticeExam}
+              </Button>
+            )}
+            <Button
+              component={RouterLink}
+              to={paper ? studentCourseExamsPath(paper.offering_id, id) : "/student/courses"}
+              variant="outlined"
+            >
+              {he.backToCourseExams}
+            </Button>
+          </Box>
+        </>
+      ) : rulesPending ? null : phase === "practice" ? (
+        <>
+          {paper.questions.map((q, i) => (
+            <QuestionBlock
+              key={q.id}
+              index={i + 1}
+              question={q}
+              selected={answers[q.id] ?? []}
+              onSingle={setSingle}
+              onToggle={toggleMultiple}
+            />
+          ))}
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => submitPractice()}
+            disabled={submitting}
+            sx={{ mt: 2 }}
+          >
+            {submitting ? he.loading : he.submitPracticeExam}
           </Button>
         </>
-      ) : rulesPending ? null : (
+      ) : (
         <>
           {paper.questions.map((q, i) => (
             <QuestionBlock

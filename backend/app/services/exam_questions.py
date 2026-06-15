@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import ExamStatus, QuestionType
-from app.models.exam import ExamSession, Question, QuestionOption
+from app.models.exam import ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.schemas.exam import QuestionCreate, QuestionUpdate
 
 _TRIM_EDGES = "\n\r\t"
@@ -15,13 +15,26 @@ def normalize_question_text(text: str) -> str:
 
 
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
-    """Vrai seulement si une session est encore active (pas brouillon / fermée)."""
-    count = await db.scalar(
+    """Vrai si session active ou fermée avec au moins une tentative en cours."""
+    active = await db.scalar(
         select(func.count())
         .select_from(ExamSession)
         .where(ExamSession.exam_id == exam_id, ExamSession.status == ExamStatus.ACTIVE)
     )
-    return (count or 0) > 0
+    if active:
+        return True
+    in_progress = await db.scalar(
+        select(func.count())
+        .select_from(StudentExamAttempt)
+        .join(ExamSession, StudentExamAttempt.exam_session_id == ExamSession.id)
+        .where(
+            ExamSession.exam_id == exam_id,
+            ExamSession.status == ExamStatus.CLOSED,
+            StudentExamAttempt.started_at.isnot(None),
+            StudentExamAttempt.submitted_at.is_(None),
+        )
+    )
+    return (in_progress or 0) > 0
 
 
 async def next_question_order_index(exam_id: int, db: AsyncSession) -> int:

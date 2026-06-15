@@ -12,15 +12,16 @@ type HebrewCardRowProps = {
   actions: ReactNode;
   /** Liste examens : texte en ligne horizontale aligné à droite. */
   examList?: boolean;
+  id?: string;
   sx?: object;
 };
 
 /** Fiche : icônes à gauche physique, texte hébreu à droite. */
-export default function HebrewCardRow({ text, actions, examList, sx }: HebrewCardRowProps) {
+export default function HebrewCardRow({ text, actions, examList, id, sx }: HebrewCardRowProps) {
   const textSx = examList ? hebrewExamListTextBlockSx : hebrewTextBlockSx;
 
   return (
-    <Card sx={{ overflow: "visible", ...sx }}>
+    <Card id={id} sx={{ overflow: "visible", ...sx }}>
       <CardContent
         sx={{
           ...hebrewCardRowSx,

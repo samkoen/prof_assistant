@@ -112,6 +112,10 @@ class StudentExamAttempt(Base):
     progress_index: Mapped[int] = mapped_column(Integer, default=0)
     session_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     can_resubmit: Mapped[bool] = mapped_column(Boolean, default=False)
+    practice_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    practice_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    practice_max_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    practice_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     warning_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     rules_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     focus_loss_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -120,6 +124,8 @@ class StudentExamAttempt(Base):
 
     exam_session = relationship("ExamSession", back_populates="attempts")
     answers = relationship("Answer", back_populates="attempt")
+    practice_answers = relationship("PracticeAnswer", back_populates="attempt")
+    practice_results = relationship("ExamPracticeResult", back_populates="attempt")
     integrity_events = relationship("AttemptIntegrityEvent", back_populates="attempt")
 
 
@@ -133,6 +139,33 @@ class AttemptIntegrityEvent(Base):
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     attempt = relationship("StudentExamAttempt", back_populates="integrity_events")
+
+
+class PracticeAnswer(Base):
+    """Réponses temporaires d'une session de révision (non comptées en note finale)."""
+
+    __tablename__ = "practice_answers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"))
+    selected_option_ids: Mapped[list] = mapped_column(JSONB, default=list)
+
+    attempt = relationship("StudentExamAttempt", back_populates="practice_answers")
+
+
+class ExamPracticeResult(Base):
+    """Note enregistrée à chaque fin de תרגול (historique de progression)."""
+
+    __tablename__ = "exam_practice_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    max_score: Mapped[float] = mapped_column(Float)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    attempt = relationship("StudentExamAttempt", back_populates="practice_results")
 
 
 class Answer(Base):
@@ -153,7 +186,8 @@ class QuestionAiExplanation(Base):
             "attempt_id",
             "question_id",
             "language",
-            name="uq_question_ai_explanations_attempt_question_lang",
+            "for_practice",
+            name="uq_question_ai_explanations_attempt_question_lang_practice",
         ),
     )
 
@@ -161,6 +195,7 @@ class QuestionAiExplanation(Base):
     attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
     question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), index=True)
     language: Mapped[str] = mapped_column(String(2), index=True)
+    for_practice: Mapped[bool] = mapped_column(Boolean, default=False)
     explanation: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

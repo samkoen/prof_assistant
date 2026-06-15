@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.course import CourseEnrollment
 from app.models.enums import EnrollmentStatus, QuestionType
-from app.models.exam import Answer, ExamSession, Question, QuestionAiExplanation, StudentExamAttempt
+from app.models.exam import Answer, ExamSession, PracticeAnswer, Question, QuestionAiExplanation, StudentExamAttempt
 from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.gemini_client import GeminiError, generate_text
@@ -37,7 +37,12 @@ async def _student_approved(offering_id: int, user: User, db: AsyncSession) -> b
 
 
 async def _load_review_context(
-    session_id: int, question_id: int, user: User, db: AsyncSession
+    session_id: int,
+    question_id: int,
+    user: User,
+    db: AsyncSession,
+    *,
+    for_practice: bool = False,
 ) -> tuple[int, Question, list[int]]:
     session_row = await db.execute(
         select(ExamSession)
@@ -63,6 +68,8 @@ async def _load_review_context(
     attempt = attempt_row.scalar_one_or_none()
     if not attempt or not attempt.submitted_at:
         raise HTTPException(status_code=400, detail="יש להגיש את המבחן לפני בקשת הסבר")
+    if for_practice and not attempt.practice_submitted_at:
+        raise HTTPException(status_code=400, detail="יש להשלים תרגול לפני בקשת הסבר")
 
     q_row = await db.execute(
         select(Question)
@@ -73,22 +80,36 @@ async def _load_review_context(
     if not question:
         raise HTTPException(status_code=404, detail="שאלה לא נמצאה")
 
-    ans_row = await db.execute(
-        select(Answer).where(Answer.attempt_id == attempt.id, Answer.question_id == question.id)
-    )
+    if for_practice:
+        ans_row = await db.execute(
+            select(PracticeAnswer).where(
+                PracticeAnswer.attempt_id == attempt.id,
+                PracticeAnswer.question_id == question.id,
+            )
+        )
+    else:
+        ans_row = await db.execute(
+            select(Answer).where(Answer.attempt_id == attempt.id, Answer.question_id == question.id)
+        )
     answer = ans_row.scalar_one_or_none()
     selected = list(answer.selected_option_ids) if answer else []
     return attempt.id, question, selected
 
 
 async def _load_cached(
-    attempt_id: int, question_id: int, language: GeminiSeriesLanguage, db: AsyncSession
+    attempt_id: int,
+    question_id: int,
+    language: GeminiSeriesLanguage,
+    db: AsyncSession,
+    *,
+    for_practice: bool = False,
 ) -> QuestionAiExplanation | None:
     row = await db.execute(
         select(QuestionAiExplanation).where(
             QuestionAiExplanation.attempt_id == attempt_id,
             QuestionAiExplanation.question_id == question_id,
             QuestionAiExplanation.language == language,
+            QuestionAiExplanation.for_practice == for_practice,
         )
     )
     return row.scalar_one_or_none()
@@ -100,8 +121,12 @@ async def _upsert_cache(
     language: GeminiSeriesLanguage,
     explanation: str,
     db: AsyncSession,
+    *,
+    for_practice: bool = False,
 ) -> None:
-    cached = await _load_cached(attempt_id, question_id, language, db)
+    cached = await _load_cached(
+        attempt_id, question_id, language, db, for_practice=for_practice
+    )
     if cached:
         cached.explanation = explanation
     else:
@@ -111,6 +136,7 @@ async def _upsert_cache(
                 question_id=question_id,
                 language=language,
                 explanation=explanation,
+                for_practice=for_practice,
             )
         )
     await db.commit()
@@ -177,15 +203,23 @@ async def explain_exam_question(
     language: GeminiSeriesLanguage,
     user: User,
     db: AsyncSession,
+    *,
+    for_practice: bool = False,
 ) -> tuple[str, bool]:
-    attempt_id, question, selected = await _load_review_context(session_id, question_id, user, db)
-    cached = await _load_cached(attempt_id, question_id, language, db)
+    attempt_id, question, selected = await _load_review_context(
+        session_id, question_id, user, db, for_practice=for_practice
+    )
+    cached = await _load_cached(
+        attempt_id, question_id, language, db, for_practice=for_practice
+    )
     if cached:
         return cached.explanation, True
     prompt = _build_prompt(question, selected, language)
     try:
         explanation = await generate_text(prompt)
-        await _upsert_cache(attempt_id, question_id, language, explanation, db)
+        await _upsert_cache(
+            attempt_id, question_id, language, explanation, db, for_practice=for_practice
+        )
         return explanation, False
     except GeminiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -197,12 +231,18 @@ async def regenerate_exam_question_explanation(
     language: GeminiSeriesLanguage,
     user: User,
     db: AsyncSession,
+    *,
+    for_practice: bool = False,
 ) -> str:
-    attempt_id, question, selected = await _load_review_context(session_id, question_id, user, db)
+    attempt_id, question, selected = await _load_review_context(
+        session_id, question_id, user, db, for_practice=for_practice
+    )
     prompt = _build_prompt(question, selected, language)
     try:
         explanation = await generate_text(prompt)
-        await _upsert_cache(attempt_id, question_id, language, explanation, db)
+        await _upsert_cache(
+            attempt_id, question_id, language, explanation, db, for_practice=for_practice
+        )
         return explanation
     except GeminiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

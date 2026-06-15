@@ -61,11 +61,13 @@ function ReviewQuestionCard({
   index,
   sessionId,
   language,
+  forPractice = false,
 }: {
   q: ExamReviewQuestion;
   index: number;
   sessionId: number;
   language: ExplanationLanguage;
+  forPractice?: boolean;
 }) {
   const wrong = !q.is_correct;
   const qDir = contentDirForQuestionText(q.text);
@@ -132,7 +134,12 @@ function ReviewQuestionCard({
           examDir={qDir}
           questionText={q.text}
         />
-        <QuestionAiExplanation sessionId={sessionId} questionId={q.id} language={language} />
+        <QuestionAiExplanation
+          sessionId={sessionId}
+          questionId={q.id}
+          language={language}
+          forPractice={forPractice}
+        />
       </CardContent>
     </Card>
   );
@@ -141,7 +148,9 @@ function ReviewQuestionCard({
 export default function ExamSubmissionReview({ review }: ExamSubmissionReviewProps) {
   const { user } = useAuth();
   const language: ExplanationLanguage = user?.ai_explanation_language ?? "he";
-  if (!review.show_correction || review.questions.length === 0) {
+  const hasQuestions = review.show_correction && review.questions.length > 0;
+
+  if (!hasQuestions) {
     return null;
   }
 
@@ -157,6 +166,7 @@ export default function ExamSubmissionReview({ review }: ExamSubmissionReviewPro
           index={i}
           sessionId={review.session_id}
           language={language}
+          forPractice={review.for_practice}
         />
       ))}
     </Box>

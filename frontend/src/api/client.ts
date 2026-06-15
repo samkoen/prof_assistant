@@ -314,6 +314,10 @@ export interface ExamAttempt {
   max_score: number | null;
   progress_index: number;
   can_resubmit: boolean;
+  practice_active?: boolean;
+  practice_score?: number | null;
+  practice_max_score?: number | null;
+  practice_submitted_at?: string | null;
   rules_accepted_at?: string | null;
   focus_loss_count?: number;
   total_hidden_seconds?: number;
@@ -403,6 +407,14 @@ export interface ExamReview {
   questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];
+  for_practice?: boolean;
+}
+
+export interface PracticeResult {
+  id: number;
+  score: number;
+  max_score: number;
+  submitted_at: string;
 }
 
 export interface AiExplanation {

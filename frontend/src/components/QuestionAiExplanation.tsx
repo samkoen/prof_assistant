@@ -8,6 +8,7 @@ interface QuestionAiExplanationProps {
   sessionId: number;
   questionId: number;
   language: ExplanationLanguage;
+  forPractice?: boolean;
 }
 
 export type ExplanationLanguage = "he" | "fr" | "en" | "ru";
@@ -16,6 +17,7 @@ export default function QuestionAiExplanation({
   sessionId,
   questionId,
   language,
+  forPractice = false,
 }: QuestionAiExplanationProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +33,7 @@ export default function QuestionAiExplanation({
         `/api/exams/sessions/${sessionId}/questions/${questionId}/explain`,
         {
           method: "POST",
-          body: JSON.stringify({ language, regenerate }),
+          body: JSON.stringify({ language, regenerate, for_practice: forPractice }),
         }
       );
       setExplanation(res.explanation);

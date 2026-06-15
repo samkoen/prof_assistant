@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import StopIcon from "@mui/icons-material/Stop";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import GradingIcon from "@mui/icons-material/Grading";
 import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
@@ -78,6 +79,8 @@ export default function TeacherExamsPage() {
   const [confirmCloseSession, setConfirmCloseSession] = useState<ExamSession | null>(null);
   const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
   const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
+  const [confirmReopenSession, setConfirmReopenSession] = useState<ExamSession | null>(null);
+  const [reopeningSessionId, setReopeningSessionId] = useState<number | null>(null);
   const [examsRefreshKey, setExamsRefreshKey] = useState(0);
 
   const { open: openSessions, closed: closedSessions } = useMemo(
@@ -181,6 +184,21 @@ export default function TeacherExamsPage() {
     }
   };
 
+  const reopenSession = async () => {
+    if (!confirmReopenSession) return;
+    setReopeningSessionId(confirmReopenSession.id);
+    try {
+      await api(`/api/exams/sessions/${confirmReopenSession.id}/reopen`, { method: "POST" });
+      setConfirmReopenSession(null);
+      setExamsTab("open");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setReopeningSessionId(null);
+    }
+  };
+
   const matchingOfferings = selectedExam
     ? offerings.filter(
         (o) =>
@@ -229,7 +247,13 @@ export default function TeacherExamsPage() {
           onChanged={refreshExams}
         />
       ) : (
-        <ClosedExamsTab sessions={closedSessions} />
+        <ClosedExamsTab
+          sessions={closedSessions}
+          closingSessionId={closingSessionId}
+          reopeningSessionId={reopeningSessionId}
+          onCloseClick={setConfirmCloseSession}
+          onReopenClick={setConfirmReopenSession}
+        />
       )}
 
       <ActivateExamDialog
@@ -258,6 +282,13 @@ export default function TeacherExamsPage() {
         deactivating={deactivatingSessionId != null}
         onClose={() => setConfirmDeactivateSession(null)}
         onConfirm={deactivateSession}
+      />
+
+      <ReopenSessionDialog
+        session={confirmReopenSession}
+        reopening={reopeningSessionId != null}
+        onClose={() => setConfirmReopenSession(null)}
+        onConfirm={reopenSession}
       />
     </Box>
   );
@@ -321,11 +352,33 @@ function OpenExamsTab({
   );
 }
 
-function ClosedExamsTab({ sessions }: { sessions: ExamSession[] }) {
+function ClosedExamsTab({
+  sessions,
+  closingSessionId,
+  reopeningSessionId,
+  onCloseClick,
+  onReopenClick,
+}: {
+  sessions: ExamSession[];
+  closingSessionId?: number | null;
+  reopeningSessionId?: number | null;
+  onCloseClick?: (s: ExamSession) => void;
+  onReopenClick?: (s: ExamSession) => void;
+}) {
   if (sessions.length === 0) {
     return <Typography color="text.secondary">{he.noClosedExams}</Typography>;
   }
-  return sessions.map((s) => <ExamSessionCard key={s.id} session={s} closedTab />);
+  return sessions.map((s) => (
+    <ExamSessionCard
+      key={s.id}
+      session={s}
+      closedTab
+      closingSessionId={closingSessionId}
+      reopeningSessionId={reopeningSessionId}
+      onCloseClick={onCloseClick}
+      onReopenClick={onReopenClick}
+    />
+  ));
 }
 
 function ExamSessionCard({
@@ -333,16 +386,20 @@ function ExamSessionCard({
   closedTab = false,
   closingSessionId,
   deactivatingSessionId,
+  reopeningSessionId,
   onCloseClick,
   onDeactivateClick,
+  onReopenClick,
   onActivateSession,
 }: {
   session: ExamSession;
   closedTab?: boolean;
   closingSessionId?: number | null;
   deactivatingSessionId?: number | null;
+  reopeningSessionId?: number | null;
   onCloseClick?: (s: ExamSession) => void;
   onDeactivateClick?: (s: ExamSession) => void;
+  onReopenClick?: (s: ExamSession) => void;
   onActivateSession?: (session: ExamSession) => void;
 }) {
   const gradesPath = `/teacher/courses/${s.offering_id}/exams/sessions/${s.id}/results`;
@@ -358,15 +415,39 @@ function ExamSessionCard({
           </Typography>
         </Box>
         {closedTab ? (
-          <Button
-            size="small"
-            variant="outlined"
-            component={RouterLink}
-            to={gradesPath}
-            startIcon={<GradingIcon />}
-          >
-            {he.viewExamGrades}
-          </Button>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<PlayArrowIcon />}
+              disabled={reopeningSessionId === s.id}
+              onClick={() => onReopenClick?.(s)}
+            >
+              {reopeningSessionId === s.id ? he.loading : he.reopenExam}
+            </Button>
+            {!s.results_published && (
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<DoneAllIcon />}
+                disabled={closingSessionId === s.id}
+                onClick={() => onCloseClick?.(s)}
+              >
+                {closingSessionId === s.id ? he.loading : he.closeExam}
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="outlined"
+              component={RouterLink}
+              to={gradesPath}
+              startIcon={<GradingIcon />}
+            >
+              {he.viewExamGrades}
+            </Button>
+          </Box>
         ) : s.status === "draft" ? (
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <ExamEditLink examId={s.exam_id} returnTo="/teacher/exams" />
@@ -587,6 +668,38 @@ function DeactivateSessionDialog({
         <Button onClick={onClose}>{he.cancel}</Button>
         <Button variant="contained" color="warning" onClick={onConfirm} disabled={deactivating}>
           {deactivating ? he.loading : he.cancelActivation}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function ReopenSessionDialog({
+  session,
+  reopening,
+  onClose,
+  onConfirm,
+}: {
+  session: ExamSession | null;
+  reopening: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={!!session} onClose={onClose} fullWidth maxWidth="xs" dir="rtl">
+      <DialogTitle>{he.reopenExam}</DialogTitle>
+      <DialogContent>
+        <Typography>{he.reopenExamConfirm}</Typography>
+        {session && (
+          <Typography fontWeight={600} sx={{ mt: 1 }}>
+            {session.exam_title}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>{he.cancel}</Button>
+        <Button variant="contained" color="success" onClick={onConfirm} disabled={reopening}>
+          {reopening ? he.loading : he.reopenExam}
         </Button>
       </DialogActions>
     </Dialog>

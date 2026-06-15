@@ -31,6 +31,7 @@ from app.schemas.exam import (
     ExamResponse,
     ExamTakeResponse,
     ExamUpdate,
+    PracticeResultResponse,
     ExamSessionActivate,
     ExamSessionResponse,
     ExamSessionResultsResponse,
@@ -48,13 +49,14 @@ from app.schemas.exam import (
     StudentQuestionResponse,
 )
 from app.services.exam_lifecycle import (
-    delete_attempt_records,
     delete_exam_cascade,
     student_visible_sessions_clause,
     duplicate_exam,
     ensure_draft_session,
     exam_has_non_draft_sessions,
     exams_can_delete_map,
+    notify_exam_available_to_pending_students,
+    session_allows_student_work,
 )
 from app.services.exam_questions import (
     delete_question,
@@ -79,6 +81,14 @@ from app.services.catalog_scope import (
 
 from app.services.gemini_question_generation import generate_exam_questions_text
 from app.services.exam_pdf import build_exam_pdf_bytes, pdf_content_disposition
+from app.services.exam_practice_service import (
+    finalize_practice_submission,
+    get_submitted_attempt,
+    list_practice_results,
+    practice_answers_map,
+    save_practice_answers,
+    start_practice,
+)
 from app.services.exam_submit_service import (
     auto_submit_if_expired,
     finalize_exam_submission,
@@ -249,6 +259,10 @@ def _attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptRespo
         max_score=attempt.max_score,
         progress_index=attempt.progress_index,
         can_resubmit=attempt.can_resubmit,
+        practice_active=attempt.practice_active,
+        practice_score=attempt.practice_score,
+        practice_max_score=attempt.practice_max_score,
+        practice_submitted_at=attempt.practice_submitted_at,
         rules_accepted_at=attempt.rules_accepted_at,
         focus_loss_count=attempt.focus_loss_count,
         total_hidden_seconds=attempt.total_hidden_seconds,
@@ -282,6 +296,92 @@ def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> li
             )
         )
     return out
+
+
+def _practice_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
+    rng = random.Random(attempt_id ^ 0x5A5A5A5A)
+    ordered = list(questions)
+    if exam.shuffle_questions:
+        rng.shuffle(ordered)
+    out: list[StudentQuestionResponse] = []
+    for qi, q in enumerate(ordered):
+        opts = list(q.options)
+        if exam.shuffle_options:
+            rng.shuffle(opts)
+        out.append(
+            StudentQuestionResponse(
+                id=q.id,
+                text=q.text,
+                image_url=q.image_url,
+                question_type=q.question_type,
+                order_index=qi,
+                points=q.points,
+                options=[
+                    StudentQuestionOptionResponse(
+                        id=o.id, text=o.text, image_url=o.image_url, order_index=oi
+                    )
+                    for oi, o in enumerate(opts)
+                ],
+            )
+        )
+    return out
+
+
+def _build_review_rows(
+    exam: Exam,
+    questions_list: list[Question],
+    attempt_id: int,
+    selected_by_q: dict[int, list[int]],
+    *,
+    practice_order: bool = False,
+) -> list[ExamReviewQuestion]:
+    questions_by_id = {q.id: q for q in questions_list}
+    paper = (
+        _practice_paper(exam, questions_list, attempt_id)
+        if practice_order
+        else _student_paper(exam, questions_list, attempt_id)
+    )
+    rows: list[ExamReviewQuestion] = []
+    for sq in paper:
+        q = questions_by_id[sq.id]
+        selected_ids = selected_by_q.get(q.id, [])
+        earned, max_pts = score_question(q, selected_ids)
+        is_fully_correct = earned >= max_pts - 1e-9
+        correct_opts = sorted([o for o in q.options if o.is_correct], key=lambda o: o.order_index)
+        student_opts = sorted(
+            [o for o in q.options if o.id in selected_ids],
+            key=lambda o: o.order_index,
+        )
+        rows.append(
+            ExamReviewQuestion(
+                id=q.id,
+                text=q.text,
+                image_url=q.image_url,
+                question_type=q.question_type,
+                order_index=sq.order_index,
+                points=q.points,
+                is_correct=is_fully_correct,
+                correct_options=[
+                    ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in correct_opts
+                ],
+                student_options=(
+                    [ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in student_opts]
+                    if not is_fully_correct
+                    else []
+                ),
+            )
+        )
+    return rows
+
+
+async def _load_exam_questions(exam_id: int, db: AsyncSession) -> list[Question]:
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .where(Question.exam_id == exam_id)
+        .order_by(Question.order_index, Question.id)
+    )
+    return list(result.scalars().all())
 
 
 async def _ensure_attempt_started(
@@ -937,10 +1037,13 @@ async def close_exam_session(
     user: User = Depends(require_roles(UserRole.TEACHER)),
 ):
     session = await _get_teacher_session(session_id, user, db)
-    if session.status != ExamStatus.ACTIVE:
-        raise HTTPException(status_code=400, detail="המבחן אינו פעיל")
+    if session.status == ExamStatus.DRAFT:
+        raise HTTPException(status_code=400, detail="המבחן לא הופעל")
+    if session.results_published:
+        raise HTTPException(status_code=400, detail="התוצאות כבר פורסמו")
     session.status = ExamStatus.CLOSED
-    session.closed_at = datetime.now(timezone.utc)
+    if not session.closed_at:
+        session.closed_at = datetime.now(timezone.utc)
     session.results_published = True
     await db.commit()
     cnt = await db.scalar(
@@ -955,33 +1058,35 @@ async def deactivate_exam_session(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.TEACHER)),
 ):
+    """Ferme les nouvelles soumissions ; les élèves déjà en cours peuvent encore rendre."""
     session = await _get_teacher_session(session_id, user, db)
     if session.status != ExamStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="המבחן אינו פעיל")
-    submitted = await db.scalar(
-        select(func.count())
-        .select_from(StudentExamAttempt)
-        .where(
-            StudentExamAttempt.exam_session_id == session_id,
-            StudentExamAttempt.submitted_at.isnot(None),
-        )
+    session.status = ExamStatus.CLOSED
+    session.closed_at = datetime.now(timezone.utc)
+    session.results_published = False
+    await db.commit()
+    cnt = await db.scalar(
+        select(func.count()).select_from(Question).where(Question.exam_id == session.exam_id)
     )
-    if (submitted or 0) > 0:
-        raise HTTPException(
-            status_code=400,
-            detail="לא ניתן לבטל — תלמיד כבר הגיש את המבחן",
-        )
-    attempts = (
-        await db.execute(
-            select(StudentExamAttempt).where(StudentExamAttempt.exam_session_id == session_id)
-        )
-    ).scalars().all()
-    for attempt in attempts:
-        await delete_attempt_records(attempt, db)
-    session.status = ExamStatus.DRAFT
-    session.activated_at = None
+    return _session_response(session, cnt or 0)
+
+
+@router.post("/sessions/{session_id}/reopen", response_model=ExamSessionResponse)
+async def reopen_exam_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER)),
+):
+    """Rouvre un mבחן fermé — seuls les élèves sans copie rendue peuvent participer."""
+    session = await _get_teacher_session(session_id, user, db)
+    if session.status != ExamStatus.CLOSED:
+        raise HTTPException(status_code=400, detail="המבחן לא סגור")
+    exam = session.exam
+    session.status = ExamStatus.ACTIVE
     session.closed_at = None
     session.results_published = False
+    await notify_exam_available_to_pending_students(session, exam, db)
     await db.commit()
     cnt = await db.scalar(
         select(func.count()).select_from(Question).where(Question.exam_id == session.exam_id)
@@ -1024,7 +1129,7 @@ async def take_exam_session(
             questions=[],
         )
 
-    if session.status != ExamStatus.ACTIVE:
+    if not session_allows_student_work(session, existing):
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
 
     if rules_blocking(session, existing):
@@ -1067,10 +1172,18 @@ async def save_session_answers(
     user: User = Depends(require_roles(UserRole.STUDENT)),
 ):
     session = await _get_student_session(session_id, user, db)
-    if session.status != ExamStatus.ACTIVE:
+    attempt_result = await db.execute(
+        select(StudentExamAttempt).where(
+            StudentExamAttempt.exam_session_id == session.id,
+            StudentExamAttempt.student_id == user.id,
+        )
+    )
+    attempt = attempt_result.scalar_one_or_none()
+    if not session_allows_student_work(session, attempt):
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
+    if not attempt or not attempt.started_at:
+        raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
     exam = session.exam
-    attempt = await _ensure_attempt_started(session, user, db)
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     await save_draft_answers(attempt, exam, body.answers, db)
@@ -1136,6 +1249,10 @@ async def submit_exam_session(
         raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
     if attempt.submitted_at and not attempt.can_resubmit:
         raise HTTPException(status_code=400, detail="כבר הוגש")
+    if session.results_published:
+        raise HTTPException(status_code=400, detail="המבחן נסגר")
+    if not session_allows_student_work(session, attempt):
+        raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     now = datetime.now(timezone.utc)
@@ -1176,53 +1293,12 @@ async def get_session_review(
             questions=[],
         )
 
-    q_result = await db.execute(
-        select(Question)
-        .options(selectinload(Question.options))
-        .where(Question.exam_id == exam.id)
-        .order_by(Question.order_index, Question.id)
-    )
-    questions_list = list(q_result.scalars().all())
-    questions_by_id = {q.id: q for q in questions_list}
-
+    questions_list = await _load_exam_questions(exam.id, db)
     answers_result = await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
-    answers_by_q = {a.question_id: a for a in answers_result.scalars().all()}
-
-    paper = _student_paper(exam, questions_list, attempt.id)
-    review_rows: list[ExamReviewQuestion] = []
-    for sq in paper:
-        q = questions_by_id[sq.id]
-        answer = answers_by_q.get(q.id)
-        selected_ids = list(answer.selected_option_ids) if answer else []
-        earned, max_pts = score_question(q, selected_ids)
-        is_fully_correct = earned >= max_pts - 1e-9
-        correct_opts = sorted(
-            [o for o in q.options if o.is_correct],
-            key=lambda o: o.order_index,
-        )
-        student_opts = sorted(
-            [o for o in q.options if o.id in selected_ids],
-            key=lambda o: o.order_index,
-        )
-        review_rows.append(
-            ExamReviewQuestion(
-                id=q.id,
-                text=q.text,
-                image_url=q.image_url,
-                question_type=q.question_type,
-                order_index=sq.order_index,
-                points=q.points,
-                is_correct=is_fully_correct,
-                correct_options=[
-                    ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in correct_opts
-                ],
-                student_options=(
-                    [ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in student_opts]
-                    if not is_fully_correct
-                    else []
-                ),
-            )
-        )
+    answers_by_q = {
+        a.question_id: list(a.selected_option_ids or []) for a in answers_result.scalars().all()
+    }
+    review_rows = _build_review_rows(exam, questions_list, attempt.id, answers_by_q)
 
     return ExamReviewResponse(
         session_id=session.id,
@@ -1231,6 +1307,127 @@ async def get_session_review(
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
+    )
+
+
+@router.post("/sessions/{session_id}/practice/start", response_model=AttemptResponse)
+async def start_practice_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    attempt = await start_practice(attempt, db)
+    await db.commit()
+    await db.refresh(attempt)
+    return _attempt_response(attempt, session.exam_id)
+
+
+@router.get("/sessions/{session_id}/practice/take", response_model=ExamTakeResponse)
+async def take_practice_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    exam = session.exam
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    if not attempt.practice_active:
+        raise HTTPException(status_code=400, detail="אין תרגול פעיל")
+    questions_list = await _load_exam_questions(exam.id, db)
+    saved_map = await practice_answers_map(attempt.id, db)
+    paper = _practice_paper(exam, questions_list, attempt.id)
+    saved = [
+        SavedAnswerDraft(question_id=qid, selected_option_ids=ids)
+        for qid, ids in saved_map.items()
+    ]
+    meta = _take_meta(session, exam)
+    meta["integrity_mode_enabled"] = False
+    meta["auto_submit_on_timeout"] = False
+    return ExamTakeResponse(
+        **meta,
+        attempt=_attempt_response(attempt, exam.id),
+        questions=paper,
+        saved_answers=saved,
+    )
+
+
+@router.put("/sessions/{session_id}/practice/answers")
+async def save_practice_session_answers(
+    session_id: int,
+    body: SubmitExamRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    await save_practice_answers(attempt, session.exam, body.answers, db)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/sessions/{session_id}/practice/submit", response_model=AttemptResponse)
+async def submit_practice_session(
+    session_id: int,
+    body: SubmitExamRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    attempt = await finalize_practice_submission(attempt, session.exam, body.answers, db)
+    await db.commit()
+    await db.refresh(attempt)
+    return _attempt_response(attempt, session.exam_id)
+
+
+@router.get("/sessions/{session_id}/practice/history", response_model=list[PracticeResultResponse])
+async def get_practice_history(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    rows = await list_practice_results(attempt.id, db)
+    return [PracticeResultResponse.model_validate(r) for r in rows]
+
+
+@router.get("/sessions/{session_id}/practice/review", response_model=ExamReviewResponse)
+async def get_practice_review(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    session = await _get_student_session(session_id, user, db)
+    exam = session.exam
+    attempt = await get_submitted_attempt(session_id, user.id, db)
+    if not attempt.practice_submitted_at:
+        raise HTTPException(status_code=400, detail="טרם הושלם תרגול")
+    attempt_resp = _attempt_response(attempt, exam.id)
+    if not exam.show_detailed_correction:
+        return ExamReviewResponse(
+            session_id=session.id,
+            exam_title=exam.title,
+            show_correction=False,
+            questions_language=exam.questions_language,
+            attempt=attempt_resp,
+            questions=[],
+            for_practice=True,
+        )
+    questions_list = await _load_exam_questions(exam.id, db)
+    selected_by_q = await practice_answers_map(attempt.id, db)
+    review_rows = _build_review_rows(
+        exam, questions_list, attempt.id, selected_by_q, practice_order=True
+    )
+    return ExamReviewResponse(
+        session_id=session.id,
+        exam_title=exam.title,
+        show_correction=True,
+        questions_language=exam.questions_language,
+        attempt=attempt_resp,
+        questions=review_rows,
+        for_practice=True,
     )
 
 
@@ -1251,15 +1448,4 @@ async def my_session_attempt(
     attempt = result.scalar_one_or_none()
     if not attempt:
         return None
-    return AttemptResponse(
-        id=attempt.id,
-        exam_session_id=attempt.exam_session_id,
-        exam_id=attempt.exam_session.exam_id,
-        started_at=attempt.started_at,
-        expires_at=attempt.expires_at,
-        submitted_at=attempt.submitted_at,
-        score=attempt.score,
-        max_score=attempt.max_score,
-        progress_index=attempt.progress_index,
-        can_resubmit=attempt.can_resubmit,
-    )
+    return _attempt_response(attempt, attempt.exam_session.exam_id)

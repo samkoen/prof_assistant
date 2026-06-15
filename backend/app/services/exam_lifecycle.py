@@ -1,13 +1,16 @@
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ExamStatus
+from app.models.course import CourseEnrollment
+from app.models.enums import EnrollmentStatus, ExamStatus, NotificationType
 from app.models.exam import (
     Answer,
     AttemptIntegrityEvent,
     Exam,
+    ExamPracticeResult,
     ExamSession,
+    PracticeAnswer,
     Question,
     QuestionAiExplanation,
     QuestionOption,
@@ -27,6 +30,16 @@ async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) 
         await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
     ).scalars():
         await db.delete(answer)
+    for answer in (
+        await db.execute(select(PracticeAnswer).where(PracticeAnswer.attempt_id == attempt.id))
+    ).scalars():
+        await db.delete(answer)
+    for result in (
+        await db.execute(
+            select(ExamPracticeResult).where(ExamPracticeResult.attempt_id == attempt.id)
+        )
+    ).scalars():
+        await db.delete(result)
     for expl in (
         await db.execute(
             select(QuestionAiExplanation).where(QuestionAiExplanation.attempt_id == attempt.id)
@@ -222,15 +235,80 @@ async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
         await db.delete(exam)
 
 
+def attempt_in_progress(attempt: StudentExamAttempt | None) -> bool:
+    return bool(attempt and attempt.started_at and not attempt.submitted_at)
+
+
+def attempt_submitted(attempt: StudentExamAttempt | None) -> bool:
+    return bool(attempt and attempt.submitted_at and not attempt.can_resubmit)
+
+
+def session_allows_student_work(
+    session: ExamSession, attempt: StudentExamAttempt | None
+) -> bool:
+    """Accès passation / brouillon : actif (sans copie déjà rendue), ou fermé si en cours."""
+    if attempt_submitted(attempt):
+        return False
+    if session.status == ExamStatus.ACTIVE:
+        return True
+    if session.status == ExamStatus.CLOSED and not session.results_published:
+        return attempt_in_progress(attempt)
+    return False
+
+
+async def notify_exam_available_to_pending_students(
+    session: ExamSession, exam: Exam, db: AsyncSession
+) -> None:
+    """Notifie les inscrits qui n'ont pas encore rendu le mבחן."""
+    attempts = (
+        await db.execute(
+            select(StudentExamAttempt).where(StudentExamAttempt.exam_session_id == session.id)
+        )
+    ).scalars().all()
+    submitted_ids = {
+        a.student_id for a in attempts if a.submitted_at and not a.can_resubmit
+    }
+    enrollments = (
+        await db.execute(
+            select(CourseEnrollment).where(
+                CourseEnrollment.offering_id == session.offering_id,
+                CourseEnrollment.status == EnrollmentStatus.APPROVED,
+            )
+        )
+    ).scalars().all()
+    for enr in enrollments:
+        if enr.student_id in submitted_ids:
+            continue
+        db.add(
+            Notification(
+                user_id=enr.student_id,
+                type=NotificationType.EXAM_AVAILABLE,
+                title="מבחן זמין שוב",
+                body=exam.title,
+                related_exam_id=exam.id,
+                related_offering_id=session.offering_id,
+            )
+        )
+
+
 def student_visible_sessions_clause(student_id: int):
-    """Mבחן פעיל ou session clôturée avec copie déjà soumise."""
+    """Session active, ou fermée visible si l'élève a soumis ou est encore en cours."""
+    in_progress = exists(
+        select(StudentExamAttempt.id).where(
+            StudentExamAttempt.exam_session_id == ExamSession.id,
+            StudentExamAttempt.student_id == student_id,
+            StudentExamAttempt.started_at.isnot(None),
+            StudentExamAttempt.submitted_at.is_(None),
+        )
+    )
+    submitted = exists(
+        select(StudentExamAttempt.id).where(
+            StudentExamAttempt.exam_session_id == ExamSession.id,
+            StudentExamAttempt.student_id == student_id,
+            StudentExamAttempt.submitted_at.isnot(None),
+        )
+    )
     return or_(
         ExamSession.status == ExamStatus.ACTIVE,
-        exists(
-            select(StudentExamAttempt.id).where(
-                StudentExamAttempt.exam_session_id == ExamSession.id,
-                StudentExamAttempt.student_id == student_id,
-                StudentExamAttempt.submitted_at.isnot(None),
-            )
-        ),
+        and_(ExamSession.status == ExamStatus.CLOSED, or_(in_progress, submitted)),
     )
