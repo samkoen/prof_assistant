@@ -43,6 +43,8 @@ from app.schemas.exam import (
     QuestionsImportResponse,
     QuestionsReorderRequest,
     StudentExamResultRow,
+    StudentExamSessionRow,
+    StudentOfferingExamsBoard,
     SavedAnswerDraft,
     SubmitExamRequest,
     StudentQuestionOptionResponse,
@@ -68,6 +70,7 @@ from app.services.exam_questions import (
     validate_question_body,
 )
 from app.services.catalog_item_response import scope_to_response
+from app.services.course_helpers import offering_to_response
 from app.services.catalog_teacher import enforce_teacher_scope_id, teacher_owns_catalog
 from app.services.catalog_scope import (
     apply_scope_fields,
@@ -192,6 +195,48 @@ async def _student_approved_for_offering(offering_id: int, user: User, db: Async
         )
     )
     return approved.scalar_one_or_none() is not None
+
+
+async def _question_counts_by_exam_id(
+    exam_ids: list[int], db: AsyncSession
+) -> dict[int, int]:
+    if not exam_ids:
+        return {}
+    rows = await db.execute(
+        select(Question.exam_id, func.count())
+        .where(Question.exam_id.in_(exam_ids))
+        .group_by(Question.exam_id)
+    )
+    return {exam_id: int(cnt) for exam_id, cnt in rows.all()}
+
+
+async def _load_student_offering_enrollment(
+    offering_id: int, user: User, db: AsyncSession
+) -> tuple[CourseOffering, CourseEnrollment] | None:
+    offering_row = await db.execute(
+        select(CourseOffering)
+        .options(
+            selectinload(CourseOffering.catalog_course),
+            selectinload(CourseOffering.teacher),
+        )
+        .where(CourseOffering.id == offering_id)
+    )
+    offering = offering_row.scalar_one_or_none()
+    if not offering:
+        return None
+    enr_row = await db.execute(
+        select(CourseEnrollment).where(
+            CourseEnrollment.offering_id == offering_id,
+            CourseEnrollment.student_id == user.id,
+            CourseEnrollment.status.in_(
+                [EnrollmentStatus.APPROVED, EnrollmentStatus.PENDING]
+            ),
+        )
+    )
+    enrollment = enr_row.scalar_one_or_none()
+    if not enrollment:
+        return None
+    return offering, enrollment
 
 
 async def _get_student_active_session(session_id: int, user: User, db: AsyncSession) -> ExamSession:
@@ -491,6 +536,58 @@ async def list_catalog_exams(
             _exam_response(exam, cnt or 0, names, can_delete=delete_map.get(exam.id, True))
         )
     return out
+
+
+@router.get(
+    "/sessions/offering/{offering_id}/student-board",
+    response_model=StudentOfferingExamsBoard,
+)
+async def student_offering_exams_board(
+    offering_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    loaded = await _load_student_offering_enrollment(offering_id, user, db)
+    if not loaded:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    offering, enrollment = loaded
+    offering_resp = offering_to_response(offering, enrollment_status=enrollment.status)
+    rows: list[StudentExamSessionRow] = []
+    if enrollment.status == EnrollmentStatus.APPROVED:
+        q = (
+            select(ExamSession)
+            .options(
+                selectinload(ExamSession.exam),
+                selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
+            )
+            .where(ExamSession.offering_id == offering_id)
+            .where(student_visible_sessions_clause(user.id))
+            .order_by(ExamSession.created_at.desc())
+        )
+        sessions = list((await db.execute(q)).scalars().all())
+        session_ids = [s.id for s in sessions]
+        counts = await _question_counts_by_exam_id([s.exam_id for s in sessions], db)
+        attempts_by_session: dict[int, StudentExamAttempt] = {}
+        if session_ids:
+            attempt_rows = await db.execute(
+                select(StudentExamAttempt).where(
+                    StudentExamAttempt.student_id == user.id,
+                    StudentExamAttempt.exam_session_id.in_(session_ids),
+                )
+            )
+            attempts_by_session = {
+                a.exam_session_id: a for a in attempt_rows.scalars().all()
+            }
+        for session in sessions:
+            base = _session_response(session, counts.get(session.exam_id, 0))
+            attempt = attempts_by_session.get(session.id)
+            rows.append(
+                StudentExamSessionRow(
+                    **base.model_dump(),
+                    attempt=_attempt_response(attempt, session.exam_id) if attempt else None,
+                )
+            )
+    return StudentOfferingExamsBoard(offering=offering_resp, sessions=rows)
 
 
 @router.get("/sessions/offering/{offering_id}", response_model=list[ExamSessionResponse])

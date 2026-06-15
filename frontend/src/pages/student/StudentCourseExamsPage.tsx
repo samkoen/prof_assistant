@@ -21,6 +21,7 @@ import {
   type ExamAttempt,
   type CourseOffering,
   type ExamSession,
+  type StudentOfferingExamsBoard,
 } from "../../api/client";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
@@ -54,25 +55,11 @@ export default function StudentCourseExamsPage() {
     setLoading(true);
     setError("");
     try {
-      const mine = await api<CourseOffering[]>("/api/courses/mine");
-      const found = mine.find((o) => o.id === id) ?? null;
-      setOffering(found);
-      if (!found) {
-        setError("קורס לא נמצא");
-        return;
-      }
-      if (found.enrollment_status === "pending") {
-        setSessions([]);
-        return;
-      }
-      const list = await api<ExamSession[]>(`/api/exams/sessions/offering/${id}`);
-      const withAttempts = await Promise.all(
-        list.map(async (s) => {
-          const attempt = await api<ExamAttempt | null>(`/api/exams/sessions/${s.id}/my-attempt`);
-          return { ...s, attempt };
-        })
+      const board = await api<StudentOfferingExamsBoard>(
+        `/api/exams/sessions/offering/${id}/student-board`,
       );
-      setSessions(withAttempts);
+      setOffering(board.offering);
+      setSessions(board.sessions);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

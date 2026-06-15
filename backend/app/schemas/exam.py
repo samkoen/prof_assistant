@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.course import CourseOfferingResponse
+
 from app.models.enums import ExamStatus, MultipleScoringMode, QuestionType
 from app.schemas.catalog_scope import CatalogItemScopeFields, CatalogItemScopeResponse
 
@@ -180,6 +182,15 @@ class AttemptResponse(BaseModel):
     total_hidden_seconds: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class StudentExamSessionRow(ExamSessionResponse):
+    attempt: AttemptResponse | None = None
+
+
+class StudentOfferingExamsBoard(BaseModel):
+    offering: CourseOfferingResponse
+    sessions: list[StudentExamSessionRow]
 
 
 class StudentExamResultRow(BaseModel):

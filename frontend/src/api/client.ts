@@ -417,6 +417,15 @@ export interface PracticeResult {
   submitted_at: string;
 }
 
+export interface StudentExamSessionWithAttempt extends ExamSession {
+  attempt: ExamAttempt | null;
+}
+
+export interface StudentOfferingExamsBoard {
+  offering: CourseOffering;
+  sessions: StudentExamSessionWithAttempt[];
+}
+
 export interface AiExplanation {
   question_id: number;
   explanation: string;
