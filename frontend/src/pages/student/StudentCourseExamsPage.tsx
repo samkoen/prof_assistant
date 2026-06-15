@@ -9,6 +9,7 @@ import {
   IconButton,
   Tooltip,
   Typography,
+  type Theme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -222,7 +223,7 @@ export default function StudentCourseExamsPage() {
                 : submitted
                   ? "grey.50"
                   : "rgba(76, 175, 80, 0.08)",
-              boxShadow: focused ? (theme) => `0 0 0 1px ${theme.palette.warning.main}` : undefined,
+              boxShadow: focused ? (theme: Theme) => `0 0 0 1px ${theme.palette.warning.main}` : undefined,
               transition: "border-color 0.3s, background-color 0.3s, box-shadow 0.3s",
             }}
           />
