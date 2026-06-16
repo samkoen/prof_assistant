@@ -45,6 +45,7 @@ from app.schemas.exam import (
     StudentExamResultRow,
     StudentExamSessionRow,
     StudentOfferingExamsBoard,
+    TeacherOfferingExamsBoard,
     SavedAnswerDraft,
     SubmitExamRequest,
     StudentQuestionOptionResponse,
@@ -84,6 +85,12 @@ from app.services.catalog_scope import (
 
 from app.services.gemini_question_generation import generate_exam_questions_text
 from app.services.exam_pdf import build_exam_pdf_bytes, pdf_content_disposition
+from app.services.exam_board_service import (
+    build_student_session_rows,
+    load_student_exam_sessions,
+    question_counts_by_exam_id,
+    sessions_to_responses,
+)
 from app.services.exam_practice_service import (
     finalize_practice_submission,
     get_submitted_attempt,
@@ -200,14 +207,7 @@ async def _student_approved_for_offering(offering_id: int, user: User, db: Async
 async def _question_counts_by_exam_id(
     exam_ids: list[int], db: AsyncSession
 ) -> dict[int, int]:
-    if not exam_ids:
-        return {}
-    rows = await db.execute(
-        select(Question.exam_id, func.count())
-        .where(Question.exam_id.in_(exam_ids))
-        .group_by(Question.exam_id)
-    )
-    return {exam_id: int(cnt) for exam_id, cnt in rows.all()}
+    return await question_counts_by_exam_id(exam_ids, db)
 
 
 async def _load_student_offering_enrollment(
@@ -565,29 +565,75 @@ async def student_offering_exams_board(
             .order_by(ExamSession.created_at.desc())
         )
         sessions = list((await db.execute(q)).scalars().all())
-        session_ids = [s.id for s in sessions]
-        counts = await _question_counts_by_exam_id([s.exam_id for s in sessions], db)
-        attempts_by_session: dict[int, StudentExamAttempt] = {}
-        if session_ids:
-            attempt_rows = await db.execute(
-                select(StudentExamAttempt).where(
-                    StudentExamAttempt.student_id == user.id,
-                    StudentExamAttempt.exam_session_id.in_(session_ids),
-                )
-            )
-            attempts_by_session = {
-                a.exam_session_id: a for a in attempt_rows.scalars().all()
-            }
-        for session in sessions:
-            base = _session_response(session, counts.get(session.exam_id, 0))
-            attempt = attempts_by_session.get(session.id)
-            rows.append(
-                StudentExamSessionRow(
-                    **base.model_dump(),
-                    attempt=_attempt_response(attempt, session.exam_id) if attempt else None,
-                )
-            )
+        rows = await build_student_session_rows(sessions, user.id, db)
     return StudentOfferingExamsBoard(offering=offering_resp, sessions=rows)
+
+
+@router.get(
+    "/sessions/mine/student-board",
+    response_model=list[StudentExamSessionRow],
+)
+async def student_my_exams_board(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    sessions = await load_student_exam_sessions(user, db)
+    return await build_student_session_rows(sessions, user.id, db)
+
+
+async def _catalog_exams_for_offering(
+    offering: CourseOffering, user: User, db: AsyncSession
+) -> list[ExamResponse]:
+    q = select(Exam).where(Exam.catalog_course_id == offering.catalog_course_id)
+    if user.role == UserRole.TEACHER:
+        q = q.where(scope_teacher_filter(Exam, user.id))
+    result = await db.execute(q)
+    exams = list(result.scalars().all())
+    exams = [e for e in exams if catalog_item_matches_offering(e, offering)]
+    names = await load_scope_teacher_names(db, exams)
+    delete_map = await exams_can_delete_map([e.id for e in exams], db)
+    counts = await question_counts_by_exam_id([e.id for e in exams], db)
+    return [
+        _exam_response(exam, counts.get(exam.id, 0), names, can_delete=delete_map.get(exam.id, True))
+        for exam in exams
+    ]
+
+
+@router.get(
+    "/sessions/offering/{offering_id}/teacher-board",
+    response_model=TeacherOfferingExamsBoard,
+)
+async def teacher_offering_exams_board(
+    offering_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER)),
+):
+    offering_row = await db.execute(
+        select(CourseOffering)
+        .options(
+            selectinload(CourseOffering.catalog_course),
+            selectinload(CourseOffering.teacher),
+        )
+        .where(CourseOffering.id == offering_id, CourseOffering.teacher_id == user.id)
+    )
+    offering = offering_row.scalar_one_or_none()
+    if not offering:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    session_rows = await db.execute(
+        select(ExamSession)
+        .options(
+            selectinload(ExamSession.exam),
+            selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
+        )
+        .where(ExamSession.offering_id == offering_id)
+        .order_by(ExamSession.created_at.desc())
+    )
+    sessions = list(session_rows.scalars().all())
+    return TeacherOfferingExamsBoard(
+        offering=offering_to_response(offering, include_join_link=True),
+        exams=await _catalog_exams_for_offering(offering, user, db),
+        sessions=await sessions_to_responses(sessions, db),
+    )
 
 
 @router.get("/sessions/offering/{offering_id}", response_model=list[ExamSessionResponse])
@@ -623,13 +669,7 @@ async def list_offering_exam_sessions(
         q = q.where(student_visible_sessions_clause(user.id))
     q = q.order_by(ExamSession.created_at.desc())
     sessions = (await db.execute(q)).scalars().all()
-    out = []
-    for session in sessions:
-        cnt = await db.scalar(
-            select(func.count()).select_from(Question).where(Question.exam_id == session.exam_id)
-        )
-        out.append(_session_response(session, cnt or 0))
-    return out
+    return await sessions_to_responses(list(sessions), db)
 
 
 @router.get("/sessions/mine", response_model=list[ExamSessionResponse])
@@ -667,14 +707,8 @@ async def list_my_exam_sessions(
         )
     else:
         return []
-    sessions = result.scalars().unique().all()
-    out = []
-    for session in sessions:
-        cnt = await db.scalar(
-            select(func.count()).select_from(Question).where(Question.exam_id == session.exam_id)
-        )
-        out.append(_session_response(session, cnt or 0))
-    return out
+    sessions = list(result.scalars().unique().all())
+    return await sessions_to_responses(sessions, db)
 
 
 @router.patch("/{exam_id}", response_model=ExamResponse)

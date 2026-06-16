@@ -21,6 +21,7 @@ from app.schemas.course import (
     EnrollmentReview,
     JoinLinkRenewRequest,
     JoinPreviewResponse,
+    StudentCoursesBoard,
     TeacherOpenOfferingsResponse,
 )
 from app.schemas.types import AppEmail
@@ -32,6 +33,7 @@ from app.services.teacher_offerings_lookup import (
 from app.schemas.student import AddStudentToCourseRequest, CourseEnrollmentDetail
 from app.schemas.exam import StudentOfferingExamResultRow, StudentOfferingExamResultsResponse
 from app.services.course_helpers import offering_to_response
+from app.services.exam_board_service import active_exam_counts_for_student
 from app.services.enrollment_service import (
     create_student_enrollment,
     enrollment_to_response,
@@ -427,6 +429,52 @@ async def remove_student_from_offering(
     await db.delete(enrollment)
     await db.commit()
     return {"ok": True}
+
+
+@router.get("/courses/student-board", response_model=StudentCoursesBoard)
+async def student_courses_board(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.STUDENT)),
+):
+    approved = await db.execute(
+        select(CourseOffering, CourseEnrollment.status, CourseEnrollment.created_at)
+        .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
+        .options(
+            selectinload(CourseOffering.catalog_course),
+            selectinload(CourseOffering.teacher),
+        )
+        .where(
+            CourseEnrollment.student_id == user.id,
+            CourseEnrollment.status == EnrollmentStatus.APPROVED,
+        )
+        .order_by(CourseEnrollment.created_at.asc())
+    )
+    approved_rows = dedupe_approved_offerings_by_session(approved.unique().all())
+    pending = await db.execute(
+        select(CourseOffering, CourseEnrollment.status)
+        .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
+        .options(
+            selectinload(CourseOffering.catalog_course),
+            selectinload(CourseOffering.teacher),
+        )
+        .where(
+            CourseEnrollment.student_id == user.id,
+            CourseEnrollment.status == EnrollmentStatus.PENDING,
+        )
+        .order_by(CourseOffering.created_at.desc())
+    )
+    counts = await active_exam_counts_for_student(user.id, db)
+    return StudentCoursesBoard(
+        offerings=[
+            offering_to_response(offering, enrollment_status=status)
+            for offering, status in approved_rows
+        ],
+        pending_offerings=[
+            offering_to_response(offering, enrollment_status=status)
+            for offering, status in pending.unique().all()
+        ],
+        active_exam_counts=counts,
+    )
 
 
 @router.get("/courses/mine", response_model=list[CourseOfferingResponse])

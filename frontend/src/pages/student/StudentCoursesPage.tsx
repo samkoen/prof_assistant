@@ -5,13 +5,13 @@ import SchoolIcon from "@mui/icons-material/School";
 import QuizIcon from "@mui/icons-material/Quiz";
 import { OfferingCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
 import ListPageToolbar from "../../components/ListPageToolbar";
-import { api, ApiError, type CourseOffering, type ExamSession } from "../../api/client";
+import { api, ApiError, type CourseOffering, type StudentCoursesBoard } from "../../api/client";
 import { he } from "../../i18n/he";
 
 export default function StudentCoursesPage() {
   const navigate = useNavigate();
-  const [offerings, setOfferings] = useState<CourseOffering[]>([]);
-  const [pendingOfferings, setPendingOfferings] = useState<CourseOffering[]>([]);
+  const [offerings, setOfferings] = useState<StudentCoursesBoard["offerings"]>([]);
+  const [pendingOfferings, setPendingOfferings] = useState<StudentCoursesBoard["pending_offerings"]>([]);
   const [activeByOffering, setActiveByOffering] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -20,20 +20,10 @@ export default function StudentCoursesPage() {
     setLoading(true);
     setError("");
     try {
-      const [mine, pending, sessions] = await Promise.all([
-        api<CourseOffering[]>("/api/courses/mine"),
-        api<CourseOffering[]>("/api/courses/mine/pending"),
-        api<ExamSession[]>("/api/exams/sessions/mine"),
-      ]);
-      setOfferings(mine);
-      setPendingOfferings(pending);
-      const counts: Record<number, number> = {};
-      for (const s of sessions) {
-        if (s.status === "active") {
-          counts[s.offering_id] = (counts[s.offering_id] ?? 0) + 1;
-        }
-      }
-      setActiveByOffering(counts);
+      const board = await api<StudentCoursesBoard>("/api/courses/student-board");
+      setOfferings(board.offerings);
+      setPendingOfferings(board.pending_offerings);
+      setActiveByOffering(board.active_exam_counts);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

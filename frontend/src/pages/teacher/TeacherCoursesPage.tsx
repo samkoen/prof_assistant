@@ -40,7 +40,9 @@ const emptyOfferingForm = () => ({
 export default function TeacherCoursesPage() {
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
   const [catalogs, setCatalogs] = useState<CatalogCourse[]>([]);
+  const [catalogsFetched, setCatalogsFetched] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [catalogsLoading, setCatalogsLoading] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyOfferingForm);
@@ -49,16 +51,11 @@ export default function TeacherCoursesPage() {
 
   const isNewCatalog = form.catalog_course_id === NEW_CATALOG_ID;
 
-  const load = useCallback(async () => {
+  const loadOfferings = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [off, cats] = await Promise.all([
-        api<CourseOffering[]>("/api/courses/mine"),
-        api<CatalogCourse[]>("/api/catalog-courses/mine"),
-      ]);
-      setOfferings(off);
-      setCatalogs(cats);
+      setOfferings(await api<CourseOffering[]>("/api/courses/mine"));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -66,17 +63,34 @@ export default function TeacherCoursesPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const loadCatalogs = useCallback(async (): Promise<CatalogCourse[]> => {
+    if (catalogsFetched) return catalogs;
+    setCatalogsLoading(true);
+    try {
+      const cats = await api<CatalogCourse[]>("/api/catalog-courses/mine");
+      setCatalogs(cats);
+      setCatalogsFetched(true);
+      return cats;
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      return [];
+    } finally {
+      setCatalogsLoading(false);
+    }
+  }, [catalogs, catalogsFetched]);
 
-  const openCreateDialog = () => {
+  useEffect(() => {
+    loadOfferings();
+  }, [loadOfferings]);
+
+  const openCreateDialog = async () => {
+    setOpen(true);
+    const cats = catalogsFetched ? catalogs : await loadCatalogs();
     setForm({
       ...emptyOfferingForm(),
-      catalog_course_id: catalogs.length === 0 ? NEW_CATALOG_ID : "",
+      catalog_course_id: cats.length === 0 ? NEW_CATALOG_ID : "",
     });
     setNewCatalog({ name: "", description: "" });
-    setOpen(true);
   };
 
   const closeCreateDialog = () => {
@@ -123,7 +137,9 @@ export default function TeacherCoursesPage() {
         }),
       });
       closeCreateDialog();
-      await load();
+      setCatalogsFetched(false);
+      setCatalogs([]);
+      await loadOfferings();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -189,6 +205,12 @@ export default function TeacherCoursesPage() {
       <Dialog open={open} onClose={closeCreateDialog} fullWidth maxWidth="sm">
         <DialogTitle>{he.createOffering}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          {catalogsLoading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            <>
           <TextField
             select
             label={he.selectCatalogCourse}
@@ -282,6 +304,8 @@ export default function TeacherCoursesPage() {
               />
             </span>
           </Tooltip>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={closeCreateDialog} disabled={submitting}>

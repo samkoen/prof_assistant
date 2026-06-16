@@ -193,6 +193,12 @@ class StudentOfferingExamsBoard(BaseModel):
     sessions: list[StudentExamSessionRow]
 
 
+class TeacherOfferingExamsBoard(BaseModel):
+    offering: CourseOfferingResponse
+    exams: list[ExamResponse]
+    sessions: list[ExamSessionResponse]
+
+
 class StudentExamResultRow(BaseModel):
     student_id: int
     student_name: str

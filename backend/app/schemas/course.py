@@ -89,3 +89,9 @@ class TeacherOpenOfferingsResponse(BaseModel):
     teacher_name: str
     teacher_email: str
     offerings: list[CourseOfferingResponse]
+
+
+class StudentCoursesBoard(BaseModel):
+    offerings: list[CourseOfferingResponse]
+    pending_offerings: list[CourseOfferingResponse]
+    active_exam_counts: dict[int, int]

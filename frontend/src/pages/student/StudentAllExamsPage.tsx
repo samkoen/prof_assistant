@@ -15,13 +15,13 @@ import ListPageToolbar from "../../components/ListPageToolbar";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import HebrewCountPhrase from "../../components/ui/HebrewCountPhrase";
-import { api, ApiError, semesterLabel, type ExamAttempt, type ExamSession } from "../../api/client";
+import { api, ApiError, semesterLabel, type ExamAttempt, type StudentExamSessionWithAttempt } from "../../api/client";
 import { he } from "../../i18n/he";
 import { examListRowDetailsSx, examListRowTitleSx } from "../../styles/hebrewAlign";
 import { studentExamChipProps } from "../../utils/studentExamSessionDisplay";
 import { canStudentAccessExam } from "../../utils/studentExamAccess";
 
-type SessionWithAttempt = ExamSession & { attempt: ExamAttempt | null };
+type SessionWithAttempt = StudentExamSessionWithAttempt;
 
 export default function StudentAllExamsPage() {
   const navigate = useNavigate();
@@ -33,14 +33,9 @@ export default function StudentAllExamsPage() {
     setLoading(true);
     setError("");
     try {
-      const list = await api<ExamSession[]>("/api/exams/sessions/mine");
-      const withAttempts = await Promise.all(
-        list.map(async (s) => {
-          const attempt = await api<ExamAttempt | null>(`/api/exams/sessions/${s.id}/my-attempt`);
-          return { ...s, attempt };
-        })
+      setSessions(
+        await api<StudentExamSessionWithAttempt[]>("/api/exams/sessions/mine/student-board"),
       );
-      setSessions(withAttempts);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

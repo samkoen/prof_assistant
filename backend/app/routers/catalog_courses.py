@@ -29,7 +29,7 @@ from app.services.catalog_teacher import (
     enforce_teacher_scope_id,
     resolve_catalog_teacher_id,
 )
-from app.services.course_helpers import catalog_to_response
+from app.services.course_helpers import catalog_to_response, catalogs_to_responses
 
 router = APIRouter(prefix="/catalog-courses", tags=["catalog-courses"])
 
@@ -89,8 +89,8 @@ async def list_my_catalog_courses(
     elif teacher_id is not None:
         q = q.where(CourseCatalog.teacher_id == teacher_id)
     result = await db.execute(q)
-    catalogs = result.scalars().all()
-    return [await catalog_to_response(c, db) for c in catalogs]
+    catalogs = list(result.scalars().all())
+    return await catalogs_to_responses(catalogs, db)
 
 
 @router.get("/{catalog_id}", response_model=CatalogCourseResponse)

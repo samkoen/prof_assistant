@@ -30,6 +30,7 @@ import {
   type CourseOffering,
   type Exam,
   type ExamSession,
+  type TeacherOfferingExamsBoard,
 } from "../../api/client";
 import { he } from "../../i18n/he";
 import {
@@ -73,19 +74,12 @@ export default function TeacherCourseExamsPage() {
     setLoading(true);
     setError("");
     try {
-      const offerings = await api<CourseOffering[]>("/api/courses/mine");
-      const found = offerings.find((o) => o.id === id) ?? null;
-      setOffering(found);
-      if (!found) {
-        setError("קורס לא נמצא");
-        return;
-      }
-      const [examList, sessionList] = await Promise.all([
-        api<Exam[]>(`/api/exams/catalog/${found.catalog_course_id}?offering_id=${found.id}`),
-        api<ExamSession[]>(`/api/exams/sessions/offering/${found.id}`),
-      ]);
-      setExams(examList);
-      setSessions(sessionList);
+      const board = await api<TeacherOfferingExamsBoard>(
+        `/api/exams/sessions/offering/${id}/teacher-board`,
+      );
+      setOffering(board.offering);
+      setExams(board.exams);
+      setSessions(board.sessions);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

@@ -426,6 +426,18 @@ export interface StudentOfferingExamsBoard {
   sessions: StudentExamSessionWithAttempt[];
 }
 
+export interface StudentCoursesBoard {
+  offerings: CourseOffering[];
+  pending_offerings: CourseOffering[];
+  active_exam_counts: Record<number, number>;
+}
+
+export interface TeacherOfferingExamsBoard {
+  offering: CourseOffering;
+  exams: Exam[];
+  sessions: ExamSession[];
+}
+
 export interface AiExplanation {
   question_id: number;
   explanation: string;

@@ -34,20 +34,38 @@ def offering_to_response(
 
 
 async def catalog_to_response(catalog: CourseCatalog, db: AsyncSession) -> CatalogCourseResponse:
-    exam_count = await db.scalar(
-        select(func.count()).select_from(Exam).where(Exam.catalog_course_id == catalog.id)
+    counts = await catalogs_to_responses([catalog], db)
+    return counts[0]
+
+
+async def catalogs_to_responses(
+    catalogs: list[CourseCatalog], db: AsyncSession
+) -> list[CatalogCourseResponse]:
+    if not catalogs:
+        return []
+    catalog_ids = [c.id for c in catalogs]
+    exam_rows = await db.execute(
+        select(Exam.catalog_course_id, func.count())
+        .where(Exam.catalog_course_id.in_(catalog_ids))
+        .group_by(Exam.catalog_course_id)
     )
-    exercise_count = await db.scalar(
-        select(func.count()).select_from(Exercise).where(Exercise.catalog_course_id == catalog.id)
+    exercise_rows = await db.execute(
+        select(Exercise.catalog_course_id, func.count())
+        .where(Exercise.catalog_course_id.in_(catalog_ids))
+        .group_by(Exercise.catalog_course_id)
     )
-    teacher_name = catalog.teacher.full_name if catalog.teacher else ""
-    return CatalogCourseResponse(
-        id=catalog.id,
-        name=catalog.name,
-        description=catalog.description,
-        teacher_id=catalog.teacher_id,
-        teacher_name=teacher_name,
-        exam_count=exam_count or 0,
-        exercise_count=exercise_count or 0,
-        created_at=catalog.created_at,
-    )
+    exam_counts = {cid: int(cnt) for cid, cnt in exam_rows.all()}
+    exercise_counts = {cid: int(cnt) for cid, cnt in exercise_rows.all()}
+    return [
+        CatalogCourseResponse(
+            id=catalog.id,
+            name=catalog.name,
+            description=catalog.description,
+            teacher_id=catalog.teacher_id,
+            teacher_name=catalog.teacher.full_name if catalog.teacher else "",
+            exam_count=exam_counts.get(catalog.id, 0),
+            exercise_count=exercise_counts.get(catalog.id, 0),
+            created_at=catalog.created_at,
+        )
+        for catalog in catalogs
+    ]

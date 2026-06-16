@@ -7,7 +7,7 @@ import SchoolIcon from "@mui/icons-material/School";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import HighlightCard from "../../components/ui/HighlightCard";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
-import { api, type CourseOffering, type ExamSession } from "../../api/client";
+import { api, type StudentCoursesBoard } from "../../api/client";
 import { he } from "../../i18n/he";
 
 export default function StudentOverviewPage() {
@@ -18,12 +18,11 @@ export default function StudentOverviewPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [mine, sessions] = await Promise.all([
-          api<CourseOffering[]>("/api/courses/mine"),
-          api<ExamSession[]>("/api/exams/sessions/mine"),
-        ]);
-        setCourses(mine.length);
-        setActiveExams(sessions.filter((s) => s.status === "active").length);
+        const board = await api<StudentCoursesBoard>("/api/courses/student-board");
+        setCourses(board.offerings.length);
+        setActiveExams(
+          Object.values(board.active_exam_counts).reduce((sum, count) => sum + count, 0),
+        );
       } catch {
         /* ignore */
       } finally {
