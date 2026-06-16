@@ -519,7 +519,6 @@ async def list_catalog_exams(
     result = await db.execute(q)
     exams = list(result.scalars().all())
 
-    offering = None
     if offering_id is not None:
         offering = await db.get(CourseOffering, offering_id)
         if offering and offering.catalog_course_id == catalog_course_id:
@@ -527,15 +526,11 @@ async def list_catalog_exams(
 
     names = await load_scope_teacher_names(db, exams)
     delete_map = await exams_can_delete_map([e.id for e in exams], db)
-    out = []
-    for exam in exams:
-        cnt = await db.scalar(
-            select(func.count()).select_from(Question).where(Question.exam_id == exam.id)
-        )
-        out.append(
-            _exam_response(exam, cnt or 0, names, can_delete=delete_map.get(exam.id, True))
-        )
-    return out
+    counts = await question_counts_by_exam_id([e.id for e in exams], db)
+    return [
+        _exam_response(exam, counts.get(exam.id, 0), names, can_delete=delete_map.get(exam.id, True))
+        for exam in exams
+    ]
 
 
 @router.get(
