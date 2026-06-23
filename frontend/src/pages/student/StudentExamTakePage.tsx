@@ -17,6 +17,7 @@ import QuestionImageDisplay from "../../components/QuestionImageDisplay";
 import { examQuestionLtrSx } from "../../components/examQuestionLtrStyles";
 import QuestionTextWithIndex from "../../components/QuestionTextWithIndex";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SkipNextIcon from "@mui/icons-material/SkipNext";
 import {
   api,
   ApiError,
@@ -30,18 +31,28 @@ import ExamSubmissionReview from "../../components/ExamSubmissionReview";
 import ExamScoresPanel from "../../components/ExamScoresPanel";
 import ExamFocusOverlay from "../../components/ExamFocusOverlay";
 import ExamIntegrityRulesDialog from "../../components/ExamIntegrityRulesDialog";
+import StudentExamQuestionNav from "../../components/StudentExamQuestionNav";
 import { useExamIntegrity } from "../../hooks/useExamIntegrity";
+import { useExamQuestionScrollSpy } from "../../hooks/useExamQuestionScrollSpy";
 import { he } from "../../i18n/he";
 import {
   hebrewAlignRightSx,
   hebrewPageToolbarSx,
   hebrewToolbarTitleSx,
 } from "../../styles/hebrewAlign";
+import { examQuestionScrollMarginTop } from "../../styles/layoutOffsets";
 import {
   contentDirForQuestionText,
   formatExamPointsLabel,
 } from "../../utils/examQuestionsLanguage";
 import { studentCourseExamsPath } from "../../utils/studentCourseExamsNav";
+import {
+  countAnsweredQuestions,
+  examQuestionElementId,
+  findNextUnansweredIndex,
+  isQuestionAnswered,
+  scrollToExamQuestion,
+} from "../../utils/studentExamQuestionNav";
 
 function answersFromSaved(saved: ExamTake["saved_answers"]): Record<number, number[]> {
   const out: Record<number, number[]> = {};
@@ -383,6 +394,22 @@ export default function StudentExamTakePage() {
       return remainingMin > 0 && remainingMin <= paper.warning_minutes;
     })();
 
+  const showExamNav = phase === "exam" && !rulesPending && (paper?.questions.length ?? 0) > 0;
+  const activeQuestionIndex = useExamQuestionScrollSpy(paper?.questions.length ?? 0, showExamNav);
+  const answeredCount = paper ? countAnsweredQuestions(paper.questions, answers) : 0;
+  const allQuestionsAnswered =
+    !!paper && paper.questions.length > 0 && answeredCount >= paper.questions.length;
+
+  const goToQuestion = (index: number) => {
+    scrollToExamQuestion(index);
+  };
+
+  const goNextUnanswered = () => {
+    if (!paper) return;
+    const next = findNextUnansweredIndex(paper.questions, answers, activeQuestionIndex);
+    if (next != null) scrollToExamQuestion(next);
+  };
+
   if (loading && !paper) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
@@ -500,6 +527,7 @@ export default function StudentExamTakePage() {
           {paper.questions.map((q, i) => (
             <QuestionBlock
               key={q.id}
+              elementId={`practice-question-${i + 1}`}
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
@@ -519,25 +547,46 @@ export default function StudentExamTakePage() {
         </>
       ) : (
         <>
+          {showExamNav && (
+            <StudentExamQuestionNav
+              questions={paper.questions}
+              answers={answers}
+              activeIndex={activeQuestionIndex}
+              onSelectQuestion={goToQuestion}
+              onNextUnanswered={goNextUnanswered}
+              allAnswered={allQuestionsAnswered}
+            />
+          )}
           {paper.questions.map((q, i) => (
             <QuestionBlock
               key={q.id}
+              elementId={examQuestionElementId(i + 1)}
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
+              answered={isQuestionAnswered(answers, q.id)}
               onSingle={setSingle}
               onToggle={toggleMultiple}
             />
           ))}
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => submit()}
-            disabled={submitting}
-            sx={{ mt: 2 }}
-          >
-            {submitting ? he.loading : he.submitExam}
-          </Button>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2, alignItems: "center" }}>
+            <Button
+              variant="outlined"
+              startIcon={<SkipNextIcon />}
+              onClick={goNextUnanswered}
+              disabled={allQuestionsAnswered}
+            >
+              {allQuestionsAnswered ? he.examAllQuestionsAnswered : he.examNextUnanswered}
+            </Button>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => submit()}
+              disabled={submitting}
+            >
+              {submitting ? he.loading : he.submitExam}
+            </Button>
+          </Box>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
             {he.submitExamPartialHint}
           </Typography>
@@ -553,15 +602,19 @@ export default function StudentExamTakePage() {
 }
 
 function QuestionBlock({
+  elementId,
   index,
   question,
   selected,
+  answered,
   onSingle,
   onToggle,
 }: {
+  elementId: string;
   index: number;
   question: StudentQuestion;
   selected: number[];
+  answered?: boolean;
   onSingle: (questionId: number, optionId: number) => void;
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
 }) {
@@ -571,7 +624,17 @@ function QuestionBlock({
   const pointsLabel = formatExamPointsLabel(question.points, qDir);
 
   return (
-    <Card sx={{ mb: 2 }}>
+    <Card
+      id={elementId}
+      sx={{
+        mb: 2,
+        scrollMarginTop: examQuestionScrollMarginTop,
+        ...(answered && {
+          borderInlineStart: (theme) => `4px solid ${theme.palette.success.main}`,
+          bgcolor: "rgba(76, 175, 80, 0.04)",
+        }),
+      }}
+    >
       <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
         <QuestionTextWithIndex index={index} text={question.text} gutterBottom>
           {" "}

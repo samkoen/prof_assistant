@@ -135,6 +135,11 @@ export const he = {
   examWarningInvalid: "זמן ההתראה חייב להיות בין 1 ל-60 דקות",
   autoSubmitOnTimeout: "הגשה אוטומטית כשהזמן נגמר",
   submitExamPartialHint: "ניתן להגיש גם בלי לענות על כל השאלות",
+  examAnsweredProgress: (answered: number, total: number) =>
+    `ענית על ${answered} מתוך ${total} שאלות`,
+  examNextUnanswered: "לשאלה הבאה שלא נענתה",
+  examAllQuestionsAnswered: "ענית על כל השאלות",
+  examQuestionNavLabel: (n: number) => `שאלה ${n}`,
   examAutoSubmitted: "המבחן הוגש אוטומטית — הזמן הסתיים",
   examAutoSubmittedHint: "ההגשה בוצעה אוטומטית עם סיום הזמן",
   saveExamTitle: "שמירת שם",

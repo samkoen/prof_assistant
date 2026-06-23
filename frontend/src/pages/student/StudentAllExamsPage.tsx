@@ -5,13 +5,11 @@ import {
   Box,
   Chip,
   CircularProgress,
-  IconButton,
   Tooltip,
   Typography,
 } from "@mui/material";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ListPageToolbar from "../../components/ListPageToolbar";
+import StudentExamRowIcon from "../../components/StudentExamRowIcon";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import HebrewCountPhrase from "../../components/ui/HebrewCountPhrase";
@@ -83,48 +81,40 @@ export default function StudentAllExamsPage() {
           const canAccess = canStudentAccessExam(s, s.attempt);
           const chip = studentExamChipProps(s, s.attempt);
           return (
-            <HebrewCardRow
-              key={s.id}
-              examList
-              text={
-                <>
-                  <Box sx={examListRowDetailsSx}>
-                    <Typography variant="body2" color="text.secondary" component="span">
-                      {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
-                      <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
-                      {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
-                        <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
-                      )}
-                      {inProgress && <> · {he.continueExam}</>}
+            <Tooltip key={s.id} title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
+              <Box component="span" sx={{ display: "block" }}>
+                <HebrewCardRow
+                examList
+                onClick={() => navigate(`/student/exams/${s.id}`)}
+                disabled={!canAccess}
+                ariaLabel={actionLabel(s.attempt)}
+                text={
+                  <>
+                    <Box sx={examListRowDetailsSx}>
+                      <Typography variant="body2" color="text.secondary" component="span">
+                        {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
+                        <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
+                        {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                          <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
+                        )}
+                        {inProgress && <> · {he.continueExam}</>}
+                      </Typography>
+                    </Box>
+                    <Chip size="small" color={chip.color} label={chip.label} />
+                    <Typography variant="h6" fontWeight={600} sx={examListRowTitleSx}>
+                      {s.exam_title}
                     </Typography>
-                  </Box>
-                  <Chip size="small" color={chip.color} label={chip.label} />
-                  <Typography variant="h6" fontWeight={600} sx={examListRowTitleSx}>
-                    {s.exam_title}
-                  </Typography>
-                </>
-              }
-              actions={
-                <Tooltip title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
-                  <span>
-                    <IconButton
-                      size="small"
-                      color={submitted ? "primary" : "success"}
-                      onClick={() => navigate(`/student/exams/${s.id}`)}
-                      disabled={!canAccess}
-                      aria-label={actionLabel(s.attempt)}
-                    >
-                      {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              }
-              sx={{
-                mb: 2,
-                border: submitted ? undefined : "2px solid",
-                borderColor: "success.light",
-              }}
-            />
+                  </>
+                }
+                actions={<StudentExamRowIcon submitted={submitted} canAccess={canAccess} />}
+                sx={{
+                  mb: 2,
+                  border: submitted ? undefined : "2px solid",
+                  borderColor: "success.light",
+                }}
+              />
+              </Box>
+            </Tooltip>
           );
         })}
         </>

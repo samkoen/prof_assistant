@@ -6,14 +6,11 @@ import {
   Button,
   Chip,
   CircularProgress,
-  IconButton,
   Tooltip,
   Typography,
   type Theme,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   api,
   ApiError,
@@ -24,6 +21,7 @@ import {
   type StudentOfferingExamsBoard,
 } from "../../api/client";
 import ListPageToolbar from "../../components/ListPageToolbar";
+import StudentExamRowIcon from "../../components/StudentExamRowIcon";
 import StudentGeminiConfigCard from "../../components/StudentGeminiConfigCard";
 import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import HebrewCountPhrase from "../../components/ui/HebrewCountPhrase";
@@ -165,55 +163,47 @@ export default function StudentCourseExamsPage() {
         const focused = highlightSessionId === s.id;
 
         return (
-          <HebrewCardRow
-            key={s.id}
-            id={examSessionRowId(s.id)}
-            examList
-            text={
-              <>
-                <Box sx={examListRowDetailsSx}>
-                  <Typography variant="body2" color="text.secondary" component="span">
-                    <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
-                    {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
-                      <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
-                    )}
-                    {inProgress && <> · {he.continueExam}</>}
+          <Tooltip key={s.id} title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
+            <Box component="span" sx={{ display: "block" }}>
+              <HebrewCardRow
+              id={examSessionRowId(s.id)}
+              examList
+              onClick={() => startExam(s.id)}
+              disabled={!canAccess}
+              ariaLabel={actionLabel(s.attempt)}
+              text={
+                <>
+                  <Box sx={examListRowDetailsSx}>
+                    <Typography variant="body2" color="text.secondary" component="span">
+                      <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
+                      {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                        <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
+                      )}
+                      {inProgress && <> · {he.continueExam}</>}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" color={chip.color} label={chip.label} />
+                  <Typography variant="h6" fontWeight={700} sx={examListRowTitleSx}>
+                    {s.exam_title}
                   </Typography>
-                </Box>
-                <Chip size="small" color={chip.color} label={chip.label} />
-                <Typography variant="h6" fontWeight={700} sx={examListRowTitleSx}>
-                  {s.exam_title}
-                </Typography>
-              </>
-            }
-            actions={
-              <Tooltip title={canAccess ? actionLabel(s.attempt) : he.examClosed}>
-                <span>
-                  <IconButton
-                    size="small"
-                    color={submitted ? "primary" : "success"}
-                    onClick={() => startExam(s.id)}
-                    disabled={!canAccess}
-                    aria-label={actionLabel(s.attempt)}
-                  >
-                    {submitted ? <VisibilityOutlinedIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
-                  </IconButton>
-                </span>
-              </Tooltip>
-            }
-            sx={{
-              mb: 2,
-              border: "2px solid",
-              borderColor: focused ? "warning.main" : submitted ? "grey.300" : "success.light",
-              bgcolor: focused
-                ? "rgba(255, 193, 7, 0.12)"
-                : submitted
-                  ? "grey.50"
-                  : "rgba(76, 175, 80, 0.08)",
-              boxShadow: focused ? (theme: Theme) => `0 0 0 1px ${theme.palette.warning.main}` : undefined,
-              transition: "border-color 0.3s, background-color 0.3s, box-shadow 0.3s",
-            }}
-          />
+                </>
+              }
+              actions={<StudentExamRowIcon submitted={submitted} canAccess={canAccess} />}
+              sx={{
+                mb: 2,
+                border: "2px solid",
+                borderColor: focused ? "warning.main" : submitted ? "grey.300" : "success.light",
+                bgcolor: focused
+                  ? "rgba(255, 193, 7, 0.12)"
+                  : submitted
+                    ? "grey.50"
+                    : "rgba(76, 175, 80, 0.08)",
+                boxShadow: focused ? (theme: Theme) => `0 0 0 1px ${theme.palette.warning.main}` : undefined,
+                transition: "border-color 0.3s, background-color 0.3s, box-shadow 0.3s",
+              }}
+            />
+            </Box>
+          </Tooltip>
         );
       })}
     </Box>
