@@ -6,6 +6,8 @@ import time
 import httpx
 
 from app.config import settings
+from app.services.opencode_cloud_client import generate_chat_cloud, generate_text_cloud
+from app.services.opencode_errors import OpenCodeError, generation_system, run_profile
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +26,19 @@ _DISABLED_TOOLS = {
 }
 
 
-class OpenCodeError(Exception):
-    def __init__(self, message: str, *, retryable: bool = True) -> None:
-        super().__init__(message)
-        self.retryable = retryable
+def _uses_cloud_api() -> bool:
+    return bool((settings.opencode_api_key or "").strip())
+
+
+def _raise_missing_config() -> None:
+    if os.getenv("VERCEL"):
+        hint = "הגדר OPENCODE_API_KEY ב-Vercel → Environment Variables."
+    else:
+        hint = (
+            "הגדר OPENCODE_API_KEY (ענן) או OPENCODE_SERVER_URL + opencode serve (מקומי) "
+            "ב-backend/.env."
+        )
+    raise OpenCodeError(f"שירות AI אינו מוגדר. {hint}")
 
 
 def _server_url() -> str:
@@ -114,29 +125,6 @@ def _user_message(status: int, detail: str, suggestions: list[str]) -> str:
     if status in _TRANSIENT_STATUSES or "unavailable" in detail_lower:
         return "שירות OpenCode עמוס כרגע — נסו בעוד דקה."
     return "שגיאה בשירות הבינה המלאכותית"
-
-
-_GENERATION_SYSTEM = (
-    "You generate exam questions in the exact format requested. "
-    "Reply as the Assistant only. Text only, no tools."
-)
-
-
-def _run_profile(*, for_generation: bool) -> dict[str, str | float]:
-    timeout = settings.opencode_timeout_seconds
-    if for_generation:
-        return {
-            "model_id": settings.opencode_generation_model_id,
-            "agent": settings.opencode_generation_agent,
-            "session_title": settings.opencode_generation_session_title,
-            "timeout": timeout,
-        }
-    return {
-        "model_id": settings.opencode_model_id,
-        "agent": settings.opencode_agent,
-        "session_title": settings.opencode_session_title,
-        "timeout": timeout,
-    }
 
 
 def _contents_to_prompt(contents: list[dict]) -> str:
@@ -311,9 +299,9 @@ async def _generate_with_profile(
     timeout_seconds: float | None,
     for_generation: bool,
 ) -> str:
-    profile = _run_profile(for_generation=for_generation)
+    profile = run_profile(for_generation=for_generation)
     timeout = timeout_seconds or float(profile["timeout"])
-    resolved_system = system or (_GENERATION_SYSTEM if for_generation else None)
+    resolved_system = system or (generation_system() if for_generation else None)
     retries = max(0, settings.opencode_retry_count)
     delay = settings.opencode_retry_delay_seconds
     last: OpenCodeError | None = None
@@ -352,14 +340,15 @@ async def generate_text(
     timeout_seconds: float | None = None,
     for_generation: bool = False,
 ) -> str:
-    url = (settings.opencode_server_url or "").strip()
-    if not url:
-        hint = (
-            "הגדר OPENCODE_SERVER_URL ב-Vercel → Environment Variables."
-            if os.getenv("VERCEL")
-            else "הגדר OPENCODE_SERVER_URL ב-backend/.env והפעל opencode serve."
+    if _uses_cloud_api():
+        return await generate_text_cloud(
+            prompt,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
         )
-        raise OpenCodeError(f"שירות AI אינו מוגדר. {hint}")
+    if not (settings.opencode_server_url or "").strip():
+        _raise_missing_config()
     return await _generate_with_profile(
         prompt,
         system=system,
@@ -375,6 +364,13 @@ async def generate_chat(
     timeout_seconds: float | None = None,
     for_generation: bool = False,
 ) -> str:
+    if _uses_cloud_api():
+        return await generate_chat_cloud(
+            contents,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
     prompt = _contents_to_prompt(contents)
     return await generate_text(
         prompt,

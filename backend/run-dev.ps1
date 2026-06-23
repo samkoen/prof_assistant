@@ -14,8 +14,8 @@ if (-not (Test-Path ".env")) {
 
 if (-not (Test-Path ".venv")) {
     python -m venv .venv
-    .\.venv\Scripts\pip install -r requirements.txt
 }
+.\.venv\Scripts\pip install -r requirements.txt
 
 Write-Host "Init DB..." -ForegroundColor Cyan
 .\.venv\Scripts\python.exe -m scripts.init_db

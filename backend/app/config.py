@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     opencode_server_username: str = "opencode"
     opencode_server_password: str = ""
     opencode_provider_id: str = "opencode-go"
+    # Cloud OpenCode (Vercel) — API compatible OpenAI ; prioritaire si OPENCODE_API_KEY est défini.
+    opencode_api_key: str = ""
+    opencode_api_base_url: str = "https://opencode.ai/zen/go/v1"
     opencode_model_id: str = "deepseek-v4-flash"
     opencode_agent: str = "build"
     opencode_session_title: str = "exam-ai-explanation"
