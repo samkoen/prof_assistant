@@ -8,9 +8,6 @@
       "maxDuration": 30
     }
   },
-  "crons": [
-    { "path": "/api/health", "schedule": "*/5 * * * *" }
-  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
