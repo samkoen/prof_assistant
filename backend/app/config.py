@@ -95,6 +95,22 @@ class Settings(BaseSettings):
     gemini_source_max_total_chars: int = 120_000
     gemini_source_max_files_per_exam: int = 5
 
+    opencode_server_url: str = ""
+    opencode_server_username: str = "opencode"
+    opencode_server_password: str = ""
+    opencode_provider_id: str = "opencode-go"
+    opencode_model_id: str = "deepseek-v4-flash"
+    opencode_agent: str = "build"
+    opencode_session_title: str = "exam-ai-explanation"
+    # Délai max HTTP vers opencode serve (explications élève + génération prof).
+    opencode_timeout_seconds: float = 240.0
+    opencode_retry_count: int = 2
+    opencode_retry_delay_seconds: float = 2.0
+    opencode_generation_model_id: str = "deepseek-v4-flash"
+    # "plan" lance une phase de planification OpenCode — trop lent pour du QCM texte seul.
+    opencode_generation_agent: str = "build"
+    opencode_generation_session_title: str = "exam-ai-generation"
+
     question_images_dir: str = "data/question_images"
     question_image_max_bytes: int = 5 * 1024 * 1024
 

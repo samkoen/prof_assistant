@@ -23,6 +23,7 @@ import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import type { ExamDetail, Question } from "../api/client";
 import type { ParseResult } from "../utils/qcmImportParser";
 import { he } from "../i18n/he";
+import { isDevEnvironment } from "../utils/isDevEnvironment";
 
 export type QuestionAddMethod = "manual" | "gemini" | "paste";
 
@@ -292,7 +293,7 @@ export default function ExamEditorQuestionsPanel({
 
   return (
     <Box>
-      {hasQuestions && (
+      {hasQuestions && isDevEnvironment && (
         <Box dir="rtl" sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
           <Button size="small" variant="outlined" startIcon={<FileUploadIcon />} onClick={() => setExportOpen(true)}>
             {he.portableExportExam}
@@ -315,13 +316,15 @@ export default function ExamEditorQuestionsPanel({
           {renderAddSection()}
         </>
       )}
-      <ExamPortableExportDialog
-        open={exportOpen}
-        examId={examId}
-        examTitle={exam.title}
-        initialExam={exam}
-        onClose={() => setExportOpen(false)}
-      />
+      {isDevEnvironment && (
+        <ExamPortableExportDialog
+          open={exportOpen}
+          examId={examId}
+          examTitle={exam.title}
+          initialExam={exam}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </Box>
   );
 }

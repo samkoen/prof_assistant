@@ -41,6 +41,21 @@ export function questionsFingerprint(questions: Question[]): string {
   return JSON.stringify(normalizeQuestions(questions));
 }
 
+export function mergeSavedQuestion(
+  questions: Question[],
+  saved: Question,
+  created: boolean,
+): Question[] {
+  const next = created
+    ? [...questions, saved]
+    : questions.map((q) => (q.id === saved.id ? saved : q));
+  return [...next].sort((a, b) => a.order_index - b.order_index || a.id - b.id);
+}
+
+export function removeQuestionFromList(questions: Question[], questionId: number): Question[] {
+  return questions.filter((q) => q.id !== questionId);
+}
+
 function questionMatchKey(q: Question): string {
   return `${q.question_type}::${q.text}::${q.image_url ?? ""}`;
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Box, Button, CircularProgress, IconButton, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from "@mui/material";
 import ImageIcon from "@mui/icons-material/Image";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { ApiError, uploadQuestionImage } from "../api/client";
@@ -14,6 +14,8 @@ type QuestionImageFieldProps = {
   onChange: (url: string | null) => void;
   disabled?: boolean;
   label?: string;
+  /** Sans libellé, boutons icônes — pour les lignes d’options. */
+  compact?: boolean;
 };
 
 export default function QuestionImageField({
@@ -22,6 +24,7 @@ export default function QuestionImageField({
   onChange,
   disabled = false,
   label,
+  compact = false,
 }: QuestionImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -46,15 +49,47 @@ export default function QuestionImageField({
     }
   };
 
+  const addButton = compact ? (
+    <Tooltip title={he.addQuestionImage}>
+      <span>
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={pickFile}
+          disabled={disabled || uploading}
+          aria-label={he.addQuestionImage}
+        >
+          {uploading ? <CircularProgress size={16} /> : <ImageIcon fontSize="small" />}
+        </IconButton>
+      </span>
+    </Tooltip>
+  ) : (
+    <Button
+      size="small"
+      variant="outlined"
+      startIcon={uploading ? <CircularProgress size={16} /> : <ImageIcon />}
+      onClick={pickFile}
+      disabled={disabled || uploading}
+    >
+      {he.addQuestionImage}
+    </Button>
+  );
+
   return (
-    <Box sx={{ mb: 1.5 }}>
-      {label && (
+    <Box sx={{ mb: compact ? 0 : 1.5 }}>
+      {label && !compact && (
         <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
           {label}
         </Typography>
       )}
-      <QuestionImageDisplay url={value} />
-      <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+      {value && (
+        <QuestionImageDisplay
+          url={value}
+          maxHeight={compact ? 96 : 220}
+          sx={compact ? { mt: 0.5, mb: 0.5 } : undefined}
+        />
+      )}
+      <Box display="flex" alignItems="center" gap={0.5} flexWrap="wrap">
         <input
           ref={inputRef}
           type="file"
@@ -62,25 +97,19 @@ export default function QuestionImageField({
           hidden
           onChange={(e) => void handleFile(e.target.files?.[0])}
         />
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={uploading ? <CircularProgress size={16} /> : <ImageIcon />}
-          onClick={pickFile}
-          disabled={disabled || uploading}
-        >
-          {he.addQuestionImage}
-        </Button>
+        {addButton}
         {value && (
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => onChange(null)}
-            disabled={disabled || uploading}
-            aria-label={he.removeQuestionImage}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
+          <Tooltip title={he.removeQuestionImage}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onChange(null)}
+              disabled={disabled || uploading}
+              aria-label={he.removeQuestionImage}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Box>
       {error && (

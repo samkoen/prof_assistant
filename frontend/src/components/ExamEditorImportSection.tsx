@@ -15,6 +15,7 @@ import { QCM_FORMAT_EXAMPLE, type ParsedQuestion, type ParseResult } from "../ut
 import { contentDirFromFirstQuestion } from "../utils/examQuestionsLanguage";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
+import { isDevEnvironment } from "../utils/isDevEnvironment";
 
 interface ExamEditorImportSectionProps {
   exam: ExamDetail;
@@ -46,9 +47,11 @@ export default function ExamEditorImportSection({
         </Typography>
       </Box>
       <PasteHints />
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {he.pasteQcmHintCrossEnv}
-      </Typography>
+      {isDevEnvironment && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {he.pasteQcmHintCrossEnv}
+        </Typography>
+      )}
       <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
         <Button size="small" variant="outlined" onClick={onCopyPrompt}>
           {he.copyGeminiPrompt}

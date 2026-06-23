@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import { api, ApiError, type AiExplanation } from "../api/client";
+import AiExplanationMarkdown from "./AiExplanationMarkdown";
 import { he } from "../i18n/he";
 
 interface QuestionAiExplanationProps {
@@ -23,7 +24,7 @@ export default function QuestionAiExplanation({
   const [error, setError] = useState("");
   const [explanation, setExplanation] = useState("");
   const [fromCache, setFromCache] = useState(false);
-  const isHebrew = language === "he";
+  const explanationDir = language === "he" || language === "ru" ? "rtl" : "ltr";
 
   const requestExplanation = async (regenerate = false) => {
     setLoading(true);
@@ -75,7 +76,7 @@ export default function QuestionAiExplanation({
       )}
       {explanation && (
         <Box
-          dir={isHebrew ? "ltr" : "rtl"}
+          dir={explanationDir}
           sx={{
             mt: 1.5,
             p: 1.5,
@@ -86,7 +87,7 @@ export default function QuestionAiExplanation({
             textAlign: "start",
             unicodeBidi: "isolate",
             "& .MuiTypography-root": {
-              direction: isHebrew ? "ltr" : "rtl",
+              direction: explanationDir,
               textAlign: "start",
             },
           }}
@@ -99,12 +100,7 @@ export default function QuestionAiExplanation({
               {he.aiExplanationFromCache}
             </Typography>
           )}
-          <Typography
-            component="div"
-            sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflow: "visible" }}
-          >
-            {explanation}
-          </Typography>
+          <AiExplanationMarkdown content={explanation} dir={explanationDir} />
         </Box>
       )}
     </Box>

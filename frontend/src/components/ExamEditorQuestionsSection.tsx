@@ -10,6 +10,7 @@ import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail, Question } from "../api/client";
 import { contentDirForExam } from "../utils/examQuestionsLanguage";
+import { questionsFingerprint } from "../utils/examEditorChanges";
 import { he } from "../i18n/he";
 
 interface ExamEditorQuestionsSectionProps {
@@ -69,7 +70,7 @@ export default function ExamEditorQuestionsSection({
       )}
       {exam.questions.map((q, i) => (
         <QuestionRow
-          key={q.id}
+          key={`${q.id}-${questionsFingerprint([q])}`}
           contentDir={contentDir}
           actions={
             exam.is_editable ? (

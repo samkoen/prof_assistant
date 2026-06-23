@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, type ReactNode } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { Box, IconButton, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
 import type { TextFieldProps } from "@mui/material";
@@ -32,6 +32,8 @@ interface DirectionalMultilineFieldProps
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   /** Bouton code : entoure la sélection avec ``` … ``` */
   enableCodeMarkup?: boolean;
+  /** Contenu aligné à droite (RTL) sur la barre d’outils — ex. checkbox « נכון ». */
+  toolbarInlineStart?: ReactNode;
 }
 
 function DirectionToolbar({
@@ -90,6 +92,7 @@ export default function DirectionalMultilineField({
   mixedNewlineOnShiftEnter = false,
   onKeyDown,
   enableCodeMarkup = false,
+  toolbarInlineStart,
 }: DirectionalMultilineFieldProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingCursorRef = useRef<number | null>(null);
@@ -168,25 +171,26 @@ export default function DirectionalMultilineField({
 
   return (
     <Box sx={sx}>
-      {(showHint || enableCodeMarkup) && (
+      {(showHint || enableCodeMarkup || toolbarInlineStart) && (
         <Box
           sx={{
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
-            gap: 1,
-            justifyContent: "space-between",
-            mb: 0.5,
+            gap: 0.5,
+            width: "100%",
+            mb: showHint ? 0.5 : 0.25,
           }}
         >
+          {toolbarInlineStart}
           {showHint ? (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
               {isMixed ? he.textDirectionMixedHint : he.textDirectionHint}
             </Typography>
           ) : (
-            <span />
+            <Box sx={{ flex: 1, minWidth: 0 }} />
           )}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
             {enableCodeMarkup && (
               <Tooltip title={he.markSelectionAsCode}>
                 <span>

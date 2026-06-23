@@ -1,10 +1,11 @@
-import { Box } from "@mui/material";
+import { Box, type SxProps, type Theme } from "@mui/material";
 import { resolveApiUrl } from "../api/client";
 
 type QuestionImageDisplayProps = {
   url: string | null | undefined;
   alt?: string;
   maxHeight?: number;
+  sx?: SxProps<Theme>;
 };
 
 /** Affiche une image de question/réponse avec URL API relative. */
@@ -12,6 +13,7 @@ export default function QuestionImageDisplay({
   url,
   alt = "",
   maxHeight = 220,
+  sx,
 }: QuestionImageDisplayProps) {
   if (!url) return null;
   const src = resolveApiUrl(url);
@@ -24,11 +26,12 @@ export default function QuestionImageDisplay({
         display: "block",
         maxWidth: "100%",
         maxHeight,
-        mt: url ? 1 : 0,
+        mt: 1,
         mb: 1,
         borderRadius: 1,
         border: "1px solid",
         borderColor: "divider",
+        ...sx,
       }}
     />
   );

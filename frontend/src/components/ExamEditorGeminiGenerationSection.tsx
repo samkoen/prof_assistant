@@ -317,10 +317,16 @@ export default function ExamEditorGeminiGenerationSection({
 function resolveGeminiApiError(e: unknown): string {
   if (!(e instanceof ApiError)) return he.errorGeneric;
   const msg = e.message.toLowerCase();
-  if (msg.includes("מכסת gemini") || msg.includes("quota")) {
+  if (msg.includes("opencode go") || msg.includes("quota") || msg.includes("מכסת")) {
     return he.geminiQuotaExceeded;
   }
-  if (msg.includes("עמוס") || msg.includes("busy") || msg.includes("429")) {
+  if (
+    msg.includes("עמוס") ||
+    msg.includes("busy") ||
+    msg.includes("429") ||
+    msg.includes("ארכה יותר") ||
+    msg.includes("timeout")
+  ) {
     return he.geminiServiceBusy;
   }
   return e.message;

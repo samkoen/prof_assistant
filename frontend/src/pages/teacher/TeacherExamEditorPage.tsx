@@ -28,7 +28,9 @@ import {
   toImportPayload,
 } from "../../utils/qcmImportParser";
 import {
+  mergeSavedQuestion,
   questionsFingerprint,
+  removeQuestionFromList,
   revertExamQuestionsToBaseline,
 } from "../../utils/examEditorChanges";
 import { he } from "../../i18n/he";
@@ -188,15 +190,28 @@ export default function TeacherExamEditorPage() {
     }
   };
 
+  const syncQuestionsState = useCallback((updater: (questions: Question[]) => Question[]) => {
+    setExam((prev) => {
+      if (!prev) return prev;
+      const questions = updater(prev.questions);
+      return { ...prev, questions, question_count: questions.length };
+    });
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      return { ...prev, questions: updater(prev.questions) };
+    });
+  }, []);
+
   const deleteQuestion = async () => {
     if (!questionToDelete) return;
-    setDeletingQuestionId(questionToDelete.id);
+    const deletedId = questionToDelete.id;
+    setDeletingQuestionId(deletedId);
     setError("");
     try {
-      await api(`/api/exams/${id}/questions/${questionToDelete.id}`, { method: "DELETE" });
+      await api(`/api/exams/${id}/questions/${deletedId}`, { method: "DELETE" });
       setQuestionToDelete(null);
       setSuccess(he.questionDeleted);
-      await load();
+      syncQuestionsState((questions) => removeQuestionFromList(questions, deletedId));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -356,9 +371,9 @@ export default function TeacherExamEditorPage() {
           setQuestionToEdit(null);
           setCreateQuestionOpen(false);
         }}
-        onSaved={async (created) => {
+        onSaved={(created, saved) => {
           setSuccess(created ? he.questionAdded : he.questionSaved);
-          await load();
+          syncQuestionsState((questions) => mergeSavedQuestion(questions, saved, created));
         }}
       />
 

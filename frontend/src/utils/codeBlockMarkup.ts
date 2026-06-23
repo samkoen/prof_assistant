@@ -1,3 +1,5 @@
+import { splitTextForAsciiDiagrams } from "./asciiDiagramMarkup";
+
 export const CODE_FENCE = "```";
 
 export type MarkedTextSegment =
@@ -42,6 +44,20 @@ export function parseMarkedTextSegments(text: string): MarkedTextSegment[] {
   }
 
   return segments;
+}
+
+/** Blocs ``` explicites, puis détection auto des diagrammes ASCII (arbres, / \\). */
+export function parseDisplayTextSegments(text: string): MarkedTextSegment[] {
+  const fenced = parseMarkedTextSegments(text);
+  const out: MarkedTextSegment[] = [];
+  for (const seg of fenced) {
+    if (seg.kind === "code") {
+      out.push(seg);
+      continue;
+    }
+    out.push(...splitTextForAsciiDiagrams(seg.content));
+  }
+  return out;
 }
 
 function isSelectionFenced(value: string, start: number, end: number): boolean {

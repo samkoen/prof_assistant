@@ -27,13 +27,13 @@ async def explain_question(
 ):
     if body.regenerate:
         text = await regenerate_exam_question_explanation(
-            session_id, question_id, body.language, user, db, for_practice=body.for_practice
+            session_id, question_id, user, db, for_practice=body.for_practice
         )
         return AiExplanationResponse(
             question_id=question_id, explanation=text, from_cache=False
         )
     text, from_cache = await explain_exam_question(
-        session_id, question_id, body.language, user, db, for_practice=body.for_practice
+        session_id, question_id, user, db, for_practice=body.for_practice
     )
     return AiExplanationResponse(
         question_id=question_id,

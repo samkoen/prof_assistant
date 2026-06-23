@@ -1,12 +1,12 @@
 import logging
 from datetime import datetime, timezone
+import time
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.config import settings
 from app.models.exam import Exam
 from app.models.exam_gemini_generation import (
     ExamGeminiGenerationMessage,
@@ -26,7 +26,7 @@ from app.services.exam_questions import (
     persist_question,
     validate_question_body,
 )
-from app.services.gemini_client import GeminiError, generate_chat
+from app.services.opencode_client import OpenCodeError, generate_chat, generate_text
 from app.services.gemini_source_prompt import build_sources_context_block
 from app.services.exam_gemini_source_service import load_sources_for_generation
 from app.services.gemini_debug_email import (
@@ -43,29 +43,44 @@ REFINE_USER_PREFIX = """בקשת עדכון מהמורה:
 {message}
 
 החזר את כל מערך השאלות המלא בפורמט הנדרש (מ-Q1 ברצף), לא רק את השינויים.
-חובה: A) B) C) D) בלבד; ב-single בדיוק אפשרות אחת עם * (שורה * בלבד אחרי A) או * בסוף שורת האפשרות הנכונה)."""
+חובה: A) B) C) D) בלבד; ב-single בדיוק אפשרות אחת עם * (שורה * בלבד אחרי A) או * בסוף שורת האפשרות הנכונה).
+שרטוט עץ: עטוף ב-``` ; כל ערך מחובר ב-/ או \\ ; שורת /\\ כשיש שני ילדים."""
 
 
 def _series_to_params(series: list[GeminiSeriesInput]) -> list[dict]:
     return [s.model_dump() for s in series]
 
 
-def _message_to_response(msg: ExamGeminiGenerationMessage) -> GeminiSessionMessageResponse:
+def _message_to_response(
+    msg: ExamGeminiGenerationMessage,
+    *,
+    slim_initial_prompt: bool = False,
+) -> GeminiSessionMessageResponse:
+    content = msg.content
+    if slim_initial_prompt and msg.role == "user" and "בקשת עדכון מהמורה" not in content:
+        content = "…"
     return GeminiSessionMessageResponse(
         id=msg.id,
         role=msg.role,
-        content=msg.content,
+        content=content,
         created_at=msg.created_at.isoformat(),
     )
 
 
-def _session_to_response(session: ExamGeminiGenerationSession) -> GeminiSessionResponse:
+def _session_to_response(
+    session: ExamGeminiGenerationSession,
+    *,
+    slim_initial_prompt: bool = False,
+) -> GeminiSessionResponse:
     return GeminiSessionResponse(
         id=session.id,
         exam_id=session.exam_id,
         status=session.status,
         raw_text=session.last_raw_text,
-        messages=[_message_to_response(m) for m in session.messages],
+        messages=[
+            _message_to_response(m, slim_initial_prompt=slim_initial_prompt)
+            for m in session.messages
+        ],
     )
 
 
@@ -105,16 +120,14 @@ async def _load_owned_session(
     return session
 
 
-async def _call_gemini(session: ExamGeminiGenerationSession, db: AsyncSession) -> str:
-    contents = _contents_from_messages(list(session.messages))
+async def _call_opencode(session: ExamGeminiGenerationSession, db: AsyncSession) -> str:
+    messages = list(session.messages)
     try:
-        return await generate_chat(
-            contents,
-            max_output_tokens=settings.gemini_generation_max_output_tokens,
-            timeout_seconds=settings.gemini_generation_timeout_seconds,
-            use_generation_fallbacks=True,
-        )
-    except GeminiError as exc:
+        if len(messages) == 1 and messages[0].role == "user":
+            return await generate_text(messages[0].content, for_generation=True)
+        contents = _contents_from_messages(messages)
+        return await generate_chat(contents, for_generation=True)
+    except OpenCodeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
@@ -124,7 +137,7 @@ async def _append_exchange(
     db: AsyncSession,
 ) -> str:
     logger.info(
-        "Gemini prompt (session_id=%s, exam_id=%s):\n%s",
+        "AI generation prompt (session_id=%s, exam_id=%s):\n%s",
         session.id,
         session.exam_id,
         user_text,
@@ -134,7 +147,7 @@ async def _append_exchange(
     )
     await db.flush()
     await db.refresh(session, ["messages"])
-    raw = await _call_gemini(session, db)
+    raw = await _call_opencode(session, db)
     db.add(
         ExamGeminiGenerationMessage(session_id=session.id, role="model", content=raw)
     )
@@ -164,14 +177,21 @@ async def create_generation_session(
     await db.flush()
     sources_block = build_sources_context_block(sources)
     prompt = build_questions_generation_prompt(series, exam.title, sources_block)
+    started = time.monotonic()
     await _append_exchange(session, prompt, db)
+    logger.info(
+        "gemini-sessions create exam_id=%s session_id=%s took %.1fs",
+        exam.id,
+        session.id,
+        time.monotonic() - started,
+    )
     await db.commit()
     result = await db.execute(
         select(ExamGeminiGenerationSession)
         .options(selectinload(ExamGeminiGenerationSession.messages))
         .where(ExamGeminiGenerationSession.id == session.id)
     )
-    return _session_to_response(result.scalar_one())
+    return _session_to_response(result.scalar_one(), slim_initial_prompt=True)
 
 
 async def refine_generation_session(
