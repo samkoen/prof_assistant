@@ -1,5 +1,5 @@
-/** Hauteur AppBar DashboardLayout — aligner le sticky sous la barre fixe. */
-export const dashboardAppBarStickyTop = { xs: 56, sm: 64 } as const;
+/** Offset sticky sous barre fixe — plus d'AppBar haute. */
+export const dashboardAppBarStickyTop = 0;
 
-/** scroll-margin pour les cartes question (AppBar + barre navigation exam). */
-export const examQuestionScrollMarginTop = { xs: 168, sm: 176 } as const;
+/** scroll-margin pour les cartes question (barre navigation exam sticky). */
+export const examQuestionScrollMarginTop = { xs: 120, sm: 128 } as const;

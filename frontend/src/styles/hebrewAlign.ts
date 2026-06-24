@@ -253,6 +253,35 @@ export const sidebarNavTextSx = {
   textAlign: "right",
 } as const;
 
+/** Liste menu latéral — scroll interne, en-tête/pied fixes. */
+export const sidebarNavListScrollSx = {
+  flex: 1,
+  minHeight: 0,
+  overflowY: "auto",
+  overflowX: "hidden",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  px: 1.5,
+  py: 2,
+  scrollbarWidth: "thin",
+  "&::-webkit-scrollbar": { width: 6 },
+  "&::-webkit-scrollbar-thumb": {
+    bgcolor: "rgba(255,255,255,0.35)",
+    borderRadius: 3,
+  },
+} as const;
+
+export const sidebarFooterSx = {
+  flexShrink: 0,
+} as const;
+
+export const sidebarHeaderSx = {
+  flexShrink: 0,
+  px: 2.5,
+  py: 2,
+  borderBottom: "1px solid rgba(255,255,255,0.12)",
+} as const;
+
 /** Tableau DataListTable : titres et valeurs RTL, alignés à droite. */
 export const hebrewDataListTableSx = {
   "& .MuiTableCell-root": {

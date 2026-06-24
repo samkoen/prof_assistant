@@ -8,6 +8,8 @@ export const he = {
     "ממשק מלא בעברית — נוח לכל משתמש",
   ],
   mainMenu: "תפריט ראשי",
+  hideSidebar: "הסתר תפריט",
+  showSidebar: "הצג תפריט",
   login: "התחברות",
   register: "הרשמה",
   registerSuccessAwaitVerification:
