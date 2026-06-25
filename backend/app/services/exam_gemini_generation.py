@@ -33,18 +33,19 @@ from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
     send_gemini_parse_error_email,
 )
-from app.services.gemini_question_prompt import build_questions_generation_prompt
-from app.services.gemini_text_cleanup import clean_gemini_user_text
+from app.services.gemini_question_prompt import (
+    build_questions_generation_prompt,
+    build_refine_user_message,
+)
 
 logger = logging.getLogger(__name__)
 
 MAX_REFINE_TURNS = 12
-REFINE_USER_PREFIX = """בקשת עדכון מהמורה:
-{message}
 
-החזר את כל מערך השאלות המלא בפורמט הנדרש (מ-Q1 ברצף), לא רק את השינויים.
-חובה: A) B) C) D) בלבד; ב-single בדיוק אפשרות אחת עם * (שורה * בלבד אחרי A) או * בסוף שורת האפשרות הנכונה).
-שרטוט עץ: עטוף ב-``` ; כל ערך מחובר ב-/ או \\ ; שורת /\\ כשיש שני ילדים."""
+
+def _series_from_session(session: ExamGeminiGenerationSession) -> list[GeminiSeriesInput]:
+    raw = (session.initial_params or {}).get("series") or []
+    return [GeminiSeriesInput.model_validate(item) for item in raw]
 
 
 def _series_to_params(series: list[GeminiSeriesInput]) -> list[dict]:
@@ -206,7 +207,7 @@ async def refine_generation_session(
     user_turns = sum(1 for m in session.messages if m.role == "user")
     if user_turns >= MAX_REFINE_TURNS:
         raise HTTPException(status_code=400, detail="הגעתם למספר המקסימלי של בקשות עדכון")
-    refine_text = REFINE_USER_PREFIX.format(message=clean_gemini_user_text(message))
+    refine_text = build_refine_user_message(message, _series_from_session(session))
     await _append_exchange(session, refine_text, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))

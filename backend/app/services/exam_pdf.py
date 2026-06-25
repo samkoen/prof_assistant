@@ -174,8 +174,12 @@ def _option_label(index: int, layout: PdfLayout) -> str:
     return chr(ord("A") + index) if index < 26 else str(index + 1)
 
 
+def _backend_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
 def _font_candidates() -> list[Path]:
-    root = Path(__file__).resolve().parent.parent
+    root = _backend_root()
     return [
         root / "assets" / "fonts" / "DejaVuSans.ttf",
         root / "assets" / "fonts" / "SegoeUI.ttf",

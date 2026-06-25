@@ -34,39 +34,13 @@ _LANG_CONFIG: dict[GeminiSeriesLanguage, dict[str, str]] = {
     },
 }
 
-
-def _format_rules(lang: GeminiSeriesLanguage) -> str:
-    cfg = _LANG_CONFIG[lang]
-    return f"""פורמט חובה:
-- הפרד בין שאלות בשורה --- בלבד
-- כותרת: Q<num> [single|multiple|true_false] (1 pt) — מספר רץ גלובלי
-- {cfg["write"]}
-- אפשרויות: A) B) C) D) — אחרי A) מותרות שורות נוספות (שרטוט עץ, טבלה ASCII וכו')
-- שרטוט ASCII (עץ AVL, מבנה נתונים): חובה לעטוף ב-``` לפני ואחרי השרטוט (שורות נפרדות), בתוך האפשרות — לא מחוץ ל-A) B)
-- סימון נכון (חובה): שורה * בלבד מיד אחרי A), או A) * ואז טקסט, או * בסוף שורת התשובה — לא לכתוב «לא נכון» כסימון (רק * או ✓)
-- דוגמה בחירה יחידה עם עץ:
-  B)
-  *
-  ```
-      30
-     /  \\
-   20    40
-        \\
-       35
-  ```
-- דוגמה בחירה יחידה (טקסט רגיל):
-  A)
-  *
-  טקסט האפשרות הנכונה
-  C) אפשרות שגויה
-- {cfg["tf"]}
-- בחירה יחידה: בדיוק אפשרות אחת עם * (חובה — בלי * המערכת תדחה)
-- בחירה מרובה: לפחות שתי אפשרויות, לפחות אחת עם *
-- markdown: מותר ``` סביב שרטוט ASCII; גם **מודגש**, *נטוי*, `קוד`, רשימות עם -
-- אסור: א) ב) ג) — רק A) B) C) D); אסור * בתוך טקסט (רק כסימון נכון)"""
-
 _TREE_TOPIC_RE = re.compile(
-    r"avl|עץ|עצים|tree|הוספ|מחיק|insert|delete|/|\\",
+    r"avl|"
+    r"עץ|עצים|"
+    r"\btree\b|binary\s*tree|b[- ]?tree|"
+    r"עץ\s*(avl|בינאר|חיפוש|מאוזן)|"
+    r"הוספ(?:ה|ת).*עץ|מחיק(?:ה|ת).*עץ|"
+    r"מבנה\s*נתונים.*עץ",
     re.IGNORECASE,
 )
 
@@ -100,8 +74,49 @@ B)
 """
 
 
-def _series_needs_tree_hint(series: list[GeminiSeriesInput]) -> bool:
+def series_needs_tree_hint(series: list[GeminiSeriesInput]) -> bool:
     return any(_TREE_TOPIC_RE.search(s.instructions) for s in series)
+
+
+def _format_rules(lang: GeminiSeriesLanguage, *, include_tree: bool) -> str:
+    cfg = _LANG_CONFIG[lang]
+    tree_rules = ""
+    if include_tree:
+        tree_rules = """
+- אחרי A) מותרות שורות נוספות (שרטוט עץ, טבלה ASCII וכו')
+- שרטוט ASCII (עץ AVL, מבנה נתונים): חובה לעטוף ב-``` לפני ואחרי השרטוט (שורות נפרדות), בתוך האפשרות — לא מחוץ ל-A) B)
+- דוגמה בחירה יחידה עם עץ:
+  B)
+  *
+  ```
+      30
+     /  \\
+   20    40
+        \\
+       35
+  ```
+"""
+    markdown_rule = (
+        "- markdown: מותר ``` סביב שרטוט ASCII; גם **מודגש**, *נטוי*, `קוד`, רשימות עם -"
+        if include_tree
+        else "- markdown: מותר ``` לקוד; גם **מודגש**, *נטוי*, `קוד`, רשימות עם -"
+    )
+    return f"""פורמט חובה:
+- הפרד בין שאלות בשורה --- בלבד
+- כותרת: Q<num> [single|multiple|true_false] (1 pt) — מספר רץ גלובלי
+- {cfg["write"]}
+- אפשרויות: A) B) C) D)
+{tree_rules}- סימון נכון (חובה): שורה * בלבד מיד אחרי A), או A) * ואז טקסט, או * בסוף שורת התשובה — לא לכתוב «לא נכון» כסימון (רק * או ✓)
+- דוגמה בחירה יחידה (טקסט רגיל):
+  A)
+  *
+  טקסט האפשרות הנכונה
+  C) אפשרות שגויה
+- {cfg["tf"]}
+- בחירה יחידה: בדיוק אפשרות אחת עם * (חובה — בלי * המערכת תדחה)
+- בחירה מרובה: לפחות שתי אפשרויות, לפחות אחת עם *
+- {markdown_rule}
+- אסור: א) ב) ג) — רק A) B) C) D); אסור * בתוך טקסט (רק כסימון נכון)"""
 
 
 def _types_line(types: list[QuestionType]) -> str:
@@ -130,14 +145,15 @@ def build_questions_generation_prompt(
     title_clean = clean_gemini_user_text(exam_title) if exam_title else ""
     title_line = f"מבחן: {title_clean}\n" if title_clean else ""
     blocks = "\n".join(_series_block(i + 1, s) for i, s in enumerate(series))
+    include_tree = series_needs_tree_hint(series)
     languages = sorted({s.language for s in series})
     if len(languages) == 1:
-        format_rules = _format_rules(languages[0])
+        format_rules = _format_rules(languages[0], include_tree=include_tree)
     else:
-        per_lang = "\n\n".join(_format_rules(lang) for lang in languages)
+        per_lang = "\n\n".join(_format_rules(lang, include_tree=include_tree) for lang in languages)
         format_rules = f"לכל סדרה — השתמש בשפת הסדרה:\n\n{per_lang}"
     sources_part = f"\n{sources_block}\n" if sources_block.strip() else ""
-    tree_hint = _AVL_TREE_FORMAT if _series_needs_tree_hint(series) else ""
+    tree_hint = _AVL_TREE_FORMAT if include_tree else ""
     return f"""צור שאלות מבחן (QCM).
 {sources_part}
 {title_line}סה״כ {total} שאלות לפי הסדרות:
@@ -147,3 +163,18 @@ def build_questions_generation_prompt(
 {format_rules}
 {tree_hint}
 התחל מיד עם --- ואז Q1 — ללא הקדמה."""
+
+
+def build_refine_user_message(message: str, series: list[GeminiSeriesInput]) -> str:
+    cleaned = clean_gemini_user_text(message)
+    tree_line = ""
+    if series_needs_tree_hint(series):
+        tree_line = (
+            "שרטוט עץ: עטוף ב-``` ; כל ערך מחובר ב-/ או \\ ; שורת /\\ כשיש שני ילדים.\n"
+        )
+    return f"""בקשת עדכון מהמורה:
+{cleaned}
+
+החזר את כל מערך השאלות המלא בפורמט הנדרש (מ-Q1 ברצף), לא רק את השינויים.
+חובה: A) B) C) D) בלבד; ב-single בדיוק אפשרות אחת עם * (שורה * בלבד אחרי A) או * בסוף שורת האפשרות הנכונה).
+{tree_line}"""
