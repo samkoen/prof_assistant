@@ -1264,7 +1264,6 @@ async def take_exam_session(
         await db.refresh(attempt)
         return ExamTakeResponse(
             **_take_meta(session, exam),
-            integrity_mode_enabled=True,
             attempt=_attempt_response(attempt, exam.id),
             questions=[],
         )
