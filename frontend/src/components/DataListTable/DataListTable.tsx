@@ -247,7 +247,7 @@ export default function DataListTable<T>({
   const filteredSorted = useMemo(() => {
     let list = [...rows];
     for (const col of visibleColumns) {
-      if (!col.filterable) continue;
+      if (col.filterable === false) continue;
       const q = (debouncedFilters[col.key] ?? "").trim().toLowerCase();
       if (!q) continue;
       list = list.filter((row) =>

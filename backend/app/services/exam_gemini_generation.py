@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, timezone
 import time
 
 from fastapi import HTTPException
@@ -16,6 +15,7 @@ from app.models.exam_gemini_generation import (
 from app.models.user import User
 from app.schemas.exam import QuestionsImportRequest
 from app.schemas.gemini_questions import (
+    GeminiGenerationProgress,
     GeminiSeriesInput,
     GeminiSessionMessageResponse,
     GeminiSessionResponse,
@@ -26,17 +26,20 @@ from app.services.exam_questions import (
     persist_question,
     validate_question_body,
 )
-from app.services.opencode_client import OpenCodeError, generate_chat, generate_text
-from app.services.gemini_source_prompt import build_sources_context_block
-from app.services.exam_gemini_source_service import load_sources_for_generation
+from app.services.ai_client import AiError, generate_chat, generate_text
+from app.services.gemini_batch_runner import (
+    batch_progress,
+    init_batch_params,
+    load_sources_block,
+    mark_manual_refine,
+    run_generation_batch,
+)
 from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
     send_gemini_parse_error_email,
 )
-from app.services.gemini_question_prompt import (
-    build_questions_generation_prompt,
-    build_refine_user_message,
-)
+from app.services.gemini_question_dedup import find_duplicate_pairs
+from app.services.gemini_question_prompt import build_refine_user_message
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +51,6 @@ def _series_from_session(session: ExamGeminiGenerationSession) -> list[GeminiSer
     return [GeminiSeriesInput.model_validate(item) for item in raw]
 
 
-def _series_to_params(series: list[GeminiSeriesInput]) -> list[dict]:
-    return [s.model_dump() for s in series]
-
-
 def _message_to_response(
     msg: ExamGeminiGenerationMessage,
     *,
@@ -59,7 +58,8 @@ def _message_to_response(
 ) -> GeminiSessionMessageResponse:
     content = msg.content
     if slim_initial_prompt and msg.role == "user" and "בקשת עדכון מהמורה" not in content:
-        content = "…"
+        if "עכשיו צור בדיוק" in content or "צור שאלות מבחן" in content:
+            content = "…"
     return GeminiSessionMessageResponse(
         id=msg.id,
         role=msg.role,
@@ -73,6 +73,8 @@ def _session_to_response(
     *,
     slim_initial_prompt: bool = False,
 ) -> GeminiSessionResponse:
+    params = session.initial_params or {}
+    progress = batch_progress(params)
     return GeminiSessionResponse(
         id=session.id,
         exam_id=session.exam_id,
@@ -82,6 +84,7 @@ def _session_to_response(
             _message_to_response(m, slim_initial_prompt=slim_initial_prompt)
             for m in session.messages
         ],
+        generation_progress=GeminiGenerationProgress(**progress),
     )
 
 
@@ -121,24 +124,24 @@ async def _load_owned_session(
     return session
 
 
-async def _call_opencode(session: ExamGeminiGenerationSession, db: AsyncSession) -> str:
+async def _call_opencode(session: ExamGeminiGenerationSession) -> str:
     messages = list(session.messages)
     try:
         if len(messages) == 1 and messages[0].role == "user":
             return await generate_text(messages[0].content, for_generation=True)
         contents = _contents_from_messages(messages)
         return await generate_chat(contents, for_generation=True)
-    except OpenCodeError as exc:
+    except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-async def _append_exchange(
+async def _append_refine_exchange(
     session: ExamGeminiGenerationSession,
     user_text: str,
     db: AsyncSession,
 ) -> str:
     logger.info(
-        "AI generation prompt (session_id=%s, exam_id=%s):\n%s",
+        "AI refine prompt (session_id=%s, exam_id=%s):\n%s",
         session.id,
         session.exam_id,
         user_text,
@@ -148,12 +151,11 @@ async def _append_exchange(
     )
     await db.flush()
     await db.refresh(session, ["messages"])
-    raw = await _call_opencode(session, db)
+    raw = await _call_opencode(session)
     db.add(
         ExamGeminiGenerationMessage(session_id=session.id, role="model", content=raw)
     )
-    session.last_raw_text = raw
-    session.updated_at = datetime.now(timezone.utc)
+    mark_manual_refine(session, raw)
     return raw
 
 
@@ -168,31 +170,54 @@ async def create_generation_session(
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     await _abandon_active_sessions(exam.id, user.id, db)
     ids = source_ids or []
-    sources = await load_sources_for_generation(exam.id, user, ids, db)
+    sources_block = await load_sources_block(exam.id, user, ids, db)
     session = ExamGeminiGenerationSession(
         exam_id=exam.id,
         teacher_id=user.id,
-        initial_params={"series": _series_to_params(series), "source_ids": ids},
+        initial_params=init_batch_params(series, ids, sources_block),
     )
     db.add(session)
     await db.flush()
-    sources_block = build_sources_context_block(sources)
-    prompt = build_questions_generation_prompt(series, exam.title, sources_block)
     started = time.monotonic()
-    await _append_exchange(session, prompt, db)
+    await run_generation_batch(session, exam, series, db)
     logger.info(
-        "gemini-sessions create exam_id=%s session_id=%s took %.1fs",
+        "gemini-sessions create exam_id=%s session_id=%s batch took %.1fs",
         exam.id,
         session.id,
         time.monotonic() - started,
     )
     await db.commit()
-    result = await db.execute(
-        select(ExamGeminiGenerationSession)
-        .options(selectinload(ExamGeminiGenerationSession.messages))
-        .where(ExamGeminiGenerationSession.id == session.id)
+    return _session_to_response(
+        await _load_owned_session(session.id, user, db),
+        slim_initial_prompt=True,
     )
-    return _session_to_response(result.scalar_one(), slim_initial_prompt=True)
+
+
+async def run_next_generation_batch(
+    session_id: int,
+    user: User,
+    db: AsyncSession,
+) -> GeminiSessionResponse:
+    session = await _load_owned_session(session_id, user, db)
+    if session.status != ExamGeminiSessionStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="השיחה אינה פעילה")
+    params = session.initial_params or {}
+    progress = batch_progress(params)
+    if progress["complete"]:
+        raise HTTPException(status_code=400, detail="כל הקבוצות כבר נוצרו")
+    exam = await db.get(Exam, session.exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+    series = _series_from_session(session)
+    started = time.monotonic()
+    await run_generation_batch(session, exam, series, db)
+    logger.info(
+        "gemini-sessions next-batch session_id=%s took %.1fs",
+        session.id,
+        time.monotonic() - started,
+    )
+    await db.commit()
+    return _session_to_response(await _load_owned_session(session_id, user, db))
 
 
 async def refine_generation_session(
@@ -208,7 +233,7 @@ async def refine_generation_session(
     if user_turns >= MAX_REFINE_TURNS:
         raise HTTPException(status_code=400, detail="הגעתם למספר המקסימלי של בקשות עדכון")
     refine_text = build_refine_user_message(message, _series_from_session(session))
-    await _append_exchange(session, refine_text, db)
+    await _append_refine_exchange(session, refine_text, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))
 
@@ -268,6 +293,18 @@ async def report_gemini_parse_error(
     )
 
 
+def _reject_duplicate_import(import_body: QuestionsImportRequest) -> None:
+    stems = [q.text for q in import_body.questions]
+    pair = find_duplicate_pairs(stems)
+    if not pair:
+        return
+    i, j = pair
+    raise HTTPException(
+        status_code=400,
+        detail=f"שאלה {i + 1} דומה מדי לשאלה {j + 1} — ערכו או בקשו ניסוח מחדש",
+    )
+
+
 async def accept_generation_session(
     session_id: int,
     user: User,
@@ -277,11 +314,15 @@ async def accept_generation_session(
     session = await _load_owned_session(session_id, user, db)
     if session.status != ExamGeminiSessionStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="השיחה אינה פעילה")
+    progress = batch_progress(session.initial_params or {})
+    if not progress["complete"]:
+        raise HTTPException(status_code=400, detail="היצירה עדיין לא הושלמה")
     exam = await db.get(Exam, session.exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     if await exam_has_active_sessions(exam.id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    _reject_duplicate_import(import_body)
     if import_body.questions_language is not None:
         exam.questions_language = import_body.questions_language
     start_idx = await next_question_order_index(exam.id, db)

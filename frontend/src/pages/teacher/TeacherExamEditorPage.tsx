@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -16,11 +16,12 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
 import ExamEditorQuestionsPanel from "../../components/ExamEditorQuestionsPanel";
 import ExamEditorSectionAccordion from "../../components/ExamEditorSectionAccordion";
+import ExamContextActionsBar from "../../components/ExamContextActionsBar";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamScopeEditor from "../../components/ExamScopeEditor";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
-import { api, ApiError, type Exam, type ExamDetail, type Question } from "../../api/client";
+import { api, ApiError, type Exam, type ExamDetail, type ExamSession, type Question, type TeacherOfferingExamsBoard } from "../../api/client";
 import {
   parseQcmText,
   QCM_FORMAT_EXAMPLE,
@@ -33,6 +34,7 @@ import {
   removeQuestionFromList,
   revertExamQuestionsToBaseline,
 } from "../../utils/examEditorChanges";
+import { parseOfferingIdFromReturn } from "../../utils/examOfferingActionRules";
 import { he } from "../../i18n/he";
 
 type ExamBaseline = {
@@ -43,9 +45,12 @@ type ExamBaseline = {
 export default function TeacherExamEditorPage() {
   const { examId } = useParams<{ examId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const returnTo = searchParams.get("return") || "/teacher/exams";
+  const offeringId = parseOfferingIdFromReturn(returnTo);
   const id = Number(examId);
   const [exam, setExam] = useState<ExamDetail | null>(null);
+  const [session, setSession] = useState<ExamSession | undefined>();
   const [titleDraft, setTitleDraft] = useState("");
   const [paste, setPaste] = useState("");
   const [loading, setLoading] = useState(true);
@@ -77,9 +82,32 @@ export default function TeacherExamEditorPage() {
     }
   }, [id]);
 
+  const loadSession = useCallback(async () => {
+    if (!offeringId || !id || Number.isNaN(id)) {
+      setSession(undefined);
+      return;
+    }
+    try {
+      const board = await api<TeacherOfferingExamsBoard>(
+        `/api/exams/sessions/offering/${offeringId}/teacher-board`,
+      );
+      setSession(board.sessions.find((s) => s.exam_id === id));
+    } catch {
+      setSession(undefined);
+    }
+  }, [offeringId, id]);
+
+  const refreshExamContext = useCallback(async () => {
+    await Promise.all([load(), loadSession()]);
+  }, [load, loadSession]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
 
   const parseResult = useMemo(() => parseQcmText(paste), [paste]);
   const titleChanged = titleDraft.trim() !== (baseline?.title ?? exam?.title ?? "");
@@ -246,6 +274,21 @@ export default function TeacherExamEditorPage() {
       </Button>
 
       <PageHeroBanner title={he.editExam} subtitle={editBannerSubtitle} />
+
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <ExamContextActionsBar
+          exam={exam}
+          session={session}
+          courseId={offeringId ?? undefined}
+          returnTo={returnTo}
+          hasQuestions={exam.question_count > 0}
+          compactMenu={false}
+          onChanged={refreshExamContext}
+          onError={setError}
+          onSuccess={setSuccess}
+          onDeleted={() => navigate(returnTo)}
+        />
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>

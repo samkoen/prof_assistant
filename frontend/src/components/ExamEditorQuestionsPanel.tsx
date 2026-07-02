@@ -13,17 +13,14 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ExamEditorGeminiGenerationSection from "./ExamEditorGeminiGenerationSection";
 import ExamEditorImportSection from "./ExamEditorImportSection";
 import ExamEditorQuestionsSection from "./ExamEditorQuestionsSection";
-import ExamPortableExportDialog from "./ExamPortableExportDialog";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import type { ExamDetail, Question } from "../api/client";
 import type { ParseResult } from "../utils/qcmImportParser";
 import { he } from "../i18n/he";
-import { isDevEnvironment } from "../utils/isDevEnvironment";
 
 export type QuestionAddMethod = "manual" | "gemini" | "paste";
 
@@ -225,7 +222,6 @@ export default function ExamEditorQuestionsPanel({
   const canEdit = exam.is_editable;
   const [addMethod, setAddMethod] = useState<QuestionAddMethod>("manual");
   const [emptyPicker, setEmptyPicker] = useState(!hasQuestions);
-  const [exportOpen, setExportOpen] = useState(false);
 
   const handleGeminiParseFailed = (rawText: string) => {
     onPasteChange(rawText);
@@ -293,13 +289,6 @@ export default function ExamEditorQuestionsPanel({
 
   return (
     <Box>
-      {hasQuestions && isDevEnvironment && (
-        <Box dir="rtl" sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-          <Button size="small" variant="outlined" startIcon={<FileUploadIcon />} onClick={() => setExportOpen(true)}>
-            {he.portableExportExam}
-          </Button>
-        </Box>
-      )}
       {hasQuestions && (
         <ExamEditorQuestionsSection
           exam={exam}
@@ -315,15 +304,6 @@ export default function ExamEditorQuestionsPanel({
           {hasQuestions && <Divider sx={{ my: 3 }} />}
           {renderAddSection()}
         </>
-      )}
-      {isDevEnvironment && (
-        <ExamPortableExportDialog
-          open={exportOpen}
-          examId={examId}
-          examTitle={exam.title}
-          initialExam={exam}
-          onClose={() => setExportOpen(false)}
-        />
       )}
     </Box>
   );

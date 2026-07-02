@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from pydantic import model_validator
@@ -11,6 +11,19 @@ _PROJECT_DIR = _BACKEND_DIR.parent
 
 _ASYNCPG_STRIP_QUERY = frozenset({"sslmode", "channel_binding"})
 _SSL_REQUIRED_MODES = frozenset({"require", "verify-ca", "verify-full", "prefer"})
+
+AiProviderName = Literal["gemini", "opencode"]
+
+
+def normalize_ai_provider_name(raw: str | None, default: AiProviderName = "gemini") -> AiProviderName:
+    text = (raw or "").strip().lower()
+    if not text:
+        return default
+    if text in ("gemini", "google"):
+        return "gemini"
+    if text in ("opencode", "opencode-go", "opencode_go"):
+        return "opencode"
+    return default
 
 
 def _normalize_asyncpg_driver(url: str) -> str:
@@ -76,6 +89,11 @@ class Settings(BaseSettings):
     password_min_length: int = 6
     warning_minutes_default: int = 10
 
+    # Fournisseur AI : gemini | opencode (défaut si _STUDENT / _TEACHER absents)
+    ai_provider: AiProviderName = "gemini"
+    ai_provider_student: str = ""
+    ai_provider_teacher: str = ""
+
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
     gemini_temperature: float = 0.3
@@ -103,16 +121,13 @@ class Settings(BaseSettings):
     opencode_api_key: str = ""
     opencode_api_base_url: str = "https://opencode.ai/zen/go/v1"
     opencode_model_id: str = "deepseek-v4-flash"
+    # "plan" lance une phase de planification OpenCode — trop lent pour du QCM texte seul.
     opencode_agent: str = "build"
     opencode_session_title: str = "exam-ai-explanation"
-    # Délai max HTTP vers opencode serve (explications élève + génération prof).
+    opencode_generation_session_title: str = "exam-ai-generation"
     opencode_timeout_seconds: float = 240.0
     opencode_retry_count: int = 2
     opencode_retry_delay_seconds: float = 2.0
-    opencode_generation_model_id: str = "deepseek-v4-flash"
-    # "plan" lance une phase de planification OpenCode — trop lent pour du QCM texte seul.
-    opencode_generation_agent: str = "build"
-    opencode_generation_session_title: str = "exam-ai-generation"
 
     question_images_dir: str = "data/question_images"
     question_image_max_bytes: int = 5 * 1024 * 1024
@@ -125,6 +140,14 @@ class Settings(BaseSettings):
             return "debug"
         return True
 
+    def ai_provider_for(self, *, for_generation: bool) -> AiProviderName:
+        """Prof (génération) vs élève (explications). Retombe sur ai_provider."""
+        base = self.ai_provider
+        override = self.ai_provider_teacher if for_generation else self.ai_provider_student
+        if (override or "").strip():
+            return normalize_ai_provider_name(override, base)
+        return base
+
     @model_validator(mode="after")
     def apply_vercel_storage_defaults(self) -> "Settings":
         """Vercel serverless : FS éphémère, seul /tmp est inscriptible."""
@@ -132,6 +155,27 @@ class Settings(BaseSettings):
             object.__setattr__(self, "gemini_sources_dir", "/tmp/gemini_sources")
         if os.getenv("VERCEL") and self.question_images_dir == "data/question_images":
             object.__setattr__(self, "question_images_dir", "/tmp/question_images")
+        return self
+
+    @model_validator(mode="after")
+    def normalize_ai_providers(self) -> "Settings":
+        object.__setattr__(
+            self,
+            "ai_provider",
+            normalize_ai_provider_name(self.ai_provider, "gemini"),
+        )
+        teacher = (self.ai_provider_teacher or "").strip()
+        student = (self.ai_provider_student or "").strip()
+        object.__setattr__(
+            self,
+            "ai_provider_teacher",
+            normalize_ai_provider_name(teacher, self.ai_provider) if teacher else "",
+        )
+        object.__setattr__(
+            self,
+            "ai_provider_student",
+            normalize_ai_provider_name(student, self.ai_provider) if student else "",
+        )
         return self
 
     @model_validator(mode="after")

@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import FileUploadIcon from "@mui/icons-material/FileUpload";
 import ShareIcon from "@mui/icons-material/Share";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -24,9 +25,11 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
+import ExamPortableExportDialog from "./ExamPortableExportDialog";
 import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
 import { api, ApiError, downloadExamPdf, type Exam } from "../api/client";
 import { he } from "../i18n/he";
+import { isDevEnvironment } from "../utils/isDevEnvironment";
 
 export type ExamRowPrimaryAction = "delete" | "duplicate";
 
@@ -42,6 +45,7 @@ interface ExamActionButtonsProps {
   exam: Exam;
   onChanged: () => void;
   onError: (message: string) => void;
+  onDeleted?: () => void;
   size?: "small" | "medium";
   iconOnly?: boolean;
   /** Masquer les actions indisponibles (ex. supprimer si examen activé). */
@@ -56,6 +60,7 @@ export function ExamActionButtons({
   exam,
   onChanged,
   onError,
+  onDeleted,
   size = "small",
   iconOnly = false,
   hideInactive = false,
@@ -66,6 +71,7 @@ export function ExamActionButtons({
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [busy, setBusy] = useState<"duplicate" | "delete" | "pdf" | null>(null);
   const canDelete = exam.can_delete !== false;
@@ -105,7 +111,8 @@ export function ExamActionButtons({
     try {
       await api(`/api/exams/${exam.id}`, { method: "DELETE" });
       setConfirmDelete(false);
-      onChanged();
+      if (onDeleted) onDeleted();
+      else onChanged();
     } catch (e) {
       onError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -187,8 +194,31 @@ export function ExamActionButtons({
     </Button>
   );
 
+  const exportBtn =
+    isDevEnvironment &&
+    (iconOnly ? (
+      <Tooltip title={he.portableExportExam}>
+        <IconButton size="small" aria-label={he.portableExportExam} onClick={() => setExportOpen(true)}>
+          <FileUploadIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    ) : (
+      <Button size={size} variant="outlined" startIcon={<FileUploadIcon />} onClick={() => setExportOpen(true)}>
+        {he.portableExportExam}
+      </Button>
+    ));
+
   const dialogs = (
     <>
+      {isDevEnvironment && (
+        <ExamPortableExportDialog
+          open={exportOpen}
+          examId={exam.id}
+          examTitle={exam.title}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
+
       <ShareWithTeacherDialog
         open={shareOpen}
         kind="exam"
@@ -258,6 +288,20 @@ export function ExamActionButtons({
           <ListItemText>{item.label}</ListItemText>
         </MenuItem>
       ))}
+      {isDevEnvironment && (
+        <MenuItem
+          disabled={busy != null}
+          onClick={() => {
+            closeMenu();
+            setExportOpen(true);
+          }}
+        >
+          <ListItemIcon>
+            <FileUploadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{he.portableExportExam}</ListItemText>
+        </MenuItem>
+      )}
       <MenuItem disabled={busy != null} onClick={() => { closeMenu(); setShareOpen(true); }}>
         <ListItemIcon>
           <ShareIcon fontSize="small" />
@@ -290,6 +334,7 @@ export function ExamActionButtons({
   return (
     <>
       {duplicateBtn}
+      {exportBtn}
       {shareBtn}
       <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
       {(!hideInactive || canDelete) && deleteBtn}

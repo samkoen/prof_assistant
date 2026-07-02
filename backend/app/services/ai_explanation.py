@@ -13,7 +13,7 @@ from app.services.ai_explanation_prompt import (
     build_explanation_prompt,
     explanation_system_prompt,
 )
-from app.services.opencode_client import OpenCodeError, generate_text
+from app.services.ai_client import AiError, generate_text
 
 
 def _resolve_language(user: User) -> ExplanationLanguage:
@@ -173,7 +173,7 @@ async def explain_exam_question(
             attempt_id, question_id, language, explanation, db, for_practice=for_practice
         )
         return explanation, False
-    except OpenCodeError as exc:
+    except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
@@ -195,5 +195,5 @@ async def regenerate_exam_question_explanation(
             attempt_id, question_id, language, explanation, db, for_practice=for_practice
         )
         return explanation
-    except OpenCodeError as exc:
+    except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

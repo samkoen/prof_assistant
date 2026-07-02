@@ -4,20 +4,12 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
-import ExamActivateTimingFields from "../../components/ExamActivateTimingFields";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
@@ -33,12 +25,6 @@ import {
   type TeacherOfferingExamsBoard,
 } from "../../api/client";
 import { he } from "../../i18n/he";
-import {
-  timingActivatePayload,
-  timingFromExam,
-  validateExamTiming,
-  type ExamTimingForm,
-} from "../../utils/examActivateTiming";
 
 export default function TeacherCourseExamsPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -48,20 +34,6 @@ export default function TeacherCourseExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [sessions, setSessions] = useState<ExamSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activatingId, setActivatingId] = useState<number | null>(null);
-  const [deactivatingSessionId, setDeactivatingSessionId] = useState<number | null>(null);
-  const [confirmSession, setConfirmSession] = useState<ExamSession | null>(null);
-  const [closeSession, setCloseSession] = useState<ExamSession | null>(null);
-  const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
-  const [reopenSession, setReopenSession] = useState<ExamSession | null>(null);
-  const [reopeningSessionId, setReopeningSessionId] = useState<number | null>(null);
-  const [activateExam, setActivateExam] = useState<Exam | null>(null);
-  const [activateIntegrity, setActivateIntegrity] = useState(false);
-  const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
-    durationMinutes: "45",
-    warningMinutes: "10",
-    autoSubmitOnTimeout: true,
-  });
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -113,87 +85,6 @@ export default function TeacherCourseExamsPage() {
     [tableRows],
   );
   const visibleRows = examsTab === "closed" ? closedRows : openRows;
-
-  const confirmStartExam = async () => {
-    if (!offering || !activateExam) return;
-    const timingError = validateExamTiming(activateTiming);
-    if (timingError) {
-      setError(timingError);
-      return;
-    }
-    setActivatingId(activateExam.id);
-    setError("");
-    setSuccess("");
-    try {
-      await api(`/api/exams/${activateExam.id}/activate`, {
-        method: "POST",
-        body: JSON.stringify({
-          offering_id: offering.id,
-          integrity_mode_enabled: activateIntegrity,
-          ...timingActivatePayload(activateTiming),
-        }),
-      });
-      setSuccess(`${he.examActivated}: ${activateExam.title}`);
-      setActivateExam(null);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setActivatingId(null);
-    }
-  };
-
-  const closeExamSession = async () => {
-    if (!closeSession) return;
-    setClosingSessionId(closeSession.id);
-    setError("");
-    setSuccess("");
-    try {
-      await api(`/api/exams/sessions/${closeSession.id}/close`, { method: "POST" });
-      setSuccess(`${he.examClosedSuccess}: ${closeSession.exam_title}`);
-      setCloseSession(null);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setClosingSessionId(null);
-    }
-  };
-
-  const deactivateExam = async () => {
-    if (!confirmSession) return;
-    setDeactivatingSessionId(confirmSession.id);
-    setError("");
-    setSuccess("");
-    try {
-      await api(`/api/exams/sessions/${confirmSession.id}/deactivate`, { method: "POST" });
-      setSuccess(`${he.examDeactivated}: ${confirmSession.exam_title}`);
-      setConfirmSession(null);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setDeactivatingSessionId(null);
-    }
-  };
-
-  const reopenExamSession = async () => {
-    if (!reopenSession) return;
-    setReopeningSessionId(reopenSession.id);
-    setError("");
-    setSuccess("");
-    try {
-      await api(`/api/exams/sessions/${reopenSession.id}/reopen`, { method: "POST" });
-      setSuccess(`${he.examReopened}: ${reopenSession.exam_title}`);
-      setReopenSession(null);
-      setExamsTab("open");
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setReopeningSessionId(null);
-    }
-  };
 
   if (loading && !offering) {
     return (
@@ -296,21 +187,11 @@ export default function TeacherCourseExamsPage() {
             session={row.session}
             courseId={id}
             hasQuestions={row.exam.question_count > 0}
-            activatingId={activatingId}
-            closingSessionId={closingSessionId}
-            deactivatingSessionId={deactivatingSessionId}
-            reopeningSessionId={reopeningSessionId}
             returnTo={`/teacher/courses/${id}/exams`}
             onChanged={load}
             onError={setError}
-            onStartClick={(exam) => {
-              setActivateIntegrity(false);
-              setActivateTiming(timingFromExam(exam));
-              setActivateExam(exam);
-            }}
-            onCloseClick={setCloseSession}
-            onDeactivateClick={setConfirmSession}
-            onReopenClick={setReopenSession}
+            onSuccess={setSuccess}
+            onReopened={() => setExamsTab("open")}
           />
         )}
       />
@@ -327,110 +208,6 @@ export default function TeacherCourseExamsPage() {
           }}
         />
       )}
-
-      <Dialog open={!!activateExam} onClose={() => setActivateExam(null)} fullWidth maxWidth="sm">
-        <DialogTitle>{he.activateExam}</DialogTitle>
-        <DialogContent>
-          {activateExam && (
-            <Typography fontWeight={600} gutterBottom>
-              {activateExam.title}
-            </Typography>
-          )}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={activateIntegrity}
-                onChange={(e) => setActivateIntegrity(e.target.checked)}
-              />
-            }
-            label={he.integrityMode}
-          />
-          <Typography variant="caption" color="text.secondary" display="block">
-            {he.integrityModeHint}
-          </Typography>
-          <ExamActivateTimingFields value={activateTiming} onChange={setActivateTiming} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setActivateExam(null)}>{he.cancel}</Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={confirmStartExam}
-            disabled={activatingId != null}
-          >
-            {activatingId != null ? he.loading : he.startExamNow}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!closeSession} onClose={() => setCloseSession(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{he.closeExam}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.closeExamConfirm}</Typography>
-          {closeSession && (
-            <Typography fontWeight={600} sx={{ mt: 1 }}>
-              {closeSession.exam_title}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCloseSession(null)}>{he.cancel}</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={closeExamSession}
-            disabled={closingSessionId != null}
-          >
-            {closingSessionId != null ? he.loading : he.closeExam}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!confirmSession} onClose={() => setConfirmSession(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{he.cancelActivation}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.cancelActivationConfirm}</Typography>
-          {confirmSession && (
-            <Typography fontWeight={600} sx={{ mt: 1 }}>
-              {confirmSession.exam_title}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmSession(null)}>{he.cancel}</Button>
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={deactivateExam}
-            disabled={deactivatingSessionId != null}
-          >
-            {deactivatingSessionId != null ? he.loading : he.cancelActivation}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!reopenSession} onClose={() => setReopenSession(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{he.reopenExam}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.reopenExamConfirm}</Typography>
-          {reopenSession && (
-            <Typography fontWeight={600} sx={{ mt: 1 }}>
-              {reopenSession.exam_title}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReopenSession(null)}>{he.cancel}</Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={reopenExamSession}
-            disabled={reopeningSessionId != null}
-          >
-            {reopeningSessionId != null ? he.loading : he.reopenExam}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

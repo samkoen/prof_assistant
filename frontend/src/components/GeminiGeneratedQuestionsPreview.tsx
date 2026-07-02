@@ -12,6 +12,7 @@ interface GeminiGeneratedQuestionsPreviewProps {
   questions: ParsedQuestion[];
   accepting: boolean;
   editable: boolean;
+  partial?: boolean;
   onAccept: () => void;
   onReject: () => void;
 }
@@ -20,6 +21,7 @@ export default function GeminiGeneratedQuestionsPreview({
   questions,
   accepting,
   editable,
+  partial = false,
   onAccept,
   onReject,
 }: GeminiGeneratedQuestionsPreviewProps) {
@@ -36,7 +38,7 @@ export default function GeminiGeneratedQuestionsPreview({
         {he.geminiPreviewTitle} ({questions.length})
       </Typography>
       <Alert severity="info" sx={{ mb: 2 }}>
-        {he.geminiPreviewHint}
+        {partial ? he.geminiPreviewPartialHint : he.geminiPreviewHint}
       </Alert>
       {questions.map((q, i) => (
         <Box key={i} sx={{ mb: 2, p: 1.5, bgcolor: "action.hover", borderRadius: 1 }}>
@@ -50,20 +52,24 @@ export default function GeminiGeneratedQuestionsPreview({
           />
         </Box>
       ))}
-      <Divider sx={{ my: 2 }} />
-      <Box sx={hebrewActionsBarSx}>
-        <Button variant="outlined" startIcon={<CloseIcon />} onClick={onReject} disabled={accepting}>
-          {he.geminiRejectQuestions}
-        </Button>
-        <DisabledActionTooltip
-          disabled={!editable || accepting}
-          disabledReason={!editable ? he.examNotEditable : undefined}
-        >
-          <Button variant="contained" startIcon={<CheckIcon />} onClick={onAccept} disabled={accepting}>
-            {accepting ? he.loading : he.geminiAcceptQuestions}
-          </Button>
-        </DisabledActionTooltip>
-      </Box>
+      {!partial && (
+        <>
+          <Divider sx={{ my: 2 }} />
+          <Box sx={hebrewActionsBarSx}>
+            <Button variant="outlined" startIcon={<CloseIcon />} onClick={onReject} disabled={accepting}>
+              {he.geminiRejectQuestions}
+            </Button>
+            <DisabledActionTooltip
+              disabled={!editable || accepting}
+              disabledReason={!editable ? he.examNotEditable : undefined}
+            >
+              <Button variant="contained" startIcon={<CheckIcon />} onClick={onAccept} disabled={accepting}>
+                {accepting ? he.loading : he.geminiAcceptQuestions}
+              </Button>
+            </DisabledActionTooltip>
+          </Box>
+        </>
+      )}
     </Box>
   );
 }

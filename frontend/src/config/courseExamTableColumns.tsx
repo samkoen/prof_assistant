@@ -51,7 +51,10 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       label: he.examDate,
       minWidth: 150,
       cellDir: "ltr",
-      getValue: (r) => examSessionDisplayIso(r.session) ?? "",
+      getValue: (r) => {
+        const iso = examSessionDisplayIso(r.session);
+        return iso ? formatExamDateTime(iso) : "";
+      },
       renderCell: (r) => {
         const iso = examSessionDisplayIso(r.session);
         return iso ? formatExamDateTime(iso) : "—";

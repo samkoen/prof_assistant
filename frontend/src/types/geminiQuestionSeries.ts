@@ -41,12 +41,21 @@ export const GEMINI_SERIES_LANGUAGES: GeminiSeriesLanguage[] = ["he", "fr", "en"
 
 export const GEMINI_QUESTION_TYPES: QuestionType[] = ["single", "multiple", "true_false"];
 
+export interface GeminiGenerationProgress {
+  total_questions: number;
+  generated_questions: number;
+  completed_batches: number;
+  total_batches: number;
+  complete: boolean;
+}
+
 export interface GeminiGenerationSession {
   id: number;
   exam_id: number;
   status: string;
   raw_text: string | null;
   messages: GeminiGenerationMessage[];
+  generation_progress?: GeminiGenerationProgress | null;
 }
 
 export interface GeminiGenerationMessage {

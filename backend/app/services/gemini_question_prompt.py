@@ -123,6 +123,12 @@ def _types_line(types: list[QuestionType]) -> str:
     return ", ".join(_TYPE_LABELS[t] for t in types)
 
 
+def build_mandatory_topic_block(series: list[GeminiSeriesInput]) -> str:
+    parts = [clean_gemini_user_text(s.instructions) for s in series if s.instructions.strip()]
+    combined = " | ".join(parts)
+    return f"הנושא מחייב: {combined}. מקורות = עזר בלבד. אסור לסטות.\n"
+
+
 def _series_block(index: int, item: GeminiSeriesInput) -> str:
     level = _LEVEL_LABELS[item.level]
     lang = _LANG_CONFIG[item.language]["label"]
@@ -153,13 +159,14 @@ def build_questions_generation_prompt(
         per_lang = "\n\n".join(_format_rules(lang, include_tree=include_tree) for lang in languages)
         format_rules = f"לכל סדרה — השתמש בשפת הסדרה:\n\n{per_lang}"
     sources_part = f"\n{sources_block}\n" if sources_block.strip() else ""
+    mandatory = build_mandatory_topic_block(series)
     tree_hint = _AVL_TREE_FORMAT if include_tree else ""
     return f"""צור שאלות מבחן (QCM).
-{sources_part}
+{mandatory}
 {title_line}סה״כ {total} שאלות לפי הסדרות:
 
 {blocks}
-
+{sources_part}
 {format_rules}
 {tree_hint}
 התחל מיד עם --- ואז Q1 — ללא הקדמה."""

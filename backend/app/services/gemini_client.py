@@ -147,11 +147,15 @@ def _chat_body(
     contents: list[dict],
     *,
     max_output_tokens: int | None,
+    system_instruction: str | None = None,
 ) -> dict:
-    return {
+    body: dict = {
         "contents": contents,
         "generationConfig": _generation_config(max_output_tokens),
     }
+    if system_instruction and system_instruction.strip():
+        body["systemInstruction"] = {"parts": [{"text": system_instruction.strip()}]}
+    return body
 
 
 async def _generate_with_body(
@@ -180,10 +184,12 @@ async def generate_text(
     max_output_tokens: int | None = None,
     timeout_seconds: float | None = None,
     use_generation_fallbacks: bool = False,
+    system_instruction: str | None = None,
 ) -> str:
     body = _chat_body(
         [{"role": "user", "parts": [{"text": prompt}]}],
         max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
     )
     return await _generate_with_body(
         body,
@@ -198,8 +204,13 @@ async def generate_chat(
     max_output_tokens: int | None = None,
     timeout_seconds: float | None = None,
     use_generation_fallbacks: bool = False,
+    system_instruction: str | None = None,
 ) -> str:
-    body = _chat_body(contents, max_output_tokens=max_output_tokens)
+    body = _chat_body(
+        contents,
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+    )
     return await _generate_with_body(
         body,
         timeout_seconds=timeout_seconds,

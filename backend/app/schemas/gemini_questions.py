@@ -45,6 +45,27 @@ class GeminiSessionCreateRequest(BaseModel):
     source_ids: list[int] = Field(default_factory=list, max_length=10)
 
 
+class GeminiSourcePreviewItem(BaseModel):
+    id: int
+    original_filename: str
+    source_type: str
+    use_as_style: bool
+    use_as_content: bool
+    text_preview: str = Field(max_length=520)
+
+
+class GeminiGenerationPreviewRequest(BaseModel):
+    series: list[GeminiSeriesInput] = Field(min_length=1, max_length=20)
+    source_ids: list[int] = Field(default_factory=list, max_length=10)
+
+
+class GeminiGenerationPreviewResponse(BaseModel):
+    instructions: list[str]
+    total_questions: int
+    sources: list[GeminiSourcePreviewItem]
+    ai_summary: str
+
+
 class GeminiSessionRefineRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
@@ -56,12 +77,21 @@ class GeminiSessionMessageResponse(BaseModel):
     created_at: str
 
 
+class GeminiGenerationProgress(BaseModel):
+    total_questions: int
+    generated_questions: int
+    completed_batches: int
+    total_batches: int
+    complete: bool
+
+
 class GeminiSessionResponse(BaseModel):
     id: int
     exam_id: int
     status: str
     raw_text: str | None
     messages: list[GeminiSessionMessageResponse]
+    generation_progress: GeminiGenerationProgress | None = None
 
 
 class GeminiSessionAcceptResponse(BaseModel):
