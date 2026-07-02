@@ -1,6 +1,7 @@
 """Point d'entrée unique pour les appels AI (Gemini ou OpenCode Go)."""
 
 import logging
+import time
 from typing import Literal
 
 from app.config import settings
@@ -51,56 +52,86 @@ def _generation_system(*, for_generation: bool) -> str:
     return generation_system()
 
 
-def _model_label(*, for_generation: bool) -> str:
-    if uses_gemini(for_generation=for_generation):
-        primary = settings.gemini_model.strip() or "gemini-2.0-flash"
-        fallbacks = (
-            settings.gemini_generation_fallback_models
-            if for_generation
-            else settings.gemini_fallback_models
-        )
-        return f"{primary} (fallbacks: {fallbacks})"
-    transport = "cloud" if (settings.opencode_api_key or "").strip() else "local-serve"
-    return f"{settings.opencode_model_id} ({transport})"
+def _describe_ai_call(for_generation: bool) -> tuple[str, str, str, str]:
+    audience = _audience(for_generation)
+    provider = ai_provider(for_generation=for_generation)
+    if provider == "gemini":
+        model = settings.gemini_model.strip() or "gemini-2.0-flash"
+        transport = "gemini-api"
+    else:
+        model = settings.opencode_model_id
+        transport = "opencode-cloud" if (settings.opencode_api_key or "").strip() else "opencode-local"
+    return audience, provider, model, transport
 
 
-def _log_ai_call(*, mode: str, for_generation: bool) -> None:
+def _log_ai_call_start(*, mode: str, for_generation: bool) -> None:
+    audience, provider, model, transport = _describe_ai_call(for_generation)
     logger.info(
-        "AI call audience=%s provider=%s mode=%s for_generation=%s model=%s",
-        _audience(for_generation),
-        ai_provider(for_generation=for_generation),
+        "AI call start | role=%s | provider=%s | model=%s | transport=%s | mode=%s",
+        audience,
+        provider,
+        model,
+        transport,
         mode,
-        for_generation,
-        _model_label(for_generation=for_generation),
     )
 
 
-async def generate_text(
+def _log_ai_call_done(
+    *,
+    mode: str,
+    for_generation: bool,
+    started: float,
+    ok: bool,
+    output_chars: int = 0,
+) -> None:
+    audience, provider, model, transport = _describe_ai_call(for_generation)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    status = "ok" if ok else "error"
+    logger.info(
+        "AI call %s | role=%s | provider=%s | model=%s | transport=%s | mode=%s | %sms | chars=%s",
+        status,
+        audience,
+        provider,
+        model,
+        transport,
+        mode,
+        elapsed_ms,
+        output_chars,
+    )
+
+
+async def _generate_text_gemini(
     prompt: str,
     *,
-    system: str | None = None,
-    timeout_seconds: float | None = None,
-    for_generation: bool = False,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
 ) -> str:
-    _log_ai_call(mode="text", for_generation=for_generation)
-    if uses_gemini(for_generation=for_generation):
-        from app.services.gemini_client import GeminiError, generate_text as gemini_text
+    from app.services.gemini_client import GeminiError, generate_text as gemini_text
 
-        try:
-            return await gemini_text(
-                prompt,
-                max_output_tokens=_gemini_max_tokens(for_generation),
-                timeout_seconds=_gemini_timeouts(
-                    for_generation=for_generation,
-                    timeout_seconds=timeout_seconds,
-                ),
-                use_generation_fallbacks=for_generation,
-                system_instruction=system
-                or (_generation_system(for_generation=for_generation) if for_generation else None),
-            )
-        except GeminiError as exc:
-            raise AiError(str(exc)) from exc
+    try:
+        return await gemini_text(
+            prompt,
+            max_output_tokens=_gemini_max_tokens(for_generation),
+            timeout_seconds=_gemini_timeouts(
+                for_generation=for_generation,
+                timeout_seconds=timeout_seconds,
+            ),
+            use_generation_fallbacks=for_generation,
+            system_instruction=system
+            or (_generation_system(for_generation=for_generation) if for_generation else None),
+        )
+    except GeminiError as exc:
+        raise AiError(str(exc)) from exc
 
+
+async def _generate_text_opencode(
+    prompt: str,
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
     from app.services.opencode_client import OpenCodeError, generate_text as opencode_text
 
     try:
@@ -114,32 +145,38 @@ async def generate_text(
         raise AiError(str(exc)) from exc
 
 
-async def generate_chat(
+async def _generate_chat_gemini(
     contents: list[dict],
     *,
-    system: str | None = None,
-    timeout_seconds: float | None = None,
-    for_generation: bool = False,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
 ) -> str:
-    _log_ai_call(mode="chat", for_generation=for_generation)
-    if uses_gemini(for_generation=for_generation):
-        from app.services.gemini_client import GeminiError, generate_chat as gemini_chat
+    from app.services.gemini_client import GeminiError, generate_chat as gemini_chat
 
-        try:
-            return await gemini_chat(
-                contents,
-                max_output_tokens=_gemini_max_tokens(for_generation),
-                timeout_seconds=_gemini_timeouts(
-                    for_generation=for_generation,
-                    timeout_seconds=timeout_seconds,
-                ),
-                use_generation_fallbacks=for_generation,
-                system_instruction=system
-                or (_generation_system(for_generation=for_generation) if for_generation else None),
-            )
-        except GeminiError as exc:
-            raise AiError(str(exc)) from exc
+    try:
+        return await gemini_chat(
+            contents,
+            max_output_tokens=_gemini_max_tokens(for_generation),
+            timeout_seconds=_gemini_timeouts(
+                for_generation=for_generation,
+                timeout_seconds=timeout_seconds,
+            ),
+            use_generation_fallbacks=for_generation,
+            system_instruction=system
+            or (_generation_system(for_generation=for_generation) if for_generation else None),
+        )
+    except GeminiError as exc:
+        raise AiError(str(exc)) from exc
 
+
+async def _generate_chat_opencode(
+    contents: list[dict],
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
     from app.services.opencode_client import OpenCodeError, generate_chat as opencode_chat
 
     try:
@@ -151,3 +188,77 @@ async def generate_chat(
         )
     except OpenCodeError as exc:
         raise AiError(str(exc)) from exc
+
+
+async def generate_text(
+    prompt: str,
+    *,
+    system: str | None = None,
+    timeout_seconds: float | None = None,
+    for_generation: bool = False,
+) -> str:
+    started = time.monotonic()
+    _log_ai_call_start(mode="text", for_generation=for_generation)
+    try:
+        if uses_gemini(for_generation=for_generation):
+            text = await _generate_text_gemini(
+                prompt,
+                system=system,
+                timeout_seconds=timeout_seconds,
+                for_generation=for_generation,
+            )
+        else:
+            text = await _generate_text_opencode(
+                prompt,
+                system=system,
+                timeout_seconds=timeout_seconds,
+                for_generation=for_generation,
+            )
+    except AiError:
+        _log_ai_call_done(mode="text", for_generation=for_generation, started=started, ok=False)
+        raise
+    _log_ai_call_done(
+        mode="text",
+        for_generation=for_generation,
+        started=started,
+        ok=True,
+        output_chars=len(text),
+    )
+    return text
+
+
+async def generate_chat(
+    contents: list[dict],
+    *,
+    system: str | None = None,
+    timeout_seconds: float | None = None,
+    for_generation: bool = False,
+) -> str:
+    started = time.monotonic()
+    _log_ai_call_start(mode="chat", for_generation=for_generation)
+    try:
+        if uses_gemini(for_generation=for_generation):
+            text = await _generate_chat_gemini(
+                contents,
+                system=system,
+                timeout_seconds=timeout_seconds,
+                for_generation=for_generation,
+            )
+        else:
+            text = await _generate_chat_opencode(
+                contents,
+                system=system,
+                timeout_seconds=timeout_seconds,
+                for_generation=for_generation,
+            )
+    except AiError:
+        _log_ai_call_done(mode="chat", for_generation=for_generation, started=started, ok=False)
+        raise
+    _log_ai_call_done(
+        mode="chat",
+        for_generation=for_generation,
+        started=started,
+        ok=True,
+        output_chars=len(text),
+    )
+    return text
