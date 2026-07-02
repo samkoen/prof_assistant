@@ -47,6 +47,16 @@ def _save_params(session: ExamGeminiGenerationSession, params: dict) -> None:
     flag_modified(session, "initial_params")
 
 
+def _append_generation_warnings(params: dict, warnings: list[str]) -> None:
+    if not warnings:
+        return
+    existing = list(params.get("generation_warnings") or [])
+    for warning in warnings:
+        if warning not in existing:
+            existing.append(warning)
+    params["generation_warnings"] = existing
+
+
 def _batch_plan(params: dict) -> list[GeminiBatchSlice]:
     return plan_from_params(params.get("batch_plan") or [])
 
@@ -215,8 +225,15 @@ async def run_generation_batch(
         )
     params["accumulated_raw"] = merge_accumulated_raw(accumulated, result.normalized_raw)
     params["completed_batches"] = completed_batches_after_accept(plan, completed, result.accepted_count)
+    _append_generation_warnings(params, result.warnings)
     session.last_raw_text = params["accumulated_raw"]
     _save_params(session, params)
+    if result.warnings:
+        logger.warning(
+            "AI batch duplicate warnings (session_id=%s): %s",
+            session.id,
+            "; ".join(result.warnings),
+        )
     await _record_batch_exchange(session, prompt, result.normalized_raw, db)
     logger.info(
         "AI batch done in %.1fs (session_id=%s, chars=%d)",
@@ -239,6 +256,7 @@ def init_batch_params(
         "batch_plan": plan_to_params(plan),
         "completed_batches": 0,
         "accumulated_raw": "",
+        "generation_warnings": [],
         "manual_refine": False,
         "chunked_fallback": False,
     }

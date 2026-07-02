@@ -92,6 +92,7 @@ class GeminiSessionResponse(BaseModel):
     raw_text: str | None
     messages: list[GeminiSessionMessageResponse]
     generation_progress: GeminiGenerationProgress | None = None
+    generation_warnings: list[str] = Field(default_factory=list)
 
 
 class GeminiSessionAcceptResponse(BaseModel):

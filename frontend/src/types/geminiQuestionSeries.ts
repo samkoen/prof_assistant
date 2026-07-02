@@ -56,6 +56,7 @@ export interface GeminiGenerationSession {
   raw_text: string | null;
   messages: GeminiGenerationMessage[];
   generation_progress?: GeminiGenerationProgress | null;
+  generation_warnings?: string[];
 }
 
 export interface GeminiGenerationMessage {

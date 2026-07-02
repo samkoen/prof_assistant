@@ -99,6 +99,9 @@ export default function ExamEditorGeminiGenerationSection({
     !!rawText &&
     parsedQuestions.length > 0 &&
     isLowTopicOverlap(instructionTexts, parsedQuestions.map((q) => q.text));
+  const generationWarnings = session?.generation_warnings ?? [];
+  const showDuplicateWarnings =
+    generationWarnings.length > 0 && (showPartialPreview || showFullPreview);
 
   const continueIncompleteSession = useCallback(
     async (current: GeminiGenerationSession) => {
@@ -429,6 +432,21 @@ export default function ExamEditorGeminiGenerationSection({
           <Typography variant="body2" sx={hebrewAlignRightSx}>
             {he.geminiTopicMismatch}
           </Typography>
+        </Alert>
+      )}
+
+      {showDuplicateWarnings && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
+            {he.geminiDuplicateWarningsTitle}
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
+            {generationWarnings.map((warning) => (
+              <Typography key={warning} component="li" variant="body2" sx={hebrewAlignRightSx}>
+                {warning}
+              </Typography>
+            ))}
+          </Box>
         </Alert>
       )}
 

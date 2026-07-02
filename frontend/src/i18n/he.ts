@@ -202,6 +202,7 @@ export const he = {
   geminiPreviewLoading: "מכין סיכום…",
   geminiTopicMismatch:
     "מעט מילות מפתח משותפות עם ההנחיות שלכם — ייתכן שהשאלות סוטות מהנושא. בדקו את התוצאה או עדכנו את ההנחיות.",
+  geminiDuplicateWarningsTitle: "שאלות דומות זו לזו",
   geminiGenerating: "יוצר שאלות…",
   geminiBatchProgress: (generated: number, total: number, batch: number, batches: number) =>
     `יוצר שאלות… ${generated} / ${total} (קבוצה ${batch} מתוך ${batches})`,

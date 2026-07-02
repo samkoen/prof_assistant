@@ -38,7 +38,6 @@ from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
     send_gemini_parse_error_email,
 )
-from app.services.gemini_question_dedup import find_duplicate_pairs
 from app.services.gemini_question_prompt import build_refine_user_message
 
 logger = logging.getLogger(__name__)
@@ -85,6 +84,7 @@ def _session_to_response(
             for m in session.messages
         ],
         generation_progress=GeminiGenerationProgress(**progress),
+        generation_warnings=list(params.get("generation_warnings") or []),
     )
 
 
@@ -293,18 +293,6 @@ async def report_gemini_parse_error(
     )
 
 
-def _reject_duplicate_import(import_body: QuestionsImportRequest) -> None:
-    stems = [q.text for q in import_body.questions]
-    pair = find_duplicate_pairs(stems)
-    if not pair:
-        return
-    i, j = pair
-    raise HTTPException(
-        status_code=400,
-        detail=f"שאלה {i + 1} דומה מדי לשאלה {j + 1} — ערכו או בקשו ניסוח מחדש",
-    )
-
-
 async def accept_generation_session(
     session_id: int,
     user: User,
@@ -322,7 +310,6 @@ async def accept_generation_session(
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     if await exam_has_active_sessions(exam.id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
-    _reject_duplicate_import(import_body)
     if import_body.questions_language is not None:
         exam.questions_language = import_body.questions_language
     start_idx = await next_question_order_index(exam.id, db)

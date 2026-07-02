@@ -18,6 +18,7 @@ class BatchValidationResult:
     normalized_raw: str
     stems: list[str]
     accepted_count: int
+    warnings: list[str]
 
 
 def split_qcm_blocks(raw: str) -> list[str]:
@@ -58,21 +59,23 @@ def _validate_block_header(block: str, expected_q: int, block_index: int) -> Non
         )
 
 
+def _duplicate_warning(expected_q: int) -> str:
+    return f"שאלה Q{expected_q} דומה מדי לשאלה קודמת"
+
+
 def _validate_block_stem(
     block: str,
     expected_q: int,
     prior_stems: list[str],
     stems: list[str],
+    warnings: list[str],
 ) -> str:
     stem = extract_block_stem(block)
     if not stem:
         raise HTTPException(status_code=502, detail=f"שאלה Q{expected_q} ללא טקסט")
     dup_idx = find_duplicate_against(stem, prior_stems + stems)
     if dup_idx is not None:
-        raise HTTPException(
-            status_code=502,
-            detail=f"שאלה Q{expected_q} דומה מדי לשאלה קודמת",
-        )
+        warnings.append(_duplicate_warning(expected_q))
     return stem
 
 
@@ -81,13 +84,14 @@ def _validate_blocks(
     *,
     from_q: int,
     prior_stems: list[str],
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     stems: list[str] = []
+    warnings: list[str] = []
     for idx, block in enumerate(blocks):
         expected_q = from_q + idx
         _validate_block_header(block, expected_q, idx)
-        stems.append(_validate_block_stem(block, expected_q, prior_stems, stems))
-    return stems
+        stems.append(_validate_block_stem(block, expected_q, prior_stems, stems, warnings))
+    return stems, warnings
 
 
 def _choose_accept_count(
@@ -124,11 +128,12 @@ def validate_batch_raw(
     blocks = split_qcm_blocks(raw)
     accept_count = _choose_accept_count(len(blocks), batch, plan_total=plan_total)
     accepted = blocks[:accept_count]
-    stems = _validate_blocks(accepted, from_q=batch.from_q, prior_stems=prior_stems)
+    stems, warnings = _validate_blocks(accepted, from_q=batch.from_q, prior_stems=prior_stems)
     return BatchValidationResult(
         normalized_raw=_join_blocks(accepted),
         stems=stems,
         accepted_count=accept_count,
+        warnings=warnings,
     )
 
 
