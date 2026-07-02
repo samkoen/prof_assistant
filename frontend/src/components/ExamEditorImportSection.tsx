@@ -13,11 +13,17 @@ import DisabledActionTooltip from "./DisabledActionTooltip";
 import type { ExamDetail } from "../api/client";
 import { QCM_FORMAT_EXAMPLE, type ParsedQuestion, type ParseResult } from "../utils/qcmImportParser";
 import { contentDirFromFirstQuestion } from "../utils/examQuestionsLanguage";
+import {
+  geminiParseErrorDetail,
+  geminiParseErrorLocation,
+} from "../utils/geminiParseErrors";
+import PasteGeminiRefineSection from "./PasteGeminiRefineSection";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 import { isDevEnvironment } from "../utils/isDevEnvironment";
 
 interface ExamEditorImportSectionProps {
+  examId: number;
   exam: ExamDetail;
   paste: string;
   onPasteChange: (value: string) => void;
@@ -26,9 +32,12 @@ interface ExamEditorImportSectionProps {
   onCopyPrompt: () => void;
   onLoadExample: () => void;
   onImport: () => void;
+  onSuccess: (message: string) => void;
+  onError: (message: string) => void;
 }
 
 export default function ExamEditorImportSection({
+  examId,
   exam,
   paste,
   onPasteChange,
@@ -37,6 +46,8 @@ export default function ExamEditorImportSection({
   onCopyPrompt,
   onLoadExample,
   onImport,
+  onSuccess,
+  onError,
 }: ExamEditorImportSectionProps) {
   return (
     <Box dir="rtl" sx={hebrewAlignRightSx}>
@@ -76,13 +87,28 @@ export default function ExamEditorImportSection({
         />
       </DisabledActionTooltip>
       {parseResult.errors.length > 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          {parseResult.errors.map((e) => (
-            <Typography key={e.block} variant="body2">
-              {he.questionBlock} {e.block}: {e.message}
+        <>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
+              {he.geminiParseFailedTitle}
             </Typography>
-          ))}
-        </Alert>
+            <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
+              {parseResult.errors.map((e) => (
+                <Typography key={`${e.block}-${e.message}`} component="li" variant="body2">
+                  <strong>{geminiParseErrorLocation(e.block)}:</strong> {geminiParseErrorDetail(e)}
+                </Typography>
+              ))}
+            </Box>
+          </Alert>
+          <PasteGeminiRefineSection
+            examId={examId}
+            errors={parseResult.errors}
+            editable={exam.is_editable}
+            onRawText={onPasteChange}
+            onError={onError}
+            onSuccess={onSuccess}
+          />
+        </>
       )}
       {parseResult.questions.length > 0 && parseResult.errors.length === 0 && (
         <ImportPreview questions={parseResult.questions} exam={exam} importing={importing} onImport={onImport} />

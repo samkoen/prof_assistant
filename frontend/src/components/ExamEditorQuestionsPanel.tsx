@@ -186,6 +186,7 @@ function AddMethodPanel({
   }
   return (
     <ExamEditorImportSection
+      examId={examId}
       exam={exam}
       paste={paste}
       onPasteChange={onPasteChange}
@@ -194,6 +195,8 @@ function AddMethodPanel({
       onCopyPrompt={onCopyPrompt}
       onLoadExample={onLoadExample}
       onImport={onImport}
+      onSuccess={onSuccess}
+      onError={onError}
     />
   );
 }
@@ -225,7 +228,6 @@ export default function ExamEditorQuestionsPanel({
 
   const handleGeminiParseFailed = (rawText: string) => {
     onPasteChange(rawText);
-    setAddMethod("paste");
     setEmptyPicker(false);
     onSuccess(he.geminiParseMovedToPaste);
   };

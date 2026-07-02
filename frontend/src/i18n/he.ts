@@ -216,7 +216,12 @@ export const he = {
   geminiParseFailedHint:
     "בקשו תיקון בצ'אט למטה (לדוגמה: «סמנו שורת * אחרי התשובה הנכונה בכל שאלת בחירה יחידה»), או לחצו «ביטול» ויצרו מחדש.",
   geminiParseMovedToPaste:
-    "תשובת ה-AI הועתקה ללשונית «הדבקה» — ניתן לתקן ידנית או לייבא לאחר תיקון. הפרומפט נרשם בלוג (קונסול).",
+    "תשובת ה-AI הועתקה גם ללשונית «הדבקה» — ניתן לתקן כאן בצ'אט, ב«הדבקה», או ידנית.",
+  geminiRefineApplied: "ה-AI עדכן את הטקסט — בדקו את התוצאה לפני ייבוא.",
+  pasteGeminiFixTitle: "תיקון ב-AI",
+  pasteGeminiFixHint:
+    "יש שיחת Gemini פעילה — בקשו תיקון פורמט (למשל סימון *) והטקסט יתעדכן כאן.",
+  pasteGeminiFixStarsQuick: "סימון * על התשובות הנכונות",
   geminiParseQuestionLabel: "שאלה",
   geminiParseErrGeneral: "כללי",
   geminiParseErrEmptyBlock: "בלוק השאלה ריק — חסר כותרת Q או תוכן",
