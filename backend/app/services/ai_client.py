@@ -27,6 +27,31 @@ def _audience(for_generation: bool) -> str:
     return "teacher" if for_generation else "student"
 
 
+def _opencode_configured() -> bool:
+    return bool(
+        (settings.opencode_api_key or "").strip()
+        or (settings.opencode_server_url or "").strip()
+    )
+
+
+def _is_gemini_auth_failure(exc: BaseException) -> bool:
+    from app.services.gemini_client import GeminiError
+
+    cause = exc.__cause__ if isinstance(exc, AiError) else exc
+    if isinstance(cause, GeminiError):
+        return cause.auth_failure
+    message = str(exc)
+    return "מפתח Gemini" in message or "GEMINI_API_KEY" in message
+
+
+def _should_fallback_to_opencode(exc: AiError, *, for_generation: bool) -> bool:
+    return (
+        for_generation
+        and _is_gemini_auth_failure(exc)
+        and _opencode_configured()
+    )
+
+
 def _gemini_timeouts(*, for_generation: bool, timeout_seconds: float | None) -> float:
     if timeout_seconds is not None:
         return timeout_seconds
@@ -145,6 +170,35 @@ async def _generate_text_opencode(
         raise AiError(str(exc)) from exc
 
 
+async def _generate_text_with_opencode_fallback(
+    prompt: str,
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
+    try:
+        return await _generate_text_gemini(
+            prompt,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+    except AiError as exc:
+        if not _should_fallback_to_opencode(exc, for_generation=for_generation):
+            raise
+        logger.warning(
+            "Gemini auth failed for teacher generation; falling back to OpenCode: %s",
+            exc,
+        )
+        return await _generate_text_opencode(
+            prompt,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+
+
 async def _generate_chat_gemini(
     contents: list[dict],
     *,
@@ -190,6 +244,35 @@ async def _generate_chat_opencode(
         raise AiError(str(exc)) from exc
 
 
+async def _generate_chat_with_opencode_fallback(
+    contents: list[dict],
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
+    try:
+        return await _generate_chat_gemini(
+            contents,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+    except AiError as exc:
+        if not _should_fallback_to_opencode(exc, for_generation=for_generation):
+            raise
+        logger.warning(
+            "Gemini auth failed for teacher generation; falling back to OpenCode: %s",
+            exc,
+        )
+        return await _generate_chat_opencode(
+            contents,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+
+
 async def generate_text(
     prompt: str,
     *,
@@ -201,7 +284,7 @@ async def generate_text(
     _log_ai_call_start(mode="text", for_generation=for_generation)
     try:
         if uses_gemini(for_generation=for_generation):
-            text = await _generate_text_gemini(
+            text = await _generate_text_with_opencode_fallback(
                 prompt,
                 system=system,
                 timeout_seconds=timeout_seconds,
@@ -238,7 +321,7 @@ async def generate_chat(
     _log_ai_call_start(mode="chat", for_generation=for_generation)
     try:
         if uses_gemini(for_generation=for_generation):
-            text = await _generate_chat_gemini(
+            text = await _generate_chat_with_opencode_fallback(
                 contents,
                 system=system,
                 timeout_seconds=timeout_seconds,

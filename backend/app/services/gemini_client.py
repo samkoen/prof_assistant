@@ -13,7 +13,11 @@ _TRANSIENT_STATUSES = frozenset({429, 503, 529})
 
 
 class GeminiError(Exception):
-    pass
+    """Erreur API Gemini. auth_failure=True si clé absente / 401 / 403."""
+
+    def __init__(self, message: str, *, auth_failure: bool = False) -> None:
+        super().__init__(message)
+        self.auth_failure = auth_failure
 
 
 def _extract_text(payload: dict) -> str:
@@ -71,17 +75,18 @@ def _parse_api_error(response: httpx.Response) -> str:
         return response.text[:300]
 
 
-def _user_message(status: int, model: str, detail: str) -> str:
+def _user_message(status: int, model: str, detail: str) -> tuple[str, bool]:
+    """Retourne (message hébreu, auth_failure)."""
     detail_lower = detail.lower()
     if status == 404:
-        return f"המודל '{model}' לא זמין. עדכן GEMINI_MODEL (למשל gemini-2.0-flash)."
+        return f"המודל '{model}' לא זמין. עדכן GEMINI_MODEL (למשל gemini-2.0-flash).", False
     if status == 429:
-        return "מכסת Gemini נגמרה — בדוק ב-AI Studio את החיוב והמכסה."
+        return "מכסת Gemini נגמרה — בדוק ב-AI Studio את החיוב והמכסה.", False
     if status in (401, 403):
-        return "מפתח Gemini לא תקין או ללא הרשאה."
+        return "מפתח Gemini לא תקין או ללא הרשאה.", True
     if status in _TRANSIENT_STATUSES or "high demand" in detail_lower:
-        return "שירות Gemini עמוס כרגע — המערכת ניסתה שוב; נסו בעוד דקה."
-    return "שגיאה בשירות הבינה המלאכותית"
+        return "שירות Gemini עמוס כרגע — המערכת ניסתה שוב; נסו בעוד דקה.", False
+    return "שגיאה בשירות הבינה המלאכותית", False
 
 
 def _is_transient(status: int, detail: str) -> bool:
@@ -106,7 +111,8 @@ async def _request_once(
     if response.status_code >= 400:
         detail = _parse_api_error(response)
         logger.warning("Gemini API %s model=%s: %s", response.status_code, model, detail)
-        raise GeminiError(_user_message(response.status_code, model, detail))
+        message, auth_failure = _user_message(response.status_code, model, detail)
+        raise GeminiError(message, auth_failure=auth_failure)
     return _extract_text(response.json())
 
 
@@ -121,7 +127,7 @@ async def _request_with_retries(
             return await _request_once(model, api_key, body, timeout)
         except GeminiError as exc:
             last = exc
-            if attempt >= retries:
+            if exc.auth_failure or attempt >= retries:
                 break
             await asyncio.sleep(delay * (attempt + 1))
     assert last is not None
@@ -137,6 +143,8 @@ async def _generate_across_models(
             return await _request_with_retries(model, api_key, body, timeout)
         except GeminiError as exc:
             last_error = exc
+            if exc.auth_failure:
+                break
             if model != models[-1]:
                 logger.info("Gemini fallback: %s failed, trying next model", model)
     assert last_error is not None
@@ -171,7 +179,7 @@ async def _generate_with_body(
             if os.getenv("VERCEL")
             else "הוסף GEMINI_API_KEY לקובץ backend/.env."
         )
-        raise GeminiError(f"שירות ההסבר אינו מוגדר. {hint}")
+        raise GeminiError(f"שירות ההסבר אינו מוגדר. {hint}", auth_failure=True)
     primary = settings.gemini_model.strip() or "gemini-2.0-flash"
     timeout = timeout_seconds or settings.gemini_timeout_seconds
     models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)
