@@ -20,18 +20,31 @@ export default function PageHeroBanner({ title, subtitle, actions }: PageHeroBan
         color: brand.white,
         position: "relative",
         overflow: "hidden",
-        boxShadow: `0 8px 32px ${alpha(brand.violet700, 0.22)}`,
+        boxShadow: `0 16px 40px ${alpha(brand.violet700, 0.22)}`,
       }}
     >
       <Box
+        aria-hidden
         sx={{
           position: "absolute",
-          width: 240,
-          height: 240,
+          width: 260,
+          height: 260,
           borderRadius: "50%",
           bgcolor: alpha("#fff", 0.1),
-          top: -80,
-          left: -50,
+          top: -90,
+          left: -60,
+        }}
+      />
+      <Box
+        aria-hidden
+        sx={{
+          position: "absolute",
+          width: 160,
+          height: 160,
+          borderRadius: "50%",
+          bgcolor: alpha("#fff", 0.08),
+          bottom: -50,
+          right: -30,
         }}
       />
       <Box
@@ -48,7 +61,7 @@ export default function PageHeroBanner({ title, subtitle, actions }: PageHeroBan
             {title}
           </Typography>
           {subtitle && (
-            <Typography variant="body1" sx={{ color: alpha("#fff", 0.92), maxWidth: 560, lineHeight: 1.6 }}>
+            <Typography variant="body1" sx={{ color: alpha("#fff", 0.92), maxWidth: 560, lineHeight: 1.65 }}>
               {subtitle}
             </Typography>
           )}

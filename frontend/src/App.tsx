@@ -41,8 +41,14 @@ const StudentJoinByTeacherPage = lazy(() => import("./pages/student/StudentJoinB
 
 function PageLoader() {
   return (
-    <Box display="flex" justifyContent="center" py={8}>
-      <CircularProgress />
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="100vh"
+      sx={{ bgcolor: "transparent" }}
+    >
+      <CircularProgress size={40} thickness={4} />
     </Box>
   );
 }

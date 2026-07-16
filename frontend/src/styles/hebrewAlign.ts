@@ -266,7 +266,7 @@ export const sidebarNavListScrollSx = {
   scrollbarWidth: "thin",
   "&::-webkit-scrollbar": { width: 6 },
   "&::-webkit-scrollbar-thumb": {
-    bgcolor: "rgba(255,255,255,0.35)",
+    bgcolor: "rgba(124, 111, 212, 0.28)",
     borderRadius: 3,
   },
 } as const;
@@ -278,8 +278,7 @@ export const sidebarFooterSx = {
 export const sidebarHeaderSx = {
   flexShrink: 0,
   px: 2.5,
-  py: 2,
-  borderBottom: "1px solid rgba(255,255,255,0.12)",
+  py: 2.25,
 } as const;
 
 /** Tableau DataListTable : titres et valeurs RTL, alignés à droite. */

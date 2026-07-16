@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Chip, Grid, Typography } from "@mui/material";
-import HebrewCardRow from "../../components/ui/HebrewCardRow";
+import { Alert, Box, Button, Chip, CircularProgress, Grid, Typography } from "@mui/material";
 import PeopleIcon from "@mui/icons-material/People";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SchoolIcon from "@mui/icons-material/School";
+import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
+import PendingEnrollmentActions, {
+  type ReviewAction,
+} from "../../components/PendingEnrollmentActions";
 import DashboardNavCard from "../../components/ui/DashboardNavCard";
+import EmptyState from "../../components/ui/EmptyState";
+import HebrewCardRow from "../../components/ui/HebrewCardRow";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
+import { useFeedback } from "../../context/FeedbackContext";
 import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
 import { he } from "../../i18n/he";
 import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
@@ -34,10 +40,49 @@ const navCards = [
   },
 ];
 
+function PendingRequestCard({
+  enrollment,
+  reviewing,
+  onReview,
+}: {
+  enrollment: Enrollment;
+  reviewing: ReviewAction | null;
+  onReview: (id: number, status: "approved" | "rejected") => void;
+}) {
+  const offering = enrollmentOfferingLabel(enrollment);
+  return (
+    <HebrewCardRow
+      text={
+        <>
+          <Chip size="small" label={he.pendingEnrollmentRequest} color="warning" sx={{ mb: 1 }} />
+          <Typography fontWeight={700}>{enrollment.student_name}</Typography>
+          <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
+            {enrollment.student_email}
+          </Typography>
+          {offering && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              {offering}
+            </Typography>
+          )}
+        </>
+      }
+      actions={
+        <PendingEnrollmentActions
+          enrollmentId={enrollment.id}
+          reviewing={reviewing}
+          onReview={onReview}
+        />
+      }
+    />
+  );
+}
+
 export default function TeacherOverviewPage() {
+  const { showSuccess, showError } = useFeedback();
   const [pendingEnrollments, setPendingEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reviewing, setReviewing] = useState<ReviewAction | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,14 +102,20 @@ export default function TeacherOverviewPage() {
 
   const reviewEnrollment = async (enrollmentId: number, status: "approved" | "rejected") => {
     setError("");
+    setReviewing({ id: enrollmentId, status });
     try {
       await api(`/api/enrollments/${enrollmentId}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      await load();
+      setPendingEnrollments((rows) => rows.filter((r) => r.id !== enrollmentId));
+      showSuccess(status === "approved" ? he.approvedSuccess : he.rejectedSuccess);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      const msg = e instanceof ApiError ? e.message : he.errorGeneric;
+      setError(msg);
+      showError(msg);
+    } finally {
+      setReviewing(null);
     }
   };
 
@@ -94,7 +145,16 @@ export default function TeacherOverviewPage() {
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError("")}
+          action={
+            <Button color="inherit" size="small" onClick={load}>
+              {he.retry}
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}
@@ -104,38 +164,23 @@ export default function TeacherOverviewPage() {
           {he.pendingApprovals}
         </Typography>
         {loading ? (
-          <Typography color="text.secondary">{he.loading}</Typography>
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress size={36} />
+          </Box>
         ) : pendingCount === 0 ? (
-          <Typography color="text.secondary">{he.noPendingRequests}</Typography>
+          <EmptyState
+            title={he.noPendingRequests}
+            description={he.noPendingRequestsHint}
+            icon={<HowToRegOutlinedIcon />}
+          />
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             {pendingEnrollments.map((p) => (
-              <HebrewCardRow
+              <PendingRequestCard
                 key={p.id}
-                text={
-                  <>
-                    <Chip size="small" label={he.pendingEnrollmentRequest} color="warning" sx={{ mb: 1 }} />
-                    <Typography fontWeight={700}>{p.student_name}</Typography>
-                    <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
-                      {p.student_email}
-                    </Typography>
-                    {enrollmentOfferingLabel(p) && (
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        {enrollmentOfferingLabel(p)}
-                      </Typography>
-                    )}
-                  </>
-                }
-                actions={
-                  <>
-                    <Button size="small" variant="contained" onClick={() => reviewEnrollment(p.id, "approved")}>
-                      {he.approve}
-                    </Button>
-                    <Button size="small" color="error" variant="outlined" onClick={() => reviewEnrollment(p.id, "rejected")}>
-                      {he.reject}
-                    </Button>
-                  </>
-                }
+                enrollment={p}
+                reviewing={reviewing}
+                onReview={reviewEnrollment}
               />
             ))}
           </Box>

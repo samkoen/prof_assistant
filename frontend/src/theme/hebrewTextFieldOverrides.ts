@@ -1,4 +1,4 @@
-import type { Components, Theme } from "@mui/material/styles";
+import { alpha, type Components, type Theme } from "@mui/material/styles";
 
 /**
  * TextField outlined en RTL sans casser le NotchedOutline MUI.
@@ -35,15 +35,35 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
   },
   MuiOutlinedInput: {
     styleOverrides: {
-      root: {
-        borderRadius: 10,
-      },
+      root: ({ theme }) => ({
+        borderRadius: 14,
+        bgcolor: alpha(theme.palette.primary.main, 0.03),
+        transition: "background-color 0.2s ease, box-shadow 0.2s ease",
+        "&:hover": {
+          bgcolor: alpha(theme.palette.primary.main, 0.05),
+        },
+        "&.Mui-focused": {
+          bgcolor: theme.palette.background.paper,
+          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}`,
+        },
+        "& .MuiOutlinedInput-notchedOutline": {
+          borderColor: alpha(theme.palette.primary.main, 0.14),
+        },
+        "&:hover .MuiOutlinedInput-notchedOutline": {
+          borderColor: alpha(theme.palette.primary.main, 0.28),
+        },
+        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+          borderColor: theme.palette.primary.main,
+          borderWidth: 1.5,
+        },
+      }),
       notchedOutline: {
         textAlign: "right",
       },
       input: {
         textAlign: "right",
         direction: "rtl",
+        paddingBlock: 14,
       },
       inputMultiline: {
         textAlign: "right",
@@ -60,7 +80,7 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
     styleOverrides: {
       root: ({ theme }) => ({
         "& .MuiOutlinedInput-root": {
-          bgcolor: theme.palette.background.paper,
+          bgcolor: alpha(theme.palette.primary.main, 0.03),
         },
         '&[dir="ltr"]': {
           "& .MuiInputLabel-root": {

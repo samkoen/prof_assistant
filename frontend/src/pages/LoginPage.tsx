@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Box, Button, Link, TextField, Typography } from "@mui/material";
+import { Alert, Box, Link, TextField, Typography } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
+import LoadingButton from "../components/ui/LoadingButton";
+import PasswordField from "../components/ui/PasswordField";
 import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 import { ApiError } from "../api/client";
@@ -37,14 +39,18 @@ export default function LoginPage() {
     }
   };
 
+  const registerTo = joinToken
+    ? `/register?joinToken=${encodeURIComponent(joinToken)}`
+    : "/register";
+
   return (
     <AuthLayout title={he.login}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
-      <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+      <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.25}>
         <TextField
           label={he.email}
           type="email"
@@ -53,27 +59,24 @@ export default function LoginPage() {
           required
           fullWidth
           dir="ltr"
+          autoComplete="email"
+          autoFocus
         />
-        <TextField
+        <PasswordField
           label={he.password}
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           fullWidth
-          dir="ltr"
+          autoComplete="current-password"
         />
-        <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ mt: 1 }}>
-          {loading ? he.loading : he.login}
-        </Button>
+        <LoadingButton type="submit" variant="contained" size="large" loading={loading} sx={{ mt: 0.5 }}>
+          {he.login}
+        </LoadingButton>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5, textAlign: "center" }}>
-        אין לך חשבון?{" "}
-        <Link
-          component={RouterLink}
-          to={joinToken ? `/register?joinToken=${encodeURIComponent(joinToken)}` : "/register"}
-          fontWeight={600}
-        >
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: "center" }}>
+        {he.noAccountPrompt}{" "}
+        <Link component={RouterLink} to={registerTo} fontWeight={700}>
           {he.register}
         </Link>
       </Typography>

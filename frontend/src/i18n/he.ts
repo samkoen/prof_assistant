@@ -1,6 +1,7 @@
 export const he = {
   appName: "עוזר AI",
-  platformSubtitle: "ניהול מבחנים בזמן אמת",
+  authBrandTagline: "Smart Exams · AI Education",
+  platformSubtitle: "ניהול מבחנים חכם — פשוט, מהיר ומקצועי",
   authHeroTitle: "מבחנים חכמים, פשוט יותר",
   authHeroPoints: [
     "בניית מבחנים ושאלות בממשק אחד",
@@ -12,6 +13,16 @@ export const he = {
   showSidebar: "הצג תפריט",
   login: "התחברות",
   register: "הרשמה",
+  noAccountPrompt: "אין לך חשבון?",
+  alreadyHaveAccount: "כבר יש לך חשבון?",
+  showPassword: "הצגת סיסמה",
+  hidePassword: "הסתרת סיסמה",
+  passwordMinHint: "לפחות 6 תווים",
+  goToLogin: "מעבר להתחברות",
+  retry: "נסה שוב",
+  approvedSuccess: "הבקשה אושרה",
+  rejectedSuccess: "הבקשה נדחתה",
+  noPendingRequestsHint: "כשסטודנט יבקש להצטרף לקורס, הבקשה תופיע כאן.",
   registerSuccessAwaitVerification:
     "נרשמת בהצלחה! שלחנו קישור אימות לכתובת האימייל שלך. לאחר לחיצה על הקישור תוכל להתחבר.",
   verifyEmailTitle: "אימות אימייל",

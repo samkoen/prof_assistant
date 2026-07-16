@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { alpha, Box, Card, CardContent, Typography } from "@mui/material";
-import { brand, cardGradients } from "../../theme/brand";
+import { brand, cardGradients, softCardShadow } from "../../theme/brand";
 
 type HighlightCardProps = {
   icon: ReactNode;
@@ -25,15 +25,17 @@ export default function HighlightCard({
     <Card
       sx={{
         height: "100%",
-        border: highlighted ? `2px solid ${brand.amber400}` : `1px solid ${alpha(brand.violet500, 0.2)}`,
+        border: highlighted
+          ? `2px solid ${brand.amber400}`
+          : `1px solid ${alpha(brand.violet500, 0.14)}`,
         boxShadow: highlighted
-          ? `0 0 0 3px ${alpha(brand.amber500, 0.2)}, 0 8px 28px ${alpha(brand.violet700, 0.12)}`
-          : `0 4px 20px ${alpha(brand.violet600, 0.1)}`,
+          ? `0 0 0 3px ${alpha(brand.amber500, 0.16)}, 0 12px 32px ${alpha(brand.violet700, 0.1)}`
+          : softCardShadow,
         overflow: "hidden",
       }}
     >
-      <Box sx={{ height: 5, background: gradient }} />
-      <CardContent sx={{ p: 2.5, height: "calc(100% - 5px)", display: "flex", flexDirection: "column" }}>
+      <Box sx={{ height: 4, background: gradient }} />
+      <CardContent sx={{ p: 2.75, height: "calc(100% - 4px)", display: "flex", flexDirection: "column" }}>
         <Box
           sx={{
             width: 48,
@@ -44,7 +46,8 @@ export default function HighlightCard({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            mb: 1.5,
+            mb: 1.75,
+            boxShadow: `0 6px 16px ${alpha(brand.violet900, 0.14)}`,
             "& .MuiSvgIcon-root": { fontSize: 26 },
           }}
         >
@@ -53,7 +56,7 @@ export default function HighlightCard({
         <Typography variant="h6" fontWeight={700} gutterBottom>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flex: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, flex: 1, lineHeight: 1.6 }}>
           {description}
         </Typography>
         {footer}

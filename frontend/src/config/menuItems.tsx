@@ -16,6 +16,8 @@ export interface MenuItemDef {
   icon: ReactNode;
   path: string;
   matchPathPrefix?: string;
+  /** Clé pour badge dynamique (ex. pending enrollments). */
+  badgeKey?: "pendingEnrollments";
 }
 
 export const PROFILE_PATH = "/profile";
@@ -34,6 +36,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.students, icon: <SchoolIcon />, path: "/admin/students" },
       { text: he.allCourses, icon: <MenuBookIcon />, path: "/admin/courses" },
       { text: he.aiExplanationsAdminTitle, icon: <AutoDeleteIcon />, path: "/admin/ai-explanations" },
+      profileMenuItem,
     ];
   }
   if (role === "teacher") {
@@ -43,7 +46,12 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.catalogCourses, icon: <MenuBookIcon />, path: "/teacher/catalog-courses" },
       { text: he.myCourses, icon: <SchoolIcon />, path: "/teacher/courses" },
       { text: he.exams, icon: <QuizIcon />, path: "/teacher/exams" },
-      { text: he.pendingApprovals, icon: <SchoolIcon />, path: "/teacher/enrollments" },
+      {
+        text: he.pendingApprovals,
+        icon: <SchoolIcon />,
+        path: "/teacher/enrollments",
+        badgeKey: "pendingEnrollments",
+      },
       { text: he.teacherShares, icon: <ShareIcon />, path: "/teacher/shares" },
       profileMenuItem,
     ];

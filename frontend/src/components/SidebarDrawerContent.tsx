@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import LogoutIcon from "@mui/icons-material/Logout";
-import QuizIcon from "@mui/icons-material/Quiz";
+import BrandMark from "./ui/BrandMark";
 import type { User } from "../api/client";
 import { PROFILE_PATH, roleLabel, type MenuItemDef } from "../config/menuItems";
 import { he } from "../i18n/he";
@@ -26,13 +26,15 @@ import {
   sidebarNavListScrollSx,
   sidebarNavTextSx,
 } from "../styles/hebrewAlign";
-import { brand, sidebarGradient } from "../theme/brand";
+import { brand, softCardShadow } from "../theme/brand";
 
 function userInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return (parts[0]?.[0] || "?").toUpperCase();
 }
+
+type MenuBadges = Partial<Record<NonNullable<MenuItemDef["badgeKey"]>, number>>;
 
 type SidebarDrawerContentProps = {
   menuItems: MenuItemDef[];
@@ -41,85 +43,91 @@ type SidebarDrawerContentProps = {
   onNavigate: (path: string) => void;
   onLogout: () => void;
   onHideSidebar?: () => void;
+  badges?: MenuBadges;
 };
 
 function SidebarHeader({ onHideSidebar }: { onHideSidebar?: () => void }) {
   return (
-    <Box sx={sidebarHeaderSx}>
-      <Box display="flex" alignItems="center" gap={1.5}>
-        <Box
+    <Box
+      sx={{
+        ...sidebarHeaderSx,
+        borderBottom: `1px solid ${alpha(brand.violet600, 0.1)}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 1,
+      }}
+    >
+      <BrandMark size="sm" align="start" />
+      {onHideSidebar && (
+        <IconButton
+          size="small"
+          onClick={onHideSidebar}
+          aria-label={he.hideSidebar}
           sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 2.5,
-            background: `linear-gradient(135deg, ${brand.violet500} 0%, ${brand.amber400} 100%)`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             flexShrink: 0,
+            color: brand.violet700,
+            bgcolor: alpha(brand.violet600, 0.08),
+            "&:hover": { bgcolor: alpha(brand.violet600, 0.14) },
           }}
         >
-          <QuizIcon sx={{ fontSize: 26 }} />
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2} noWrap>
-            {he.appName}
-          </Typography>
-          <Typography variant="caption" sx={{ opacity: 0.75 }} noWrap>
-            {he.platformSubtitle}
-          </Typography>
-        </Box>
-        {onHideSidebar && (
-          <IconButton
-            size="small"
-            onClick={onHideSidebar}
-            aria-label={he.hideSidebar}
-            sx={{
-              flexShrink: 0,
-              color: alpha("#fff", 0.85),
-              bgcolor: alpha("#fff", 0.08),
-              "&:hover": { bgcolor: alpha("#fff", 0.16) },
-            }}
-          >
-            <ChevronRightIcon fontSize="small" />
-          </IconButton>
-        )}
-      </Box>
+          <ChevronRightIcon fontSize="small" />
+        </IconButton>
+      )}
     </Box>
   );
+}
+
+function menuBadgeCount(item: MenuItemDef, badges?: MenuBadges): number {
+  if (!item.badgeKey || !badges) return 0;
+  return badges[item.badgeKey] ?? 0;
 }
 
 function SidebarMenu({
   menuItems,
   pathname,
   onNavigate,
-}: Pick<SidebarDrawerContentProps, "menuItems" | "pathname" | "onNavigate">) {
+  badges,
+}: Pick<SidebarDrawerContentProps, "menuItems" | "pathname" | "onNavigate" | "badges">) {
   return (
-    <List sx={sidebarNavListScrollSx}>
+    <List
+      sx={{
+        ...sidebarNavListScrollSx,
+        "&::-webkit-scrollbar-thumb": {
+          bgcolor: alpha(brand.violet600, 0.28),
+          borderRadius: 3,
+        },
+      }}
+    >
       {menuItems.map((item) => {
         const selected = item.matchPathPrefix
           ? pathname.startsWith(item.matchPathPrefix)
           : pathname === item.path;
+        const badge = menuBadgeCount(item, badges);
         return (
-          <ListItem key={item.path} disablePadding sx={{ mb: 0.75 }}>
+          <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
               selected={selected}
               onClick={() => onNavigate(item.path)}
               sx={{
                 ...sidebarNavButtonSx,
-                borderRadius: 2,
-                py: 1.1,
-                color: alpha("#fff", 0.75),
-                "&:hover": { bgcolor: alpha("#fff", 0.1), color: "#fff" },
+                borderRadius: 2.5,
+                py: 1.15,
+                color: brand.slate600,
+                "&:hover": {
+                  bgcolor: alpha(brand.violet600, 0.08),
+                  color: brand.violet800,
+                },
                 "&.Mui-selected": {
-                  bgcolor: alpha("#fff", 0.18),
-                  color: "#fff",
-                  boxShadow: `inset 4px 0 0 ${brand.amber400}`,
-                  "& .MuiListItemIcon-root": { color: brand.amber400 },
+                  bgcolor: alpha(brand.violet600, 0.12),
+                  color: brand.violet800,
+                  boxShadow: `inset 3px 0 0 ${brand.violet600}`,
+                  "&:hover": { bgcolor: alpha(brand.violet600, 0.16) },
+                  "& .MuiListItemIcon-root": { color: brand.violet600 },
                 },
                 "& .MuiListItemIcon-root": {
                   ...sidebarNavIconSx,
-                  color: selected ? brand.amber400 : alpha("#fff", 0.65),
+                  color: selected ? brand.violet600 : brand.slate400,
                 },
                 "& .MuiListItemText-root": sidebarNavTextSx,
               }}
@@ -128,11 +136,25 @@ function SidebarMenu({
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: "0.9rem",
+                  fontSize: "0.92rem",
                   fontWeight: selected ? 700 : 500,
                   textAlign: "right",
                 }}
               />
+              {badge > 0 && (
+                <Chip
+                  size="small"
+                  label={badge > 99 ? "99+" : badge}
+                  sx={{
+                    height: 22,
+                    minWidth: 22,
+                    fontSize: "0.7rem",
+                    fontWeight: 800,
+                    bgcolor: brand.amber500,
+                    color: brand.slate900,
+                  }}
+                />
+              )}
             </ListItemButton>
           </ListItem>
         );
@@ -152,17 +174,19 @@ function SidebarUserFooter({
 }) {
   return (
     <>
-      <Divider sx={{ borderColor: alpha("#fff", 0.12) }} />
-      <Box sx={{ ...sidebarFooterSx, p: 1.5, mx: 1, mb: 1 }}>
+      <Divider sx={{ borderColor: alpha(brand.violet600, 0.1) }} />
+      <Box sx={{ ...sidebarFooterSx, p: 1.5, mx: 1, mb: 1.25 }}>
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 1,
-            p: 1,
-            borderRadius: 2,
+            gap: 1.25,
+            p: 1.25,
+            borderRadius: 2.5,
             cursor: "pointer",
-            "&:hover": { bgcolor: alpha("#fff", 0.08) },
+            bgcolor: alpha(brand.violet600, 0.05),
+            border: `1px solid ${alpha(brand.violet600, 0.08)}`,
+            "&:hover": { bgcolor: alpha(brand.violet600, 0.1) },
           }}
           onClick={() => onNavigate(PROFILE_PATH)}
           role="button"
@@ -176,13 +200,13 @@ function SidebarUserFooter({
               width: 40,
               height: 40,
               fontSize: "0.9rem",
-              background: `linear-gradient(135deg, ${brand.violet600}, ${brand.violet500})`,
+              fontWeight: 700,
             }}
           >
             {userInitials(user.full_name)}
           </Avatar>
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="body2" fontWeight={700} noWrap>
+            <Typography variant="body2" fontWeight={700} noWrap color="text.primary">
               {user.full_name}
             </Typography>
             <Chip
@@ -193,8 +217,8 @@ function SidebarUserFooter({
                 height: 22,
                 fontSize: "0.7rem",
                 fontWeight: 700,
-                bgcolor: alpha(brand.amber400, 0.22),
-                color: brand.amber400,
+                bgcolor: alpha(brand.violet600, 0.12),
+                color: brand.violet700,
               }}
             />
           </Box>
@@ -202,15 +226,16 @@ function SidebarUserFooter({
         <ListItemButton
           onClick={onLogout}
           sx={{
-            mt: 0.5,
-            borderRadius: 2,
-            color: alpha("#fff", 0.9),
-            bgcolor: alpha("#dc2626", 0.22),
-            "&:hover": { bgcolor: alpha("#dc2626", 0.35) },
+            mt: 1,
+            borderRadius: 2.5,
+            color: "#b91c1c",
+            bgcolor: alpha("#dc2626", 0.06),
+            border: `1px solid ${alpha("#dc2626", 0.12)}`,
+            "&:hover": { bgcolor: alpha("#dc2626", 0.12) },
             ...sidebarNavButtonSx,
           }}
         >
-          <ListItemIcon sx={{ ...sidebarNavIconSx, color: alpha("#fff", 0.9) }}>
+          <ListItemIcon sx={{ ...sidebarNavIconSx, color: "#b91c1c" }}>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText
@@ -230,6 +255,7 @@ export default function SidebarDrawerContent({
   onNavigate,
   onLogout,
   onHideSidebar,
+  badges,
 }: SidebarDrawerContentProps) {
   return (
     <Box
@@ -239,12 +265,19 @@ export default function SidebarDrawerContent({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background: sidebarGradient,
-        color: brand.white,
+        background: `linear-gradient(180deg, ${brand.white} 0%, ${brand.violet50} 100%)`,
+        color: brand.slate900,
+        borderInlineEnd: `1px solid ${alpha(brand.violet600, 0.12)}`,
+        boxShadow: softCardShadow,
       }}
     >
       <SidebarHeader onHideSidebar={onHideSidebar} />
-      <SidebarMenu menuItems={menuItems} pathname={pathname} onNavigate={onNavigate} />
+      <SidebarMenu
+        menuItems={menuItems}
+        pathname={pathname}
+        onNavigate={onNavigate}
+        badges={badges}
+      />
       {user && <SidebarUserFooter user={user} onNavigate={onNavigate} onLogout={onLogout} />}
     </Box>
   );

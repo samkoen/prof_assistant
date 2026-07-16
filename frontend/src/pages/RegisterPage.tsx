@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Alert, Box, Button, Link, TextField, Typography } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
+import LoadingButton from "../components/ui/LoadingButton";
+import PasswordField from "../components/ui/PasswordField";
 import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -18,6 +20,10 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const loginLink = joinToken
+    ? `/login?joinToken=${encodeURIComponent(joinToken)}`
+    : "/login";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,19 +49,15 @@ export default function RegisterPage() {
     }
   };
 
-  const loginLink = joinToken
-    ? `/login?joinToken=${encodeURIComponent(joinToken)}`
-    : "/login";
-
   if (success) {
     return (
       <AuthLayout title={he.register}>
-        <Alert severity="success">
+        <Alert severity="success" sx={{ mb: 2.5 }}>
           {he.registerSuccessAwaitVerification}
-          <Link component={RouterLink} to={loginLink} sx={{ mr: 1, fontWeight: 600 }}>
-            {he.login}
-          </Link>
         </Alert>
+        <Button component={RouterLink} to={loginLink} variant="contained" size="large" fullWidth>
+          {he.goToLogin}
+        </Button>
       </AuthLayout>
     );
   }
@@ -63,17 +65,18 @@ export default function RegisterPage() {
   return (
     <AuthLayout title={he.register}>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
-      <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+      <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.25}>
         <TextField
           label={he.fullName}
           value={form.full_name}
           onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           required
           fullWidth
+          autoFocus
         />
         <TextField
           label={he.email}
@@ -83,15 +86,16 @@ export default function RegisterPage() {
           required
           fullWidth
           dir="ltr"
+          autoComplete="email"
         />
-        <TextField
+        <PasswordField
           label={he.password}
-          type="password"
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
           required
           fullWidth
-          dir="ltr"
+          autoComplete="new-password"
+          helperText={he.passwordMinHint}
           inputProps={{ minLength: 6 }}
         />
         <TextField
@@ -106,12 +110,13 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, student_id: e.target.value })}
           fullWidth
         />
-        <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ mt: 1 }}>
-          {loading ? he.loading : he.register}
-        </Button>
+        <LoadingButton type="submit" variant="contained" size="large" loading={loading} sx={{ mt: 0.5 }}>
+          {he.register}
+        </LoadingButton>
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5, textAlign: "center" }}>
-        <Link component={RouterLink} to={loginLink} fontWeight={600}>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: "center" }}>
+        {he.alreadyHaveAccount}{" "}
+        <Link component={RouterLink} to={loginLink} fontWeight={700}>
           {he.login}
         </Link>
       </Typography>
