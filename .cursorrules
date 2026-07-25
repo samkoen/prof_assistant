@@ -9,3 +9,6 @@ Pour les accordéons hébreu (ex: `הגדרות`) : appliquer l’alignement à 
 
 ## 3. Modules OOP par entité (front + back)
 Une entité = model + schema + router + services (back) ; api + components + pages minces (front). Logique métier dans les services, pas dans les routers ni god-components.
+
+## 4. Unit tests (référence — .cursor/rules/unit-tests.mdc)
+Chaque nouvelle feature / correctif métier-sécu → UT back et/ou front + `pytest` / `npm test` verts avant clôture.

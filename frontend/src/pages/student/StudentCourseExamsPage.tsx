@@ -176,9 +176,10 @@ export default function StudentCourseExamsPage() {
                   <Box sx={examListRowDetailsSx}>
                     <Typography variant="body2" color="text.secondary" component="span">
                       <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
-                      {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                      {submitted && s.results_published && s.attempt?.score != null && s.attempt.max_score != null && (
                         <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
                       )}
+                      {submitted && !s.results_published && <> · {he.examSubmitted}</>}
                       {inProgress && <> · {he.continueExam}</>}
                     </Typography>
                   </Box>

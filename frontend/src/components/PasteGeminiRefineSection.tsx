@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Typography } from "@mui/material";
-import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import { Alert, Box, Typography } from "@mui/material";
 import GeminiRefinePanel from "./GeminiRefinePanel";
+import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { api } from "../api/client";
 import type { GeminiGenerationSession } from "../types/geminiQuestionSeries";
 import type { ParseError } from "../utils/qcmImportParser";
-import {
-  GEMINI_FIX_STARS_REFINE_MESSAGE,
-  parseErrorsNeedStarFix,
-} from "../utils/geminiParseErrors";
 import { resolveGeminiApiError } from "../utils/geminiBatchGeneration";
-import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
+import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 type Props = {
   examId: number;
   errors: ParseError[];
   editable: boolean;
+  pasteText: string;
   onRawText: (text: string) => void;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
@@ -30,6 +27,7 @@ export default function PasteGeminiRefineSection({
   examId,
   errors,
   editable,
+  pasteText,
   onRawText,
   onError,
   onSuccess,
@@ -61,6 +59,25 @@ export default function PasteGeminiRefineSection({
     };
   }, [examId, errors.length]);
 
+  const handleSessionUpdate = useCallback(
+    (updated: GeminiGenerationSession) => {
+      setSession(updated);
+      if (updated.raw_text) onRawText(updated.raw_text);
+      onSuccess(he.geminiRefineApplied);
+    },
+    [onRawText, onSuccess],
+  );
+
+  const { autoFixing } = useGeminiAutoStructureFix({
+    session,
+    errors,
+    rawText: pasteText || session?.raw_text || null,
+    enabled: editable && !loadingSession && !refining && errors.length > 0,
+    onSessionUpdate: handleSessionUpdate,
+    onError,
+    onRawText,
+  });
+
   const refineSession = useCallback(
     async (message: string) => {
       if (!session) return;
@@ -71,49 +88,42 @@ export default function PasteGeminiRefineSection({
           `/api/gemini-sessions/${session.id}/messages`,
           { method: "POST", body: JSON.stringify({ message }) },
         );
-        setSession(updated);
-        if (updated.raw_text) onRawText(updated.raw_text);
-        onSuccess(he.geminiRefineApplied);
+        handleSessionUpdate(updated);
       } catch (e) {
         onError(resolveGeminiApiError(e));
       } finally {
         setRefining(false);
       }
     },
-    [session, onRawText, onError, onSuccess],
+    [session, onError, handleSessionUpdate],
   );
 
   if (errors.length === 0 || loadingSession || !session) return null;
 
-  const showStarQuickFix = parseErrorsNeedStarFix(errors);
+  const busy = refining || autoFixing;
 
   return (
     <Box sx={{ mb: 2 }} dir="rtl">
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
-          {he.pasteGeminiFixTitle}
-        </Typography>
-        <Typography variant="body2" sx={hebrewAlignRightSx}>
-          {he.pasteGeminiFixHint}
-        </Typography>
-      </Alert>
-      {showStarQuickFix && (
-        <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<AutoFixHighIcon />}
-            disabled={!editable || refining}
-            onClick={() => void refineSession(GEMINI_FIX_STARS_REFINE_MESSAGE)}
-          >
-            {he.pasteGeminiFixStarsQuick}
-          </Button>
-        </Box>
+      {autoFixing ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={hebrewAlignRightSx}>
+            {he.geminiAutoFixingFormat}
+          </Typography>
+        </Alert>
+      ) : (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
+            {he.pasteGeminiFixTitle}
+          </Typography>
+          <Typography variant="body2" sx={hebrewAlignRightSx}>
+            {he.pasteGeminiFixHint}
+          </Typography>
+        </Alert>
       )}
       <GeminiRefinePanel
         messages={session.messages}
-        refining={refining}
-        disabled={!editable}
+        refining={busy}
+        disabled={!editable || autoFixing}
         onSend={(message) => void refineSession(message)}
       />
     </Box>

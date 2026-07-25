@@ -126,7 +126,12 @@ def _types_line(types: list[QuestionType]) -> str:
 def build_mandatory_topic_block(series: list[GeminiSeriesInput]) -> str:
     parts = [clean_gemini_user_text(s.instructions) for s in series if s.instructions.strip()]
     combined = " | ".join(parts)
-    return f"הנושא מחייב: {combined}. מקורות = עזר בלבד. אסור לסטות.\n"
+    return (
+        f"הנושא מחייב (הנחיות המורה): {combined}. "
+        "אם יש קובץ חומר לימוד — זה בסיס מה שהתלמיד למד; "
+        "אם יש קובץ תרגילים — זה דוגמה לסגנון/מבנה השאלות. "
+        "אסור לסטות מהנושא המחייב.\n"
+    )
 
 
 def _series_block(index: int, item: GeminiSeriesInput) -> str:

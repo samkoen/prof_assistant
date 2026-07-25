@@ -30,6 +30,7 @@ import {
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
 import { isLowTopicOverlap } from "../utils/geminiTopicOverlap";
 import type { GeminiGenerationPreview } from "../types/geminiGenerationPreview";
+import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
@@ -155,9 +156,26 @@ export default function ExamEditorGeminiGenerationSection({
     loadActiveSession();
   }, [loadActiveSession]);
 
+  const parseErrors = parseResult?.errors ?? [];
+  const { autoFixing } = useGeminiAutoStructureFix({
+    session,
+    errors: parseErrors,
+    rawText,
+    enabled:
+      editable &&
+      generationComplete &&
+      !generating &&
+      !accepting &&
+      !refining &&
+      parseErrors.length > 0,
+    onSessionUpdate: setSession,
+    onError,
+  });
+  const refineBusy = refining || autoFixing;
+
   useEffect(() => {
     if (!rawText || !parseResult || parseResult.errors.length === 0 || !session) return;
-    if (!generationComplete) return;
+    if (!generationComplete || autoFixing) return;
     if (lastForwardedRawRef.current === rawText) return;
     lastForwardedRawRef.current = rawText;
     logGeminiPrompt(session.messages);
@@ -169,7 +187,7 @@ export default function ExamEditorGeminiGenerationSection({
         body: JSON.stringify({ errors: parseResult.errors }),
       }).catch(() => {});
     }
-  }, [rawText, parseResult, session, generationComplete, onParseFailed]);
+  }, [rawText, parseResult, session, generationComplete, autoFixing, onParseFailed]);
 
   const addSeries = () => setSeriesList((prev) => [...prev, createGeminiQuestionSeries()]);
   const updateSeries = (id: string, next: GeminiQuestionSeriesDraft) => {
@@ -505,28 +523,36 @@ export default function ExamEditorGeminiGenerationSection({
 
       {rawText && parseResult && parseResult.errors.length > 0 && session && generationComplete && (
         <Box sx={{ mt: 2 }}>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              {he.geminiParseFailedTitle}
-            </Typography>
-            <Typography variant="body2" paragraph sx={{ mb: 1 }}>
-              {he.geminiParseFailedHint}
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
-              {parseResult.errors.map((e) => (
-                <Typography key={`${e.block}-${e.message}`} component="li" variant="body2">
-                  <strong>{geminiParseErrorLocation(e.block)}:</strong> {geminiParseErrorDetail(e)}
-                </Typography>
-              ))}
-            </Box>
-          </Alert>
+          {autoFixing ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={hebrewAlignRightSx}>
+                {he.geminiAutoFixingFormat}
+              </Typography>
+            </Alert>
+          ) : (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                {he.geminiParseFailedTitle}
+              </Typography>
+              <Typography variant="body2" paragraph sx={{ mb: 1 }}>
+                {he.geminiParseFailedHint}
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
+                {parseResult.errors.map((e) => (
+                  <Typography key={`${e.block}-${e.message}`} component="li" variant="body2">
+                    <strong>{geminiParseErrorLocation(e.block)}:</strong> {geminiParseErrorDetail(e)}
+                  </Typography>
+                ))}
+              </Box>
+            </Alert>
+          )}
           <GeminiRefinePanel
             messages={session.messages}
-            refining={refining}
-            disabled={!editable || accepting}
+            refining={refineBusy}
+            disabled={!editable || accepting || autoFixing}
             onSend={refineSession}
           />
-          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={refining}>
+          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={refineBusy}>
             {he.geminiRejectQuestions}
           </Button>
         </Box>
@@ -543,11 +569,11 @@ export default function ExamEditorGeminiGenerationSection({
           />
           <GeminiRefinePanel
             messages={session.messages}
-            refining={refining}
-            disabled={!editable || accepting}
+            refining={refineBusy}
+            disabled={!editable || accepting || autoFixing}
             onSend={refineSession}
           />
-          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={accepting || refining}>
+          <Button size="small" onClick={handleReject} sx={{ mt: 1 }} disabled={accepting || refineBusy}>
             {he.geminiStartOver}
           </Button>
         </>

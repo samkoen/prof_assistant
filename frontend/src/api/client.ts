@@ -321,6 +321,7 @@ export interface ExamAttempt {
   rules_accepted_at?: string | null;
   focus_loss_count?: number;
   total_hidden_seconds?: number;
+  session_token?: string | null;
 }
 
 export interface StudentExamResult {
@@ -377,6 +378,7 @@ export interface ExamTake {
   warning_minutes: number;
   auto_submit_on_timeout: boolean;
   integrity_mode_enabled: boolean;
+  results_published?: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: StudentQuestion[];
@@ -404,6 +406,7 @@ export interface ExamReview {
   session_id: number;
   exam_title: string;
   show_correction: boolean;
+  results_published?: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];

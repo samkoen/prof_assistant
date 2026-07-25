@@ -53,6 +53,11 @@ import {
   isQuestionAnswered,
   scrollToExamQuestion,
 } from "../../utils/studentExamQuestionNav";
+import {
+  clearExamSessionToken,
+  examSessionTokenHeaders,
+  rememberAttemptSessionToken,
+} from "../../utils/examSessionToken";
 
 function answersFromSaved(saved: ExamTake["saved_answers"]): Record<number, number[]> {
   const out: Record<number, number[]> = {};
@@ -169,10 +174,14 @@ export default function StudentExamTakePage() {
     setLoading(true);
     setError("");
     try {
-      const data = await api<ExamTake>(`/api/exams/sessions/${id}/take`);
+      const data = await api<ExamTake>(`/api/exams/sessions/${id}/take`, {
+        headers: examSessionTokenHeaders(id),
+      });
+      rememberAttemptSessionToken(id, data.attempt);
       setPaper(data);
       setAttempt(data.attempt);
       if (data.attempt.submitted_at) {
+        clearExamSessionToken(id);
         const timedOut =
           !!data.attempt.expires_at &&
           new Date(data.attempt.expires_at).getTime() <= Date.now();
@@ -207,7 +216,7 @@ export default function StudentExamTakePage() {
   const submitted = phase === "final" || phase === "practice_review";
   const examInProgress = integrityActive && !!attempt?.started_at && phase === "exam";
 
-  useExamIntegrity(examInProgress, attempt?.id ?? null, submitted);
+  useExamIntegrity(examInProgress, attempt?.id ?? null, id || null, submitted);
 
   useEffect(() => {
     if (!examInProgress) return;
@@ -231,7 +240,9 @@ export default function StudentExamTakePage() {
     try {
       const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/accept-rules`, {
         method: "POST",
+        headers: examSessionTokenHeaders(id),
       });
+      rememberAttemptSessionToken(id, res);
       setAttempt(res);
       setPaper((prev) =>
         prev ? { ...prev, attempt: { ...prev.attempt, ...res } } : prev
@@ -265,8 +276,11 @@ export default function StudentExamTakePage() {
         ? `/api/exams/sessions/${id}/practice/answers`
         : `/api/exams/sessions/${id}/answers`;
     if (phase !== "practice" && p.attempt.submitted_at) return;
+    const headers =
+      phase === "practice" ? undefined : examSessionTokenHeaders(id);
     await api(path, {
       method: "PUT",
+      headers,
       body: JSON.stringify(buildAnswersPayload(p.questions, a)),
     });
   }, [id, phase]);
@@ -275,7 +289,11 @@ export default function StudentExamTakePage() {
     if (phase !== "exam" && phase !== "practice") return;
     if (rulesPending || !paper?.questions.length) return;
     const t = window.setTimeout(() => {
-      saveDraft().catch(() => {});
+      saveDraft().catch((e) => {
+        if (e instanceof ApiError && e.status === 409) {
+          setError(e.message || he.examSessionTakenElsewhere);
+        }
+      });
     }, 400);
     return () => window.clearTimeout(t);
   }, [answers, phase, rulesPending, paper?.session_id, saveDraft]);
@@ -331,14 +349,18 @@ export default function StudentExamTakePage() {
       setError("");
       try {
         const payload = buildAnswersPayload(p.questions, a);
+        const headers = examSessionTokenHeaders(id);
         await api(`/api/exams/sessions/${id}/answers`, {
           method: "PUT",
+          headers,
           body: JSON.stringify(payload),
         });
         const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/submit`, {
           method: "POST",
+          headers,
           body: JSON.stringify(payload),
         });
+        clearExamSessionToken(id);
         setAttempt(res);
         setPaper((prev) => (prev ? { ...prev, attempt: { ...prev.attempt, ...res } } : prev));
         setSuccess(force ? he.examAutoSubmitted : he.examSubmitted);
@@ -490,6 +512,12 @@ export default function StudentExamTakePage() {
         </Alert>
       )}
 
+      {phase === "exam" && !submitted && integrityActive && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {he.examOfficialModeHint}
+        </Alert>
+      )}
+
       {phase === "practice" && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {he.practiceModeHint}
@@ -499,7 +527,13 @@ export default function StudentExamTakePage() {
       {submitted ? (
         <>
           {attempt && (
-            <ExamScoresPanel attempt={attempt} practiceResults={practiceResults} />
+            <ExamScoresPanel
+              attempt={attempt}
+              practiceResults={practiceResults}
+              resultsPublished={Boolean(
+                review?.results_published ?? paper.results_published,
+              )}
+            />
           )}
           {review && <ExamSubmissionReview review={review} />}
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { api, type ExamAttempt } from "../api/client";
+import { examSessionTokenHeaders } from "../utils/examSessionToken";
 
 type IntegrityEvent = {
   event_type: "tab_hidden" | "tab_visible";
@@ -10,6 +11,7 @@ type IntegrityEvent = {
 export function useExamIntegrity(
   enabled: boolean,
   attemptId: number | null,
+  sessionId: number | null,
   submitted: boolean
 ) {
   const hiddenSince = useRef<number | null>(null);
@@ -17,17 +19,18 @@ export function useExamIntegrity(
   const flushTimer = useRef<number | null>(null);
 
   const flush = useCallback(async () => {
-    if (!attemptId || queue.current.length === 0) return;
+    if (!attemptId || !sessionId || queue.current.length === 0) return;
     const batch = queue.current.splice(0, queue.current.length);
     try {
       await api<ExamAttempt>(`/api/exams/attempts/${attemptId}/integrity-events`, {
         method: "POST",
+        headers: examSessionTokenHeaders(sessionId),
         body: JSON.stringify({ events: batch }),
       });
     } catch {
       queue.current.unshift(...batch);
     }
-  }, [attemptId]);
+  }, [attemptId, sessionId]);
 
   const enqueue = useCallback(
     (event: IntegrityEvent) => {

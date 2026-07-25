@@ -94,9 +94,10 @@ export default function StudentAllExamsPage() {
                       <Typography variant="body2" color="text.secondary" component="span">
                         {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) ·{" "}
                         <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
-                        {submitted && s.attempt?.score != null && s.attempt.max_score != null && (
+                        {submitted && s.results_published && s.attempt?.score != null && s.attempt.max_score != null && (
                           <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
                         )}
+                        {submitted && !s.results_published && <> · {he.examSubmitted}</>}
                         {inProgress && <> · {he.continueExam}</>}
                       </Typography>
                     </Box>

@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -6,6 +7,49 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.exam import AttemptIntegrityEvent, ExamSession, StudentExamAttempt
 from app.models.user import User
+
+EXAM_SESSION_TOKEN_HEADER = "X-Exam-Session-Token"
+EXAM_SESSION_TOKEN_CONFLICT = "המבחן פתוח בחלון אחר. רעננו את הדף כדי להמשיך כאן."
+
+
+def new_exam_session_token() -> str:
+    return secrets.token_hex(32)
+
+
+def bind_exam_session_token(
+    session: ExamSession,
+    attempt: StudentExamAttempt,
+    provided: str | None,
+    *,
+    starting_fresh: bool,
+) -> None:
+    """Issue or keep the instance token when integrity mode is on."""
+    if not session.integrity_mode_enabled:
+        return
+    if starting_fresh or not attempt.session_token:
+        attempt.session_token = new_exam_session_token()
+        return
+    if provided and secrets.compare_digest(provided, attempt.session_token):
+        return
+    # New browser/tab without the current token takes over the instance.
+    attempt.session_token = new_exam_session_token()
+
+
+def assert_exam_session_token(
+    session: ExamSession,
+    attempt: StudentExamAttempt,
+    provided: str | None,
+) -> None:
+    """Reject answers/submit/events if the client is not the active exam instance."""
+    if not session.integrity_mode_enabled:
+        return
+    if not attempt.started_at:
+        return
+    if attempt.submitted_at and not attempt.can_resubmit:
+        return
+    expected = attempt.session_token
+    if not expected or not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=409, detail=EXAM_SESSION_TOKEN_CONFLICT)
 
 
 async def get_student_attempt(

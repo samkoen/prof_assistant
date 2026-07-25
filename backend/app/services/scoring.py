@@ -29,3 +29,20 @@ def score_question(question: Question, selected_option_ids: list[int]) -> tuple[
     raw = max(0.0, correct_selected - wrong_selected)
     earned = (raw / len(correct_ids)) * max_points
     return earned, max_points
+
+
+def score_exam_answers(
+    questions: dict[int, Question],
+    selected_by_q: dict[int, list[int]],
+) -> tuple[float, float, dict[int, list[int]]]:
+    """Note toutes les questions ; absentes = []. Retourne score, max, réponses normalisées."""
+    total = 0.0
+    max_total = 0.0
+    normalized: dict[int, list[int]] = {}
+    for qid, question in questions.items():
+        selected = list(selected_by_q.get(qid, []))
+        earned, max_pts = score_question(question, selected)
+        total += earned
+        max_total += max_pts
+        normalized[qid] = selected
+    return total, max_total, normalized

@@ -28,14 +28,3 @@ export function geminiParseErrorLocation(block: number): string {
 
 export const GEMINI_FIX_STARS_REFINE_MESSAGE =
   "סמנו שורת * אחרי האפשרות הנכונה בכל שאלת בחירה יחידה — בדיוק לפי הפורמט";
-
-const STAR_FIX_ERROR_MESSAGES = new Set([
-  "נדרשת תשובה נכונה אחת (סמן ב-*)",
-  "לפחות תשובה נכונה אחת (סמן ב-*)",
-  "נדרשת תשובה נכונה אחת",
-  "לפחות תשובה נכונה אחת",
-]);
-
-export function parseErrorsNeedStarFix(errors: ParseError[]): boolean {
-  return errors.some((e) => STAR_FIX_ERROR_MESSAGES.has(e.message));
-}

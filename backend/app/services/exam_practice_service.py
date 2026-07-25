@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.exam import Exam, ExamPracticeResult, ExamSession, PracticeAnswer, Question, QuestionAiExplanation, StudentExamAttempt
 from app.schemas.exam import SubmitAnswerItem
-from app.services.scoring import score_question
+from app.services.scoring import score_exam_answers
 
 
 async def _questions_by_id(exam_id: int, db: AsyncSession) -> dict[int, Question]:
@@ -97,20 +97,18 @@ async def finalize_practice_submission(
     now = datetime.now(timezone.utc)
     questions = await _questions_by_id(exam.id, db)
     await clear_practice_data(attempt.id, db)
-    total = 0.0
-    max_total = 0.0
-    for item in answer_items:
-        question = questions.get(item.question_id)
-        if not question:
-            continue
-        earned, max_pts = score_question(question, item.selected_option_ids)
-        total += earned
-        max_total += max_pts
+    selected_by_q = {
+        item.question_id: item.selected_option_ids
+        for item in answer_items
+        if item.question_id in questions
+    }
+    total, max_total, normalized = score_exam_answers(questions, selected_by_q)
+    for qid, selected in normalized.items():
         db.add(
             PracticeAnswer(
                 attempt_id=attempt.id,
-                question_id=item.question_id,
-                selected_option_ids=item.selected_option_ids,
+                question_id=qid,
+                selected_option_ids=selected,
             )
         )
     attempt.practice_active = False

@@ -1,8 +1,7 @@
 import random
-import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -106,9 +105,13 @@ from app.services.exam_submit_service import (
 )
 from app.services.scoring import score_question
 from app.services.integrity_service import (
+    EXAM_SESSION_TOKEN_HEADER,
     accept_rules,
+    assert_exam_session_token,
+    bind_exam_session_token,
     ensure_attempt_record,
     get_owned_attempt,
+    new_exam_session_token,
     record_events,
     rules_blocking,
 )
@@ -288,30 +291,35 @@ def _take_meta(session: ExamSession, exam: Exam) -> dict:
         "warning_minutes": exam.warning_minutes,
         "auto_submit_on_timeout": exam.auto_submit_on_timeout,
         "integrity_mode_enabled": session.integrity_mode_enabled,
+        "results_published": session.results_published,
         "questions_language": exam.questions_language,
     }
 
 
-def _attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptResponse:
-    return AttemptResponse(
-        id=attempt.id,
-        exam_session_id=attempt.exam_session_id,
-        exam_id=exam_id,
-        started_at=attempt.started_at,
-        expires_at=attempt.expires_at,
-        submitted_at=attempt.submitted_at,
-        score=attempt.score,
-        max_score=attempt.max_score,
-        progress_index=attempt.progress_index,
-        can_resubmit=attempt.can_resubmit,
-        practice_active=attempt.practice_active,
-        practice_score=attempt.practice_score,
-        practice_max_score=attempt.practice_max_score,
-        practice_submitted_at=attempt.practice_submitted_at,
-        rules_accepted_at=attempt.rules_accepted_at,
-        focus_loss_count=attempt.focus_loss_count,
-        total_hidden_seconds=attempt.total_hidden_seconds,
+def _attempt_response(
+    attempt: StudentExamAttempt,
+    exam_id: int,
+    *,
+    results_published: bool = False,
+    include_session_token: bool = False,
+) -> AttemptResponse:
+    from app.services.exam_board_service import attempt_response
+
+    hide = bool(attempt.submitted_at and not results_published)
+    return attempt_response(
+        attempt,
+        exam_id,
+        hide_official_score=hide,
+        include_session_token=include_session_token,
     )
+
+
+def _exam_token_header(
+    x_exam_session_token: str | None = Header(
+        default=None, alias=EXAM_SESSION_TOKEN_HEADER
+    ),
+) -> str | None:
+    return x_exam_session_token
 
 
 def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
@@ -430,7 +438,10 @@ async def _load_exam_questions(exam_id: int, db: AsyncSession) -> list[Question]
 
 
 async def _ensure_attempt_started(
-    session: ExamSession, user: User, db: AsyncSession
+    session: ExamSession,
+    user: User,
+    db: AsyncSession,
+    provided_token: str | None = None,
 ) -> StudentExamAttempt:
     exam = session.exam
     attempt_result = await db.execute(
@@ -445,18 +456,23 @@ async def _ensure_attempt_started(
         attempt = StudentExamAttempt(
             exam_session_id=session.id,
             student_id=user.id,
-            session_token=secrets.token_hex(32),
+            session_token=new_exam_session_token(),
         )
         db.add(attempt)
     if attempt.submitted_at and not attempt.can_resubmit:
         raise HTTPException(status_code=400, detail="כבר הוגש")
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
-    if not attempt.started_at or attempt.can_resubmit:
+    starting = not attempt.started_at or attempt.can_resubmit
+    if starting:
         attempt.started_at = now
         attempt.expires_at = now + timedelta(minutes=exam.duration_minutes)
         attempt.can_resubmit = False
-        attempt.session_token = secrets.token_hex(32)
+        if not session.integrity_mode_enabled:
+            attempt.session_token = new_exam_session_token()
+    bind_exam_session_token(
+        session, attempt, provided_token, starting_fresh=starting
+    )
     await db.flush()
     return attempt
 
@@ -1225,12 +1241,15 @@ async def open_exam_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     session = await _get_student_active_session(session_id, user, db)
-    attempt = await _ensure_attempt_started(session, user, db)
+    attempt = await _ensure_attempt_started(session, user, db, provided_token)
     await db.commit()
     await db.refresh(attempt)
-    return _attempt_response(attempt, session.exam.id)
+    return _attempt_response(
+        attempt, session.exam.id, include_session_token=session.integrity_mode_enabled
+    )
 
 
 @router.get("/sessions/{session_id}/take", response_model=ExamTakeResponse)
@@ -1238,6 +1257,7 @@ async def take_exam_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     session = await _get_student_session(session_id, user, db)
     exam = session.exam
@@ -1248,10 +1268,11 @@ async def take_exam_session(
         )
     )
     existing = attempt_result.scalar_one_or_none()
+    published = session.results_published
     if existing and existing.submitted_at and not existing.can_resubmit:
         return ExamTakeResponse(
             **_take_meta(session, exam),
-            attempt=_attempt_response(existing, exam.id),
+            attempt=_attempt_response(existing, exam.id, results_published=published),
             questions=[],
         )
 
@@ -1264,11 +1285,11 @@ async def take_exam_session(
         await db.refresh(attempt)
         return ExamTakeResponse(
             **_take_meta(session, exam),
-            attempt=_attempt_response(attempt, exam.id),
+            attempt=_attempt_response(attempt, exam.id, results_published=published),
             questions=[],
         )
 
-    attempt = await _ensure_attempt_started(session, user, db)
+    attempt = await _ensure_attempt_started(session, user, db, provided_token)
     attempt = await auto_submit_if_expired(attempt, session, exam, db)
     q_result = await db.execute(
         select(Question)
@@ -1279,11 +1300,18 @@ async def take_exam_session(
     questions = list(q_result.scalars().all())
     await db.commit()
     await db.refresh(attempt)
+    await db.refresh(session)
     paper = [] if attempt.submitted_at else _student_paper(exam, questions, attempt.id)
     saved = [] if attempt.submitted_at else await _saved_answers_for_attempt(attempt.id, db)
     return ExamTakeResponse(
         **_take_meta(session, exam),
-        attempt=_attempt_response(attempt, exam.id),
+        attempt=_attempt_response(
+            attempt,
+            exam.id,
+            results_published=session.results_published,
+            include_session_token=session.integrity_mode_enabled
+            and not attempt.submitted_at,
+        ),
         questions=paper,
         saved_answers=saved,
     )
@@ -1295,6 +1323,7 @@ async def save_session_answers(
     body: SubmitExamRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     session = await _get_student_session(session_id, user, db)
     attempt_result = await db.execute(
@@ -1311,6 +1340,7 @@ async def save_session_answers(
     exam = session.exam
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
+    assert_exam_session_token(session, attempt, provided_token)
     await save_draft_answers(attempt, exam, body.answers, db)
     await db.commit()
     return {"ok": True}
@@ -1321,13 +1351,16 @@ async def accept_exam_rules(
     session_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     session = await _get_student_active_session(session_id, user, db)
     attempt = await accept_rules(session, user, db)
-    attempt = await _ensure_attempt_started(session, user, db)
+    attempt = await _ensure_attempt_started(session, user, db, provided_token)
     await db.commit()
     await db.refresh(attempt)
-    return _attempt_response(attempt, session.exam_id)
+    return _attempt_response(
+        attempt, session.exam_id, include_session_token=True
+    )
 
 
 @router.post("/attempts/{attempt_id}/integrity-events", response_model=AttemptResponse)
@@ -1336,11 +1369,13 @@ async def log_integrity_events(
     body: IntegrityEventsRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     attempt = await get_owned_attempt(attempt_id, user, db)
     session = await db.get(ExamSession, attempt.exam_session_id)
     if not session:
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+    assert_exam_session_token(session, attempt, provided_token)
     attempt = await record_events(attempt, session, body.events, db)
     await db.commit()
     await db.refresh(attempt)
@@ -1353,6 +1388,7 @@ async def submit_exam_session(
     body: SubmitExamRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.STUDENT)),
+    provided_token: str | None = Depends(_exam_token_header),
 ):
     result = await db.execute(
         select(ExamSession)
@@ -1380,13 +1416,17 @@ async def submit_exam_session(
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
+    assert_exam_session_token(session, attempt, provided_token)
     now = datetime.now(timezone.utc)
     if attempt.expires_at and now > attempt.expires_at and not exam.auto_submit_on_timeout:
         raise HTTPException(status_code=400, detail="הזמן נגמר")
     await finalize_exam_submission(attempt, session, exam, body.answers, db)
     await db.commit()
     await db.refresh(attempt)
-    return _attempt_response(attempt, exam.id)
+    await db.refresh(session)
+    return _attempt_response(
+        attempt, exam.id, results_published=session.results_published
+    )
 
 
 @router.get("/sessions/{session_id}/review", response_model=ExamReviewResponse)
@@ -1407,12 +1447,15 @@ async def get_session_review(
     if not attempt or not attempt.submitted_at:
         raise HTTPException(status_code=400, detail="המבחן טרם הוגש")
 
-    attempt_resp = _attempt_response(attempt, exam.id)
-    if not exam.show_detailed_correction:
+    published = session.results_published
+    attempt_resp = _attempt_response(attempt, exam.id, results_published=published)
+    can_show = exam.show_detailed_correction and published
+    if not can_show:
         return ExamReviewResponse(
             session_id=session.id,
             exam_title=exam.title,
             show_correction=False,
+            results_published=published,
             questions_language=exam.questions_language,
             attempt=attempt_resp,
             questions=[],
@@ -1429,6 +1472,7 @@ async def get_session_review(
         session_id=session.id,
         exam_title=exam.title,
         show_correction=True,
+        results_published=True,
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
@@ -1446,7 +1490,9 @@ async def start_practice_session(
     attempt = await start_practice(attempt, db)
     await db.commit()
     await db.refresh(attempt)
-    return _attempt_response(attempt, session.exam_id)
+    return _attempt_response(
+        attempt, session.exam_id, results_published=session.results_published
+    )
 
 
 @router.get("/sessions/{session_id}/practice/take", response_model=ExamTakeResponse)
@@ -1472,7 +1518,9 @@ async def take_practice_session(
     meta["auto_submit_on_timeout"] = False
     return ExamTakeResponse(
         **meta,
-        attempt=_attempt_response(attempt, exam.id),
+        attempt=_attempt_response(
+            attempt, exam.id, results_published=session.results_published
+        ),
         questions=paper,
         saved_answers=saved,
     )
@@ -1504,7 +1552,9 @@ async def submit_practice_session(
     attempt = await finalize_practice_submission(attempt, session.exam, body.answers, db)
     await db.commit()
     await db.refresh(attempt)
-    return _attempt_response(attempt, session.exam_id)
+    return _attempt_response(
+        attempt, session.exam_id, results_published=session.results_published
+    )
 
 
 @router.get("/sessions/{session_id}/practice/history", response_model=list[PracticeResultResponse])
@@ -1529,12 +1579,16 @@ async def get_practice_review(
     attempt = await get_submitted_attempt(session_id, user.id, db)
     if not attempt.practice_submitted_at:
         raise HTTPException(status_code=400, detail="טרם הושלם תרגול")
-    attempt_resp = _attempt_response(attempt, exam.id)
+    # תרגול: משוב מיידי (לא תלוי בפרסום תוצאות המבחן הרשמי)
+    attempt_resp = _attempt_response(
+        attempt, exam.id, results_published=session.results_published
+    )
     if not exam.show_detailed_correction:
         return ExamReviewResponse(
             session_id=session.id,
             exam_title=exam.title,
             show_correction=False,
+            results_published=session.results_published,
             questions_language=exam.questions_language,
             attempt=attempt_resp,
             questions=[],
@@ -1549,6 +1603,7 @@ async def get_practice_review(
         session_id=session.id,
         exam_title=exam.title,
         show_correction=True,
+        results_published=session.results_published,
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
@@ -1573,4 +1628,9 @@ async def my_session_attempt(
     attempt = result.scalar_one_or_none()
     if not attempt:
         return None
-    return _attempt_response(attempt, attempt.exam_session.exam_id)
+    session = attempt.exam_session
+    return _attempt_response(
+        attempt,
+        session.exam_id,
+        results_published=session.results_published,
+    )

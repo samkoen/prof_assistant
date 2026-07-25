@@ -1,4 +1,4 @@
-"""Routes élèves : création et liste."""
+"""Routes élèves : création et liste (scopées par prof)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -10,7 +10,12 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.student import StudentCreate, StudentResponse
 from app.security import hash_password
-from app.services.student_service import delete_student_account
+from app.services.student_service import (
+    assert_teacher_can_access_student,
+    assert_teacher_can_delete_student,
+    delete_student_account,
+    list_students_visible_to,
+)
 
 router = APIRouter(prefix="/students", tags=["students"])
 
@@ -18,12 +23,9 @@ router = APIRouter(prefix="/students", tags=["students"])
 @router.get("", response_model=list[StudentResponse])
 async def list_students(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
+    current: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
-    result = await db.execute(
-        select(User).where(User.role == UserRole.STUDENT).order_by(User.full_name)
-    )
-    return result.scalars().all()
+    return await list_students_visible_to(db, current)
 
 
 @router.post("", response_model=StudentResponse)
@@ -45,6 +47,7 @@ async def create_student(
         student_id=body.student_id,
         email_verified=True,
         email_verified_by_teacher=current.role == UserRole.TEACHER,
+        created_by_id=current.id if current.role == UserRole.TEACHER else None,
     )
     db.add(student)
     await db.commit()
@@ -56,12 +59,10 @@ async def create_student(
 async def verify_without_email(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
+    current: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
-    """מורה או מנהל מאשרים תלמיד ללא אימות אימייל."""
-    student = await db.get(User, student_id)
-    if not student or student.role != UserRole.STUDENT:
-        raise HTTPException(status_code=404, detail="תלמיד לא נמצא")
+    """מורה או מנהל מאשרים תלמיד ללא אימות אימייל — רק בתחום שלהם."""
+    student = await assert_teacher_can_access_student(db, current, student_id)
     if student.email_verified:
         return {"ok": True}
     student.email_verified_by_teacher = True
@@ -74,10 +75,8 @@ async def verify_without_email(
 async def delete_student(
     student_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
+    current: User = Depends(require_roles(UserRole.ADMIN, UserRole.TEACHER)),
 ):
-    student = await db.get(User, student_id)
-    if not student or student.role != UserRole.STUDENT:
-        raise HTTPException(status_code=404, detail="תלמיד לא נמצא")
+    student = await assert_teacher_can_delete_student(db, current, student_id)
     await delete_student_account(db, student)
     await db.commit()

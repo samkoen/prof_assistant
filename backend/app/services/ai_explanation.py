@@ -56,6 +56,8 @@ async def _load_review_context(
     exam = session.exam
     if not exam.show_detailed_correction:
         raise HTTPException(status_code=403, detail="הסבר אינו זמין למבחן זה")
+    if not for_practice and not session.results_published:
+        raise HTTPException(status_code=403, detail="התוצאות טרם פורסמו")
 
     attempt_row = await db.execute(
         select(StudentExamAttempt).where(

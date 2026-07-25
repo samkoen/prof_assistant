@@ -1,0 +1,36 @@
+---
+description: Unit tests obligatoires pour chaque nouvelle feature — pytest + vitest
+alwaysApply: true
+---
+
+# Unit tests — chaque nouvelle feature
+
+## Principe
+
+Toute **nouvelle feature** ou **correctif métier / sécurité** doit inclure des **unit tests ciblés**, pas seulement du code de production. Le travail n’est terminé qu’après exécution des suites concernées au vert.
+
+## Emplacement
+
+- **Backend** : `backend/tests/test_<domaine>.py` ; helpers partagés dans `backend/tests/helpers.py` si besoin.
+- **Frontend** : `frontend/src/**/__tests__/*.test.ts` (colocalisé avec le module touché, ex. `utils/__tests__/`).
+
+## Contenu des tests
+
+- Préférer la **logique pure** (services, utils, helpers).
+- Si la logique est coincée dans un router ou un composant : l’**extraire** en helper testable (fonctions ≤ 30 lignes, cf. `project-standards.mdc`).
+- Pas d’exigence e2e / DB pleine sauf impossibilité d’isoler ; utiliser mocks (`SimpleNamespace`, stubs sessionStorage, etc.) comme pour scoring / `session_token`.
+
+## Avant de clôturer
+
+Exécuter et corriger jusqu’à vert :
+
+```bash
+cd backend && python -m pytest -q
+cd frontend && npm test
+```
+
+- Feature **back seulement** → au minimum `pytest`.
+- Feature **front seulement** → au minimum `npm test`.
+- Feature **full-stack** → les deux.
+
+Infra existante : `backend/pytest.ini`, `backend/requirements-dev.txt`, scripts `test` / `test:watch` dans `frontend/package.json`.

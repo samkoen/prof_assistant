@@ -88,7 +88,13 @@ def session_response(
     )
 
 
-def attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptResponse:
+def attempt_response(
+    attempt: StudentExamAttempt,
+    exam_id: int,
+    *,
+    hide_official_score: bool = False,
+    include_session_token: bool = False,
+) -> AttemptResponse:
     return AttemptResponse(
         id=attempt.id,
         exam_session_id=attempt.exam_session_id,
@@ -96,8 +102,8 @@ def attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptRespon
         started_at=attempt.started_at,
         expires_at=attempt.expires_at,
         submitted_at=attempt.submitted_at,
-        score=attempt.score,
-        max_score=attempt.max_score,
+        score=None if hide_official_score else attempt.score,
+        max_score=None if hide_official_score else attempt.max_score,
         progress_index=attempt.progress_index,
         can_resubmit=attempt.can_resubmit,
         practice_active=attempt.practice_active,
@@ -107,6 +113,7 @@ def attempt_response(attempt: StudentExamAttempt, exam_id: int) -> AttemptRespon
         rules_accepted_at=attempt.rules_accepted_at,
         focus_loss_count=attempt.focus_loss_count,
         total_hidden_seconds=attempt.total_hidden_seconds,
+        session_token=attempt.session_token if include_session_token else None,
     )
 
 
@@ -137,10 +144,17 @@ async def build_student_session_rows(
     for session in sessions:
         base = session_response(session, counts.get(session.exam_id, 0))
         attempt = attempts_by_session.get(session.id)
+        hide_score = bool(attempt and attempt.submitted_at and not session.results_published)
         rows.append(
             StudentExamSessionRow(
                 **base.model_dump(),
-                attempt=attempt_response(attempt, session.exam_id) if attempt else None,
+                attempt=(
+                    attempt_response(
+                        attempt, session.exam_id, hide_official_score=hide_score
+                    )
+                    if attempt
+                    else None
+                ),
             )
         )
     return rows

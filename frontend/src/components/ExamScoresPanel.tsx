@@ -7,6 +7,8 @@ type ExamScoresPanelProps = {
   attempt: ExamAttempt;
   practiceResults: PracticeResult[];
   showPracticeHint?: boolean;
+  /** ציון מבחן רשמי — רק אחרי פרסום */
+  resultsPublished?: boolean;
 };
 
 function formatPracticeDate(iso: string): string {
@@ -26,20 +28,33 @@ export default function ExamScoresPanel({
   attempt,
   practiceResults,
   showPracticeHint = true,
+  resultsPublished = true,
 }: ExamScoresPanelProps) {
-  const showFinal = attempt.submitted_at && attempt.score != null && attempt.max_score != null;
+  const showFinal =
+    resultsPublished &&
+    attempt.submitted_at &&
+    attempt.score != null &&
+    attempt.max_score != null;
+  const showPending =
+    !!attempt.submitted_at && !resultsPublished && !showFinal;
 
-  if (!showFinal && practiceResults.length === 0) {
+  if (!showFinal && !showPending && practiceResults.length === 0) {
     return null;
   }
 
   return (
     <Box sx={{ mb: 3, ...hebrewAlignRightSx }} dir="rtl">
       {showFinal && (
-        <Alert severity="success" sx={{ mb: practiceResults.length > 0 ? 2 : 0 }}>
+        <Alert severity="success" sx={{ mb: practiceResults.length > 0 || showPending ? 2 : 0 }}>
           <Typography variant="subtitle1" fontWeight={700}>
             {he.finalExamScore}: {attempt.score} / {attempt.max_score}
           </Typography>
+        </Alert>
+      )}
+
+      {showPending && (
+        <Alert severity="info" sx={{ mb: practiceResults.length > 0 ? 2 : 0 }}>
+          <Typography variant="body2">{he.examResultsPending}</Typography>
         </Alert>
       )}
 

@@ -104,6 +104,7 @@ export default function ExamEditorImportSection({
             examId={examId}
             errors={parseResult.errors}
             editable={exam.is_editable}
+            pasteText={paste}
             onRawText={onPasteChange}
             onError={onError}
             onSuccess={onSuccess}

@@ -114,19 +114,22 @@ export default function ExamGeminiSourcesPanel({
       <Alert severity="info" sx={{ mb: 2 }}>
         {he.geminiSourcesPrivacy}
       </Alert>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5, ...hebrewAlignRightSx }}>
+        {he.geminiSourcesAcceptedFormats}
+      </Typography>
       <Box sx={{ ...hebrewCardRowSx, py: 0, mb: 2, gap: 1 }}>
         <input
           ref={exercisesInputRef}
           type="file"
           hidden
-          accept=".pdf,.txt,.md"
+          accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
           onChange={onFilePick("exercises_file")}
         />
         <input
           ref={courseInputRef}
           type="file"
           hidden
-          accept=".pdf,.txt,.md"
+          accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
           onChange={onFilePick("course_file")}
         />
         <Button

@@ -180,6 +180,7 @@ class AttemptResponse(BaseModel):
     rules_accepted_at: datetime | None = None
     focus_loss_count: int = 0
     total_hidden_seconds: int = 0
+    session_token: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -292,6 +293,7 @@ class ExamTakeResponse(BaseModel):
     warning_minutes: int
     auto_submit_on_timeout: bool = True
     integrity_mode_enabled: bool = False
+    results_published: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
@@ -319,6 +321,7 @@ class ExamReviewResponse(BaseModel):
     session_id: int
     exam_title: str
     show_correction: bool
+    results_published: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[ExamReviewQuestion]

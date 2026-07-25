@@ -43,6 +43,14 @@ def decode_access_token(token: str) -> dict | None:
         return None
 
 
+def decode_session_token(token: str) -> dict | None:
+    """JWT de session uniquement — refuse les tokens à purpose (ex. email_verify)."""
+    data = decode_access_token(token)
+    if not data or "sub" not in data or data.get("purpose"):
+        return None
+    return data
+
+
 def create_email_verification_token(user_id: int) -> str:
     hours = settings.email_verify_expire_hours
     expire = datetime.now(timezone.utc) + timedelta(hours=hours)
