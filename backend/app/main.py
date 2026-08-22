@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.logging_config import configure_logging
+from app.spa_static import mount_frontend_spa
 
 configure_logging()
 from app.routers import (
@@ -47,3 +48,6 @@ app.include_router(teacher_shares.router, prefix="/api")
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "app": settings.app_name}
+
+
+mount_frontend_spa(app)
