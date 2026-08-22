@@ -1,0 +1,17 @@
+.git
+.cursor
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/node_modules
+frontend/dist
+backend/.env
+.env
+*.md
+agent-transcripts
+.vscode
+terminals
+api/
+vercel.json
+docker-compose.yml
