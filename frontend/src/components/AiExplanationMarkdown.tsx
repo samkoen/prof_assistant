@@ -1,16 +1,16 @@
 import { Box } from "@mui/material";
-import ReactMarkdown from "react-markdown";
-import { examMarkdownSx } from "../styles/examMarkdownSx";
+import CodeMarkedText from "./CodeMarkedText";
 
 interface AiExplanationMarkdownProps {
   content: string;
-  dir: "rtl" | "ltr";
+  dir?: "rtl" | "ltr";
 }
 
-export default function AiExplanationMarkdown({ content, dir }: AiExplanationMarkdownProps) {
+/** Même rendu que les questions (code LTR ligne par ligne, hébreu RTL). */
+export default function AiExplanationMarkdown({ content }: AiExplanationMarkdownProps) {
   return (
-    <Box dir={dir} sx={examMarkdownSx(dir)}>
-      <ReactMarkdown>{content}</ReactMarkdown>
+    <Box sx={{ typography: "body2" }}>
+      <CodeMarkedText text={content} questionText={content} lineByLine />
     </Box>
   );
 }

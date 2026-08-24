@@ -75,33 +75,41 @@ def _question_type_label(question_type: QuestionType | str, lang: str) -> str:
         QuestionType.SINGLE: "בחירה יחידה",
         QuestionType.MULTIPLE: "בחירה מרובה",
         QuestionType.TRUE_FALSE: "נכון / לא נכון",
+        QuestionType.OPEN: "שאלה פתוחה",
         "single": "בחירה יחידה",
         "multiple": "בחירה מרובה",
         "true_false": "נכון / לא נכון",
+        "open": "שאלה פתוחה",
     }
     fr = {
         QuestionType.SINGLE: "Choix unique",
         QuestionType.MULTIPLE: "Choix multiple",
         QuestionType.TRUE_FALSE: "Vrai / faux",
+        QuestionType.OPEN: "Question ouverte",
         "single": "Choix unique",
         "multiple": "Choix multiple",
         "true_false": "Vrai / faux",
+        "open": "Question ouverte",
     }
     en = {
         QuestionType.SINGLE: "Single choice",
         QuestionType.MULTIPLE: "Multiple choice",
         QuestionType.TRUE_FALSE: "True / false",
+        QuestionType.OPEN: "Open question",
         "single": "Single choice",
         "multiple": "Multiple choice",
         "true_false": "True / false",
+        "open": "Open question",
     }
     ru = {
         QuestionType.SINGLE: "Один ответ",
         QuestionType.MULTIPLE: "Несколько ответов",
         QuestionType.TRUE_FALSE: "Верно / неверно",
+        QuestionType.OPEN: "Открытый вопрос",
         "single": "Один ответ",
         "multiple": "Несколько ответов",
         "true_false": "Верно / неверно",
+        "open": "Открытый вопрос",
     }
     tables = {"he": he, "fr": fr, "en": en, "ru": ru}
     return tables.get(lang, en).get(question_type, "")
@@ -559,6 +567,45 @@ def _write_option_line(
     )
 
 
+def _write_question_answers(
+    pdf: FPDF,
+    layout: PdfLayout,
+    question: Question,
+    include_answers: bool,
+    question_rtl: bool,
+    q_text: str,
+) -> None:
+    options = sorted(question.options, key=lambda o: o.order_index)
+    for i, opt in enumerate(options):
+        _write_option_line(
+            pdf,
+            layout,
+            _option_label(i, layout),
+            opt.text,
+            opt.image_url,
+            bool(opt.is_correct),
+            include_answers=include_answers,
+            question_rtl=question_rtl,
+            question_text=q_text,
+        )
+    model = (question.model_answer or "").strip()
+    if not include_answers or not model:
+        return
+    label = "תשובה לדוגמה:" if layout.lang == "he" else "Model answer:"
+    _write_text(pdf, label, layout, size=9, h=5, color=COLOR_MUTED)
+    _write_multiline_content(
+        pdf,
+        model,
+        layout,
+        question_rtl=question_rtl,
+        question_text=q_text,
+        size=10,
+        h=6,
+        color=(15, 23, 42),
+        indent=OPTION_INDENT,
+    )
+
+
 def _write_question(
     pdf: FPDF,
     layout: PdfLayout,
@@ -597,19 +644,7 @@ def _write_question(
         )
     _write_embedded_image(pdf, question.image_url)
     pdf.ln(1)
-    options = sorted(question.options, key=lambda o: o.order_index)
-    for i, opt in enumerate(options):
-        _write_option_line(
-            pdf,
-            layout,
-            _option_label(i, layout),
-            opt.text,
-            opt.image_url,
-            bool(opt.is_correct),
-            include_answers=include_answers,
-            question_rtl=question_rtl,
-            question_text=q_text,
-        )
+    _write_question_answers(pdf, layout, question, include_answers, question_rtl, q_text)
     y1 = pdf.get_y()
     _draw_question_border(pdf, y0, y1)
     pdf.set_y(y1 + 4)

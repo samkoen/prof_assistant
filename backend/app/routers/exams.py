@@ -24,7 +24,6 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailResponse,
     ExamDuplicateRequest,
-    ExamReviewCorrectOption,
     ExamReviewQuestion,
     ExamReviewResponse,
     ExamResponse,
@@ -94,7 +93,7 @@ from app.services.exam_practice_service import (
     finalize_practice_submission,
     get_submitted_attempt,
     list_practice_results,
-    practice_answers_map,
+    practice_answer_maps,
     save_practice_answers,
     start_practice,
 )
@@ -103,7 +102,8 @@ from app.services.exam_submit_service import (
     finalize_exam_submission,
     save_draft_answers,
 )
-from app.services.scoring import score_question
+from app.services.exam_review import review_question_row
+from app.services.open_answer_evaluation import load_evaluations_map, maps_from_answer_rows
 from app.services.integrity_service import (
     EXAM_SESSION_TOKEN_HEADER,
     accept_rules,
@@ -276,7 +276,11 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
 async def _saved_answers_for_attempt(attempt_id: int, db: AsyncSession) -> list[SavedAnswerDraft]:
     result = await db.execute(select(Answer).where(Answer.attempt_id == attempt_id))
     return [
-        SavedAnswerDraft(question_id=a.question_id, selected_option_ids=list(a.selected_option_ids or []))
+        SavedAnswerDraft(
+            question_id=a.question_id,
+            selected_option_ids=list(a.selected_option_ids or []),
+            text_answer=a.text_answer,
+        )
         for a in result.scalars()
     ]
 
@@ -387,44 +391,27 @@ def _build_review_rows(
     selected_by_q: dict[int, list[int]],
     *,
     practice_order: bool = False,
+    text_by_q: dict[int, str] | None = None,
+    eval_by_q: dict[int, object] | None = None,
 ) -> list[ExamReviewQuestion]:
     questions_by_id = {q.id: q for q in questions_list}
+    texts = text_by_q or {}
+    evals = eval_by_q or {}
     paper = (
         _practice_paper(exam, questions_list, attempt_id)
         if practice_order
         else _student_paper(exam, questions_list, attempt_id)
     )
-    rows: list[ExamReviewQuestion] = []
-    for sq in paper:
-        q = questions_by_id[sq.id]
-        selected_ids = selected_by_q.get(q.id, [])
-        earned, max_pts = score_question(q, selected_ids)
-        is_fully_correct = earned >= max_pts - 1e-9
-        correct_opts = sorted([o for o in q.options if o.is_correct], key=lambda o: o.order_index)
-        student_opts = sorted(
-            [o for o in q.options if o.id in selected_ids],
-            key=lambda o: o.order_index,
+    return [
+        review_question_row(
+            questions_by_id[sq.id],
+            sq.order_index,
+            selected_by_q.get(sq.id, []),
+            texts.get(sq.id),
+            evals.get(sq.id),  # type: ignore[arg-type]
         )
-        rows.append(
-            ExamReviewQuestion(
-                id=q.id,
-                text=q.text,
-                image_url=q.image_url,
-                question_type=q.question_type,
-                order_index=sq.order_index,
-                points=q.points,
-                is_correct=is_fully_correct,
-                correct_options=[
-                    ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in correct_opts
-                ],
-                student_options=(
-                    [ExamReviewCorrectOption(text=o.text, image_url=o.image_url) for o in student_opts]
-                    if not is_fully_correct
-                    else []
-                ),
-            )
-        )
-    return rows
+        for sq in paper
+    ]
 
 
 async def _load_exam_questions(exam_id: int, db: AsyncSession) -> list[Question]:
@@ -1463,10 +1450,16 @@ async def get_session_review(
 
     questions_list = await _load_exam_questions(exam.id, db)
     answers_result = await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
-    answers_by_q = {
-        a.question_id: list(a.selected_option_ids or []) for a in answers_result.scalars().all()
-    }
-    review_rows = _build_review_rows(exam, questions_list, attempt.id, answers_by_q)
+    selected_by_q, text_by_q = maps_from_answer_rows(answers_result.scalars().all())
+    eval_by_q = await load_evaluations_map(attempt.id, db, for_practice=False)
+    review_rows = _build_review_rows(
+        exam,
+        questions_list,
+        attempt.id,
+        selected_by_q,
+        text_by_q=text_by_q,
+        eval_by_q=eval_by_q,
+    )
 
     return ExamReviewResponse(
         session_id=session.id,
@@ -1507,11 +1500,15 @@ async def take_practice_session(
     if not attempt.practice_active:
         raise HTTPException(status_code=400, detail="אין תרגול פעיל")
     questions_list = await _load_exam_questions(exam.id, db)
-    saved_map = await practice_answers_map(attempt.id, db)
+    saved_selected, saved_texts = await practice_answer_maps(attempt.id, db)
     paper = _practice_paper(exam, questions_list, attempt.id)
     saved = [
-        SavedAnswerDraft(question_id=qid, selected_option_ids=ids)
-        for qid, ids in saved_map.items()
+        SavedAnswerDraft(
+            question_id=qid,
+            selected_option_ids=ids,
+            text_answer=saved_texts.get(qid),
+        )
+        for qid, ids in saved_selected.items()
     ]
     meta = _take_meta(session, exam)
     meta["integrity_mode_enabled"] = False
@@ -1595,9 +1592,16 @@ async def get_practice_review(
             for_practice=True,
         )
     questions_list = await _load_exam_questions(exam.id, db)
-    selected_by_q = await practice_answers_map(attempt.id, db)
+    selected_by_q, text_by_q = await practice_answer_maps(attempt.id, db)
+    eval_by_q = await load_evaluations_map(attempt.id, db, for_practice=True)
     review_rows = _build_review_rows(
-        exam, questions_list, attempt.id, selected_by_q, practice_order=True
+        exam,
+        questions_list,
+        attempt.id,
+        selected_by_q,
+        practice_order=True,
+        text_by_q=text_by_q,
+        eval_by_q=eval_by_q,
     )
     return ExamReviewResponse(
         session_id=session.id,

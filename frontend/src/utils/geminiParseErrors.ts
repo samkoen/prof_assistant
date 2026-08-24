@@ -27,4 +27,4 @@ export function geminiParseErrorLocation(block: number): string {
 }
 
 export const GEMINI_FIX_STARS_REFINE_MESSAGE =
-  "סמנו שורת * אחרי האפשרות הנכונה בכל שאלת בחירה יחידה — בדיוק לפי הפורמט";
+  "On every single-choice question, put a * line after the correct option — exactly as in the format";

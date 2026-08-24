@@ -38,7 +38,11 @@ from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
     send_gemini_parse_error_email,
 )
-from app.services.gemini_question_prompt import build_refine_user_message
+from app.services.gemini_question_prompt import (
+    build_refine_user_message,
+    is_generation_prompt,
+    is_refine_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +60,8 @@ def _message_to_response(
     slim_initial_prompt: bool = False,
 ) -> GeminiSessionMessageResponse:
     content = msg.content
-    if slim_initial_prompt and msg.role == "user" and "בקשת עדכון מהמורה" not in content:
-        if "עכשיו צור בדיוק" in content or "צור שאלות מבחן" in content:
+    if slim_initial_prompt and msg.role == "user" and not is_refine_prompt(content):
+        if is_generation_prompt(content):
             content = "…"
     return GeminiSessionMessageResponse(
         id=msg.id,

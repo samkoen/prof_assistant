@@ -148,7 +148,10 @@ async def _generate_batch_raw(
             last_error = exc
             if exc.status_code != 502 or attempt >= MAX_BATCH_RETRIES:
                 raise
-            retry_hint = f"ניסיון חוזר ({attempt + 2}/{MAX_BATCH_RETRIES + 1}): {exc.detail}. ניסוח ודוגמאות שונים."
+            retry_hint = (
+                f"Retry ({attempt + 2}/{MAX_BATCH_RETRIES + 1}): {exc.detail}. "
+                "Use different wording and examples."
+            )
     assert last_error is not None
     raise last_error
 

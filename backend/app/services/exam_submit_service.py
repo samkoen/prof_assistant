@@ -12,8 +12,16 @@ from sqlalchemy.orm import selectinload
 from app.models.course import CourseEnrollment
 from app.models.enums import EnrollmentStatus, ExamStatus
 from app.models.exam import Answer, Exam, ExamSession, Question, StudentExamAttempt
+from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
 from app.services.scoring import score_exam_answers
+
+
+def persist_fields_for_answer(item: SubmitAnswerItem, question: Question) -> dict:
+    if question.question_type == QuestionType.OPEN:
+        text = (item.text_answer or "").strip() or None
+        return {"selected_option_ids": [], "text_answer": text}
+    return {"selected_option_ids": list(item.selected_option_ids or []), "text_answer": None}
 
 
 async def _questions_by_id(exam_id: int, db: AsyncSession) -> dict[int, Question]:
@@ -25,16 +33,23 @@ async def _questions_by_id(exam_id: int, db: AsyncSession) -> dict[int, Question
 
 async def empty_answer_items(exam_id: int, db: AsyncSession) -> list[SubmitAnswerItem]:
     result = await db.execute(select(Question.id).where(Question.exam_id == exam_id))
-    return [SubmitAnswerItem(question_id=qid, selected_option_ids=[]) for qid in result.scalars()]
+    return [SubmitAnswerItem(question_id=qid) for qid in result.scalars()]
 
 
 async def draft_answer_items(attempt_id: int, exam_id: int, db: AsyncSession) -> list[SubmitAnswerItem]:
     """Réponses brouillon en base + vide pour les questions sans brouillon."""
     saved_result = await db.execute(select(Answer).where(Answer.attempt_id == attempt_id))
-    saved = {a.question_id: list(a.selected_option_ids or []) for a in saved_result.scalars()}
+    saved = {
+        a.question_id: (list(a.selected_option_ids or []), a.text_answer)
+        for a in saved_result.scalars()
+    }
     q_result = await db.execute(select(Question.id).where(Question.exam_id == exam_id))
     return [
-        SubmitAnswerItem(question_id=qid, selected_option_ids=saved.get(qid, []))
+        SubmitAnswerItem(
+            question_id=qid,
+            selected_option_ids=saved[qid][0] if qid in saved else [],
+            text_answer=saved[qid][1] if qid in saved else None,
+        )
         for qid in q_result.scalars()
     ]
 
@@ -54,14 +69,16 @@ async def save_draft_answers(
         if item.question_id not in questions:
             continue
         row = by_q.get(item.question_id)
+        fields = persist_fields_for_answer(item, questions[item.question_id])
         if row:
-            row.selected_option_ids = item.selected_option_ids
+            row.selected_option_ids = fields["selected_option_ids"]
+            row.text_answer = fields["text_answer"]
         else:
             db.add(
                 Answer(
                     attempt_id=attempt.id,
                     question_id=item.question_id,
-                    selected_option_ids=item.selected_option_ids,
+                    **fields,
                 )
             )
     await db.flush()
@@ -107,13 +124,16 @@ async def finalize_exam_submission(
         for item in answer_items
         if item.question_id in questions
     }
+    items_by_q = {item.question_id: item for item in answer_items if item.question_id in questions}
     total, max_total, normalized = score_exam_answers(questions, selected_by_q)
     for qid, selected in normalized.items():
+        item = items_by_q.get(qid) or SubmitAnswerItem(question_id=qid, selected_option_ids=selected)
+        fields = persist_fields_for_answer(item, questions[qid])
         db.add(
             Answer(
                 attempt_id=attempt.id,
                 question_id=qid,
-                selected_option_ids=selected,
+                **fields,
             )
         )
     attempt.submitted_at = now

@@ -12,6 +12,9 @@ function formatQuestionHeader(index: number, type: string, points: number): stri
   if (type === "true_false") {
     return points === 1 ? `Q${index} [true_false]` : `Q${index} [true_false] (${pts} pt)`;
   }
+  if (type === "open") {
+    return points === 1 ? `Q${index} [open]` : `Q${index} [open] (${pts} pt)`;
+  }
   return `Q${index} [${type}] (${pts} pt)`;
 }
 
@@ -67,6 +70,10 @@ function formatChoiceOptions(
 export function questionToQcmBlock(question: Question, index: number): string {
   const header = formatQuestionHeader(index, question.question_type, question.points);
   const body = question.text.trim();
+  if (question.question_type === "open") {
+    const model = (question.model_answer ?? "").trim();
+    return model ? [header, body, `ANSWER:\n${model}`].join("\n") : [header, body].join("\n");
+  }
   const options =
     question.question_type === "true_false"
       ? formatTrueFalseOptions(question.options)

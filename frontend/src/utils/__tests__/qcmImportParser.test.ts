@@ -13,17 +13,25 @@ Q2 [multiple] (2 pt)
 A) * אחד
 B) שניים
 C) * שלוש
+---
+Q3 [open] (2 pt)
+הסבירו חיפוש בינארי.
+ANSWER:
+חצייה חוזרת של מערך ממוין.
 `;
 
 describe("qcmImportParser", () => {
   it("parse un QCM valide single + multiple", () => {
     const result = parseQcmText(SAMPLE);
     expect(result.errors).toEqual([]);
-    expect(result.questions).toHaveLength(2);
+    expect(result.questions).toHaveLength(3);
     expect(result.questions[0].question_type).toBe("single");
     expect(result.questions[0].options.filter((o) => o.is_correct)).toHaveLength(1);
     expect(result.questions[1].question_type).toBe("multiple");
     expect(result.questions[1].options.filter((o) => o.is_correct)).toHaveLength(2);
+    expect(result.questions[2].question_type).toBe("open");
+    expect(result.questions[2].options).toEqual([]);
+    expect(result.questions[2].model_answer).toContain("חצייה");
   });
 
   it("signale une single sans *", () => {

@@ -5,25 +5,31 @@ export function examQuestionElementId(index: number): string {
 }
 
 export function isQuestionAnswered(
-  answers: Record<number, number[]>,
-  questionId: number,
+  question: Pick<StudentQuestion, "id" | "question_type">,
+  selected: Record<number, number[]>,
+  textAnswers: Record<number, string> = {},
 ): boolean {
-  return (answers[questionId]?.length ?? 0) > 0;
+  if (question.question_type === "open") {
+    return (textAnswers[question.id] ?? "").trim().length > 0;
+  }
+  return (selected[question.id]?.length ?? 0) > 0;
 }
 
 export function countAnsweredQuestions(
   questions: StudentQuestion[],
   answers: Record<number, number[]>,
+  textAnswers: Record<number, string> = {},
 ): number {
-  return questions.filter((q) => isQuestionAnswered(answers, q.id)).length;
+  return questions.filter((q) => isQuestionAnswered(q, answers, textAnswers)).length;
 }
 
 export function findNextUnansweredIndex(
   questions: StudentQuestion[],
   answers: Record<number, number[]>,
   afterIndex: number,
+  textAnswers: Record<number, string> = {},
 ): number | null {
-  const unansweredAt = (i: number) => !isQuestionAnswered(answers, questions[i].id);
+  const unansweredAt = (i: number) => !isQuestionAnswered(questions[i], answers, textAnswers);
   for (let i = afterIndex + 1; i < questions.length; i += 1) {
     if (unansweredAt(i)) return i;
   }

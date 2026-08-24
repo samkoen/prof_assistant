@@ -18,6 +18,7 @@ const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminCoursesPage = lazy(() => import("./pages/admin/AdminCoursesPage"));
 const AdminStudentsPage = lazy(() => import("./pages/admin/AdminStudentsPage"));
 const AdminAiExplanationsPage = lazy(() => import("./pages/admin/AdminAiExplanationsPage"));
+const AdminAiPromptsPage = lazy(() => import("./pages/admin/AdminAiPromptsPage"));
 
 const TeacherOverviewPage = lazy(() => import("./pages/teacher/TeacherOverviewPage"));
 const TeacherStudentsPage = lazy(() => import("./pages/teacher/TeacherStudentsPage"));
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="/admin/students" element={<AdminStudentsPage />} />
             <Route path="/admin/courses" element={<AdminCoursesPage />} />
             <Route path="/admin/ai-explanations" element={<AdminAiExplanationsPage />} />
+            <Route path="/admin/ai-prompts" element={<AdminAiPromptsPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={["teacher"]} />}>

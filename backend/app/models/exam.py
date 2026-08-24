@@ -5,7 +5,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.enums import ExamQuestionsLanguage, ExamStatus, MultipleScoringMode, QuestionType
+from app.models.enums import (
+    ExamQuestionsLanguage,
+    ExamStatus,
+    ModelAnswerSource,
+    MultipleScoringMode,
+    QuestionType,
+)
 
 
 class Exam(Base):
@@ -80,6 +86,8 @@ class Question(Base):
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     points: Mapped[float] = mapped_column(Float, default=1.0)
     multiple_scoring_mode: Mapped[MultipleScoringMode | None] = mapped_column(String(30), nullable=True)
+    model_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_answer_source: Mapped[ModelAnswerSource | None] = mapped_column(String(20), nullable=True)
 
     exam = relationship("Exam", back_populates="questions")
     options = relationship("QuestionOption", back_populates="question", order_by="QuestionOption.order_index")
@@ -127,6 +135,7 @@ class StudentExamAttempt(Base):
     practice_answers = relationship("PracticeAnswer", back_populates="attempt")
     practice_results = relationship("ExamPracticeResult", back_populates="attempt")
     integrity_events = relationship("AttemptIntegrityEvent", back_populates="attempt")
+    open_evaluations = relationship("OpenAnswerEvaluation", back_populates="attempt")
 
 
 class AttemptIntegrityEvent(Base):
@@ -150,6 +159,8 @@ class PracticeAnswer(Base):
     attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
     question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"))
     selected_option_ids: Mapped[list] = mapped_column(JSONB, default=list)
+
+    text_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     attempt = relationship("StudentExamAttempt", back_populates="practice_answers")
 
@@ -175,6 +186,7 @@ class Answer(Base):
     attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
     question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"))
     selected_option_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    text_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     attempt = relationship("StudentExamAttempt", back_populates="answers")
 
@@ -201,3 +213,31 @@ class QuestionAiExplanation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class OpenAnswerEvaluation(Base):
+    """Appréciation IA d'une réponse ouverte, par élève (tentative)."""
+
+    __tablename__ = "open_answer_evaluations"
+    __table_args__ = (
+        UniqueConstraint(
+            "attempt_id",
+            "question_id",
+            "for_practice",
+            name="uq_open_eval_attempt_question_practice",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("student_exam_attempts.id"), index=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), index=True)
+    for_practice: Mapped[bool] = mapped_column(Boolean, default=False)
+    language: Mapped[str] = mapped_column(String(2))
+    appreciation: Mapped[str] = mapped_column(Text)
+    suggested_score: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    attempt = relationship("StudentExamAttempt", back_populates="open_evaluations")

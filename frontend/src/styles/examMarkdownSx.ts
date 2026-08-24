@@ -1,5 +1,23 @@
 import type { SxProps, Theme } from "@mui/material";
 
+const markdownCodeSx = {
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  fontSize: "0.9em",
+  bgcolor: "action.hover",
+  borderRadius: 0.5,
+  px: 0.5,
+  direction: "ltr",
+  unicodeBidi: "isolate",
+} as const;
+
+const markdownPreSx = {
+  margin: 0,
+  direction: "ltr",
+  textAlign: "left",
+  unicodeBidi: "plaintext",
+  whiteSpace: "pre-wrap",
+} as const;
+
 export function examMarkdownSx(dir: "ltr" | "rtl"): SxProps<Theme> {
   return {
     wordBreak: "break-word",
@@ -10,16 +28,10 @@ export function examMarkdownSx(dir: "ltr" | "rtl"): SxProps<Theme> {
     "& p:last-child": { mb: 0 },
     "& strong": { fontWeight: 700 },
     "& em": { fontStyle: "italic" },
-    "& code": {
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-      fontSize: "0.9em",
-      bgcolor: "action.hover",
-      borderRadius: 0.5,
-      px: 0.5,
-    },
+    "& code": markdownCodeSx,
     "& ul, & ol": { margin: "0.5em 0", paddingInlineStart: "1.25em" },
     "& li": { mb: 0.25 },
     "& li:last-child": { mb: 0 },
-    "& pre": { margin: 0 },
+    "& pre": markdownPreSx,
   };
 }

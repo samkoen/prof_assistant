@@ -25,7 +25,7 @@ describe("geminiAutoStructureFix", () => {
       { block: 3, message: "נדרשת תשובה נכונה אחת (סמן ב-*)" },
       { block: 1, message: "לא נמצאו אפשרויות תשובה" },
     ]);
-    expect(prompt).toContain("יש שגיאות פורמט");
+    expect(prompt).toContain("format errors");
     expect(prompt).toContain("Q1");
     expect(prompt).toContain("Q3");
     expect(prompt).toContain("A) B) C)");

@@ -67,11 +67,6 @@ def _gemini_max_tokens(for_generation: bool) -> int | None:
 
 
 def _generation_system(*, for_generation: bool) -> str:
-    if uses_gemini(for_generation=for_generation):
-        return (
-            "You generate exam questions in the exact format requested. "
-            "Reply as the Assistant only. Text only."
-        )
     from app.services.opencode_errors import generation_system
 
     return generation_system()

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.course import CourseOfferingResponse
 
-from app.models.enums import ExamStatus, MultipleScoringMode, QuestionType
+from app.models.enums import ExamStatus, ModelAnswerSource, MultipleScoringMode, QuestionType
 from app.schemas.catalog_scope import CatalogItemScopeFields, CatalogItemScopeResponse
 
 
@@ -33,7 +33,9 @@ class QuestionCreate(BaseModel):
     order_index: int = 0
     points: float = 1.0
     multiple_scoring_mode: MultipleScoringMode | None = None
-    options: list[QuestionOptionCreate]
+    model_answer: str | None = None
+    model_answer_source: ModelAnswerSource | None = None
+    options: list[QuestionOptionCreate] = []
 
 
 class QuestionUpdate(BaseModel):
@@ -42,7 +44,9 @@ class QuestionUpdate(BaseModel):
     question_type: QuestionType
     points: float = 1.0
     multiple_scoring_mode: MultipleScoringMode | None = None
-    options: list[QuestionOptionCreate]
+    model_answer: str | None = None
+    model_answer_source: ModelAnswerSource | None = None
+    options: list[QuestionOptionCreate] = []
 
 
 class QuestionResponse(BaseModel):
@@ -53,6 +57,8 @@ class QuestionResponse(BaseModel):
     order_index: int
     points: float
     multiple_scoring_mode: MultipleScoringMode | None
+    model_answer: str | None = None
+    model_answer_source: ModelAnswerSource | None = None
     options: list[QuestionOptionResponse]
 
     model_config = {"from_attributes": True}
@@ -150,7 +156,8 @@ class IntegrityEventsRequest(BaseModel):
 
 class SubmitAnswerItem(BaseModel):
     question_id: int
-    selected_option_ids: list[int]
+    selected_option_ids: list[int] = []
+    text_answer: str | None = None
 
 
 class SubmitExamRequest(BaseModel):
@@ -159,7 +166,8 @@ class SubmitExamRequest(BaseModel):
 
 class SavedAnswerDraft(BaseModel):
     question_id: int
-    selected_option_ids: list[int]
+    selected_option_ids: list[int] = []
+    text_answer: str | None = None
 
 
 class AttemptResponse(BaseModel):
@@ -315,6 +323,11 @@ class ExamReviewQuestion(BaseModel):
     is_correct: bool
     correct_options: list[ExamReviewCorrectOption]
     student_options: list[ExamReviewCorrectOption] = []
+    student_text_answer: str | None = None
+    model_answer: str | None = None
+    appreciation: str | None = None
+    earned_points: float | None = None
+    evaluation_pending: bool = False
 
 
 class ExamReviewResponse(BaseModel):

@@ -19,6 +19,7 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import DirectionalMultilineField from "./DirectionalMultilineField";
 import AddIcon from "@mui/icons-material/Add";
@@ -80,6 +81,8 @@ function questionToDraft(q: Question) {
     image_url: q.image_url ?? null,
     question_type: q.question_type as QuestionType,
     points: q.points,
+    model_answer: q.model_answer ?? "",
+    model_answer_source: q.model_answer_source ?? null,
     options: q.options.map((o) => ({
       text: o.text,
       is_correct: o.is_correct ?? false,
@@ -95,6 +98,7 @@ function validateDraft(
   options: OptionDraft[],
 ): string | null {
   if (!hasContent(text, imageUrl)) return he.questionContentRequired;
+  if (questionType === "open") return null;
   if (questionType === "true_false") {
     if (options.length !== 2) return he.tfTwoOptionsRequired;
   } else if (options.length < 2) {
@@ -116,18 +120,25 @@ function buildPayload(
   questionType: QuestionType,
   points: number,
   options: OptionDraft[],
+  modelAnswer: string,
+  modelAnswerSource: "teacher" | "ai" | null,
 ) {
+  const isOpen = questionType === "open";
   return {
     text: normalizeTextBlock(text),
     image_url: imageUrl || null,
     question_type: questionType,
     points,
-    options: options.map((o, i) => ({
-      text: normalizeTextBlock(o.text),
-      image_url: o.image_url || null,
-      is_correct: o.is_correct,
-      order_index: i,
-    })),
+    model_answer: isOpen ? normalizeTextBlock(modelAnswer) || null : null,
+    model_answer_source: isOpen ? modelAnswerSource : null,
+    options: isOpen
+      ? []
+      : options.map((o, i) => ({
+          text: normalizeTextBlock(o.text),
+          image_url: o.image_url || null,
+          is_correct: o.is_correct,
+          order_index: i,
+        })),
   };
 }
 
@@ -139,6 +150,8 @@ function resetForm(
     setQuestionType: (v: QuestionType) => void;
     setPoints: (v: number) => void;
     setOptions: (v: OptionDraft[]) => void;
+    setModelAnswer: (v: string) => void;
+    setModelAnswerSource: (v: "teacher" | "ai" | null) => void;
     setError: (v: string) => void;
     setViewMode: (v: QuestionViewMode) => void;
   },
@@ -150,12 +163,16 @@ function resetForm(
     setters.setQuestionType(draft.question_type);
     setters.setPoints(draft.points);
     setters.setOptions(draft.options);
+    setters.setModelAnswer(draft.model_answer);
+    setters.setModelAnswerSource(draft.model_answer_source);
   } else {
     setters.setText("");
     setters.setImageUrl(null);
     setters.setQuestionType("single");
     setters.setPoints(1);
     setters.setOptions(DEFAULT_OPTIONS.map((o) => ({ ...o })));
+    setters.setModelAnswer("");
+    setters.setModelAnswerSource(null);
   }
   setters.setError("");
   setters.setViewMode("edit");
@@ -205,6 +222,9 @@ export default function QuestionEditDialog({
   const [questionType, setQuestionType] = useState<QuestionType>("single");
   const [points, setPoints] = useState(1);
   const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [modelAnswer, setModelAnswer] = useState("");
+  const [modelAnswerSource, setModelAnswerSource] = useState<"teacher" | "ai" | null>(null);
+  const [generatingModel, setGeneratingModel] = useState(false);
   const [viewMode, setViewMode] = useState<QuestionViewMode>("edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -217,6 +237,8 @@ export default function QuestionEditDialog({
       setQuestionType,
       setPoints,
       setOptions,
+      setModelAnswer,
+      setModelAnswerSource,
       setError,
       setViewMode,
     });
@@ -230,7 +252,15 @@ export default function QuestionEditDialog({
 
   const handleTypeChange = (type: QuestionType) => {
     setQuestionType(type);
-    if (type === "true_false") setOptions(TF_OPTIONS.map((o) => ({ ...o })));
+    if (type === "true_false") {
+      setOptions(TF_OPTIONS.map((o) => ({ ...o })));
+      return;
+    }
+    if (type === "open") {
+      setOptions([]);
+      return;
+    }
+    setOptions((prev) => (prev.length >= 2 ? prev : DEFAULT_OPTIONS.map((o) => ({ ...o }))));
   };
 
   const setCorrect = (index: number) => {
@@ -250,7 +280,15 @@ export default function QuestionEditDialog({
     }
     setSaving(true);
     setError("");
-    const payload = buildPayload(text, imageUrl, questionType, points, options);
+    const payload = buildPayload(
+      text,
+      imageUrl,
+      questionType,
+      points,
+      options,
+      modelAnswer,
+      modelAnswerSource,
+    );
     try {
       let saved: Question;
       if (isCreate) {
@@ -341,6 +379,7 @@ export default function QuestionEditDialog({
                   <MenuItem value="single">{he.questionTypeSingle}</MenuItem>
                   <MenuItem value="multiple">{he.questionTypeMultiple}</MenuItem>
                   <MenuItem value="true_false">{he.questionTypeTrueFalse}</MenuItem>
+                  <MenuItem value="open">{he.questionTypeOpen}</MenuItem>
                 </Select>
               </FormControl>
               <TextField
@@ -353,6 +392,25 @@ export default function QuestionEditDialog({
               />
             </Box>
 
+            {questionType === "open" ? (
+              <OpenModelAnswerFields
+                examId={examId}
+                questionText={text}
+                modelAnswer={modelAnswer}
+                generating={generatingModel}
+                onChange={(value) => {
+                  setModelAnswer(value);
+                  setModelAnswerSource("teacher");
+                }}
+                onGenerated={(value) => {
+                  setModelAnswer(value);
+                  setModelAnswerSource("ai");
+                }}
+                onGenerating={setGeneratingModel}
+                onError={setError}
+              />
+            ) : (
+              <>
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
               {he.options}
             </Typography>
@@ -387,6 +445,8 @@ export default function QuestionEditDialog({
               >
                 {he.addOption}
               </Button>
+            )}
+              </>
             )}
           </>
         )}
@@ -480,6 +540,72 @@ function OptionRow({
           </Tooltip>
         )}
       </Box>
+    </Box>
+  );
+}
+
+function OpenModelAnswerFields({
+  examId,
+  questionText,
+  modelAnswer,
+  generating,
+  onChange,
+  onGenerated,
+  onGenerating,
+  onError,
+}: {
+  examId: number;
+  questionText: string;
+  modelAnswer: string;
+  generating: boolean;
+  onChange: (value: string) => void;
+  onGenerated: (value: string) => void;
+  onGenerating: (v: boolean) => void;
+  onError: (v: string) => void;
+}) {
+  const generate = async () => {
+    if (!questionText.trim()) {
+      onError(he.questionContentRequired);
+      return;
+    }
+    onGenerating(true);
+    onError("");
+    try {
+      const res = await api<{ model_answer: string }>(`/api/exams/${examId}/open-model-answer`, {
+        method: "POST",
+        body: JSON.stringify({ question_text: questionText, language: "he" }),
+      });
+      onGenerated(res.model_answer);
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      onGenerating(false);
+    }
+  };
+
+  return (
+    <Box sx={{ mt: 1 }}>
+      <DirectionalMultilineField
+        variant="mixed"
+        enableCodeMarkup
+        label={he.modelAnswerLabel}
+        value={modelAnswer}
+        onChange={onChange}
+        minRows={3}
+        maxRows={10}
+      />
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        {he.modelAnswerHint}
+      </Typography>
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={generate}
+        disabled={generating || !questionText.trim()}
+        startIcon={generating ? <CircularProgress size={16} /> : undefined}
+      >
+        {generating ? he.loading : he.generateModelAnswer}
+      </Button>
     </Box>
   );
 }
