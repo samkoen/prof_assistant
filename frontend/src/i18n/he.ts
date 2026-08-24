@@ -302,11 +302,21 @@ export const he = {
   questionTypeSingle: "בחירה יחידה",
   questionTypeMultiple: "בחירה מרובה",
   questionTypeTrueFalse: "נכון / לא נכון",
+  questionTypeOpen: "שאלה פתוחה",
   points: "נקודות",
   options: "אפשרויות",
   correctAnswer: "נכון",
   addOption: "הוספת אפשרות",
   deleteOption: "מחיקת אפשרות",
+  modelAnswerLabel: "תשובה לדוגמה (רשות)",
+  modelAnswerHint: "אם השדה ריק, ה-AI ייצור תשובה אחרי ההגשה וישמור אותה לכל התלמידים.",
+  generateModelAnswer: "יצירת תשובה לדוגמה עם AI",
+  openAnswerPlaceholder: "כתבו את התשובה כאן",
+  openEvaluationTitle: "הערכת התשובה",
+  openEvaluationPending: "ממתין להערכה",
+  openEvaluationPartial: "תשובה חלקית",
+  openEarnedPoints: (earned: number, max: number) => `${earned} / ${max} נק'`,
+  openStudentAnswerLabel: "התשובה שלך",
   questionTextRequired: "יש להזין טקסט לשאלה",
   questionContentRequired: "יש להזין טקסט או תמונה לשאלה",
   addQuestionImage: "הוספת תמונה",
@@ -473,6 +483,84 @@ export const he = {
   aiCleanupAll: "נקה את כל ההסברים",
   aiCleanupDone: "נמחקו רשומות",
   aiCleanupInvalidDays: "יש להזין מספר ימים חוקי (1 ומעלה)",
+  aiPromptsAdminTitle: "תבניות הנחיות AI",
+  aiPromptsAdminSubtitle:
+    "כל התבניות בשימוש. בעמודה «איפה נקרא» רואים את העמוד והכפתור — חלקן קטעים שמוזרקים לקריאה אחרת.",
+  aiPromptsAdminCardDesc: "ניהול הנחיות ההערכה, ההסבר והיצירה",
+  aiPromptsEmpty: "אין תבניות",
+  aiPromptName: "תבנית",
+  aiPromptKey: "מפתח",
+  aiPromptStatus: "סטטוס",
+  aiPromptCustom: "מותאם",
+  aiPromptDefault: "ברירת מחדל",
+  aiPromptVersion: "גרסה",
+  aiPromptEdit: "עריכה",
+  aiPromptSave: "שמירה",
+  aiPromptReset: "שחזור ברירת מחדל",
+  aiPromptSaved: "התבנית נשמרה",
+  aiPromptResetDone: "שוחזרה ברירת המחדל",
+  aiPromptPlaceholders: "משתנים",
+  aiPromptRequired: "חובה להשאיר בטקסט",
+  aiPromptUsageCol: "איפה נקרא",
+  aiPromptUsageByKey: {
+    "output_language.he":
+      "קטע משותף — אין כפתור. נכנס לכל הנחיה עם {language_rule} כששפת הפלט עברית (יצירת שאלות, הערכה פתוחה, תשובה לדוגמה, הסבר QCM). השפה לפי פרופיל התלמיד או שפת הסדרה בעריכת מבחן.",
+    "output_language.fr":
+      "קטע משותף — אין כפתור. נכנס לכל הנחיה עם {language_rule} כששפת הפלט צרפתית.",
+    "output_language.en":
+      "קטע משותף — אין כפתור. נכנס לכל הנחיה עם {language_rule} כששפת הפלט אנגלית.",
+    "output_language.ru":
+      "קטע משותף — אין כפתור. נכנס לכל הנחיה עם {language_rule} כששפת הפלט רוסית.",
+    "open_eval.system":
+      "עמוד: סקירת תשובות (אחרי הגשה או תרגול). כפתור: «הערכת התשובה» וגם «בקש הסבר חדש». נשלח גם אוטומטית בפתיחת השאלה. הודעת מערכת יחד עם הנחיית המשתמש.",
+    "open_eval.strict_he":
+      "סקירת תשובות · הערכת תשובה פתוחה. אין כפתור. נוסף אוטומטית אם ההערכה הראשונה יצאה בתעתיק לטיני במקום אותיות עבריות.",
+    "open_eval.user":
+      "סקירת תשובות · «הערכת התשובה» / «בקש הסבר חדש». זו הנחיית המשתמש (השאלה והתשובה של התלמיד).",
+    "open_model.system":
+      "עמוד: עריכת מבחן → עריכת שאלה פתוחה. כפתור: «יצירת תשובה לדוגמה עם AI». הודעת מערכת יחד עם הנחיית המשתמש.",
+    "open_model.user":
+      "עריכת מבחן → עריכת שאלה פתוחה · «יצירת תשובה לדוגמה עם AI». זו הנחיית המשתמש (טקסט השאלה).",
+    "explanation.system":
+      "עמוד: סקירת תשובות. כפתור: «הסבר לי את התשובה הנכונה» וגם «בקש הסבר חדש» (שאלות בחירה). הודעת מערכת.",
+    "explanation.user":
+      "סקירת תשובות · «הסבר לי את התשובה הנכונה». הנחיית המשתמש (שאלה, אפשרויות, תשובת התלמיד).",
+    "generation.system":
+      "עמוד: עריכת מבחן (יצירת שאלות עם AI). הודעת מערכת לכל הקריאות: יצירה, אצוות, ו־refine.",
+    "generation.mandatory":
+      "עריכת מבחן · «יצירת שאלות עם AI». קטע שמוזרק להנחיית המשתמש: הנושא המחייב מהוראות המורה. אין כפתור נפרד.",
+    "generation.user":
+      "עריכת מבחן. אחרי «יצירת שאלות עם AI» ואז «אישור והמשך ליצירה». הנחיית המשתמש ליצירה (כולל האצווה הראשונה).",
+    "generation.refine":
+      "עריכת מבחן · אזור «בקשות שינוי», כפתור «שליחה» אחרי יצירת שאלות. גם «תיקון ב-AI» בלשונית הדבקה, ותיקון מבנה אוטומטי.",
+    "generation.batch":
+      "עריכת מבחן · אחרי «אישור והמשך ליצירה». אוטומטי לאצוות הבאות כשיש הרבה שאלות. אין כפתור נפרד.",
+    "generation.prior":
+      "אותן אצוות המשך. קטע עם השאלות שכבר נוצרו כדי לא לחזור עליהן. אין כפתור נפרד.",
+    "generation.preview":
+      "עריכת מבחן · כפתור «יצירת שאלות עם AI». מייצר את שורת הסיכום במסך «סיכום לפני יצירה» לפני האישור.",
+    "generation.sources_intro":
+      "עריכת מבחן · יצירת שאלות עם AI. קטע שעוטף קבצי מקור שצורפו (רק אם יש מקורות). אין כפתור נפרד.",
+  },
+  aiPromptOutputLanguageHe: "כללי שפה — עברית",
+  aiPromptOutputLanguageFr: "כללי שפה — צרפתית",
+  aiPromptOutputLanguageEn: "כללי שפה — אנגלית",
+  aiPromptOutputLanguageRu: "כללי שפה — רוסית",
+  aiPromptOpenEvalSystem: "הערכת שאלה פתוחה — מערכת",
+  aiPromptOpenEvalStrictHe: "הערכה חוזרת בעברית (בלי תעתיק)",
+  aiPromptOpenEvalUser: "הערכת שאלה פתוחה — הנחיית משתמש",
+  aiPromptOpenModelSystem: "יצירת תשובה לדוגמה — מערכת",
+  aiPromptOpenModelUser: "יצירת תשובה לדוגמה",
+  aiPromptExplanationSystem: "הסבר QCM — מערכת",
+  aiPromptExplanationUser: "הסבר QCM — הנחיית משתמש",
+  aiPromptGenerationSystem: "יצירת שאלות — מערכת",
+  aiPromptGenerationMandatory: "יצירת שאלות — נושא מחייב",
+  aiPromptGenerationUser: "יצירת שאלות — הנחיית משתמש",
+  aiPromptGenerationRefine: "עדכון שאלות (refine)",
+  aiPromptGenerationBatch: "יצירת שאלות — אצווה",
+  aiPromptGenerationPrior: "יצירת שאלות — שאלות קיימות",
+  aiPromptGenerationPreview: "תקציר יצירה לפני הרצה",
+  aiPromptGenerationSources: "יצירת שאלות — מקורות",
   newUser: "משתמש חדש",
   newCourse: "קורס חדש",
   noUsers: "אין משתמשים",

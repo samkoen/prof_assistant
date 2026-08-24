@@ -39,7 +39,7 @@ export const GEMINI_SERIES_LEVELS: GeminiSeriesLevel[] = ["easy", "medium", "har
 
 export const GEMINI_SERIES_LANGUAGES: GeminiSeriesLanguage[] = ["he", "fr", "en", "ru"];
 
-export const GEMINI_QUESTION_TYPES: QuestionType[] = ["single", "multiple", "true_false"];
+export const GEMINI_QUESTION_TYPES: QuestionType[] = ["single", "multiple", "true_false", "open"];
 
 export interface GeminiGenerationProgress {
   total_questions: number;

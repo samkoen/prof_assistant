@@ -37,6 +37,8 @@ def extract_block_stem(block: str) -> str:
             continue
         if _OPTION_START_RE.match(stripped):
             break
+        if stripped.upper().startswith("ANSWER:") or stripped.startswith("תשובה:"):
+            break
         stem_lines.append(stripped)
     return "\n".join(stem_lines).strip()
 

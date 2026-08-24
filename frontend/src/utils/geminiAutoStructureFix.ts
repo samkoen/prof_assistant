@@ -6,7 +6,7 @@ export const MAX_AUTO_STRUCTURE_FIX_ATTEMPTS = 2;
 
 type FixRule = {
   messages: ReadonlySet<string>;
-  /** Instruction de correction pour Gemini (hébreu). */
+  /** Instruction de correction pour l'IA (anglais). */
   instruction: string;
 };
 
@@ -38,26 +38,26 @@ const FIX_RULES: FixRule[] = [
   {
     messages: STAR_MISSING_MULTIPLE,
     instruction:
-      "בשאלות בחירה מרובה: סמנו * על כל האפשרויות הנכונות (לפחות אחת) — בדיוק לפי הפורמט",
+      "On multiple-choice questions, mark * on every correct option (at least one) — exactly as in the format",
   },
   {
     messages: STAR_TOO_MANY_SINGLE,
     instruction:
-      "בשאלות בחירה יחידה: השאירו * רק על אפשרות אחת נכונה — הסירו * מיותרות",
+      "On single-choice questions, keep * on exactly one correct option — remove extra * marks",
   },
   {
     messages: TF_TWO_OPTIONS,
     instruction:
-      "בשאלות נכון/לא נכון: בדיוק שתי אפשרויות (נכון / לא נכון) עם * על הנכונה בלבד",
+      "On true/false questions: exactly two options (true / false) with * on the correct one only",
   },
   {
     messages: NO_OPTIONS,
     instruction:
-      "לכל שאלה חובה אפשרויות A) B) C) (ו־D) אם צריך) בשורות נפרדות לפי הפורמט",
+      "Every question must have A) B) C) options (and D) if needed) on separate lines as in the format",
   },
   {
     messages: MISSING_TEXT,
-    instruction: "לכל שאלה חייב להיות טקסט שאלה מלא אחרי שורת Qn — לפני האפשרויות",
+    instruction: "Every question must have full question text after the Qn line — before the options",
   },
 ];
 
@@ -79,7 +79,7 @@ function questionRefs(errors: ParseError[]): string {
     (a, b) => a - b,
   );
   if (blocks.length === 0) return "";
-  return ` (שאלות: ${blocks.map((b) => `Q${b}`).join(", ")})`;
+  return ` (questions: ${blocks.map((b) => `Q${b}`).join(", ")})`;
 }
 
 /**
@@ -105,8 +105,8 @@ export function buildAutoStructureFixPrompt(errors: ParseError[]): string | null
   }
 
   return [
-    "יש שגיאות פורמט בפלט האחרון. תקן אותן בלבד — בלי לשנות את תוכן השאלות:",
+    "The last output has format errors. Fix those only — do not change question content:",
     ...parts.map((p, i) => `${i + 1}. ${p}`),
-    "החזר את כל מערך השאלות המלא בפורמט הנדרש.",
+    "Return the full question set in the required format.",
   ].join("\n");
 }

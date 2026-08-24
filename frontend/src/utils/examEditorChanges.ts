@@ -12,6 +12,8 @@ function questionPayload(q: Question) {
       is_correct: o.is_correct ?? false,
       order_index: o.order_index ?? i,
     })),
+    model_answer: q.model_answer ?? null,
+    model_answer_source: q.model_answer_source ?? null,
   };
 }
 
@@ -25,6 +27,7 @@ function normalizeQuestions(questions: Question[]) {
       question_type: q.question_type,
       points: q.points,
       order_index: q.order_index,
+      model_answer: q.model_answer ?? null,
       options: [...q.options]
         .sort((a, b) => a.order_index - b.order_index || a.id - b.id)
         .map((o) => ({
@@ -57,7 +60,7 @@ export function removeQuestionFromList(questions: Question[], questionId: number
 }
 
 function questionMatchKey(q: Question): string {
-  return `${q.question_type}::${q.text}::${q.image_url ?? ""}`;
+  return `${q.question_type}::${q.text}::${q.image_url ?? ""}::${q.model_answer ?? ""}`;
 }
 
 async function deleteAddedQuestions(

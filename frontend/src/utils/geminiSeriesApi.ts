@@ -5,7 +5,7 @@ export interface GeminiSeriesApiPayload {
   instructions: string;
   question_count: number;
   level: "easy" | "medium" | "hard";
-  question_types: ("single" | "multiple" | "true_false")[];
+  question_types: ("single" | "multiple" | "true_false" | "open")[];
   language: "he" | "fr" | "en" | "ru";
 }
 

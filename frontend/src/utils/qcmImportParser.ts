@@ -1,6 +1,6 @@
 import { stripEditorBidiMarks } from "./examQuestionsLanguage";
 
-export type QuestionType = "single" | "multiple" | "true_false";
+export type QuestionType = "single" | "multiple" | "true_false" | "open";
 
 export interface ParsedQuestionOption {
   text: string;
@@ -12,6 +12,7 @@ export interface ParsedQuestion {
   question_type: QuestionType;
   points: number;
   options: ParsedQuestionOption[];
+  model_answer?: string;
 }
 
 export interface ParseError {
@@ -30,10 +31,11 @@ export interface QuestionImportPayload {
   order_index: number;
   points: number;
   options: { text: string; is_correct: boolean; order_index: number }[];
+  model_answer?: string | null;
 }
 
 const HEADER_RE =
-  /^(?:Q?\d+[\.\):]?\s*)?(?:\[(single|multiple|true_false|tf|vrai_faux)\])?(?:\s*\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*$/i;
+  /^(?:Q?\d+[\.\):]?\s*)?(?:\[(single|multiple|true_false|tf|vrai_faux|open)\])?(?:\s*\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*$/i;
 
 const OPTION_START_RE = /^([A-Z])\)\s*(.*)$/i;
 const HEBREW_OPTION_RE = /^([א-ת])\)\s*(.*)$/u;
@@ -63,6 +65,7 @@ function normalizeType(raw: string | undefined): QuestionType {
   const t = raw.toLowerCase();
   if (t === "multiple") return "multiple";
   if (t === "true_false" || t === "tf" || t === "vrai_faux") return "true_false";
+  if (t === "open") return "open";
   return "single";
 }
 
@@ -211,6 +214,33 @@ function findOptionStartIndex(lines: string[], from: number): number {
   return -1;
 }
 
+function isAnswerMarker(line: string): boolean {
+  return /^(ANSWER|MODEL|תשובה)\s*:/i.test(line.trim());
+}
+
+function parseOpenBlock(
+  rawLines: string[],
+  rawStart: number,
+  points: number,
+  blockIndex: number,
+): { q?: ParsedQuestion; error?: ParseError } {
+  const rest = rawLines.slice(rawStart);
+  const answerIdx = rest.findIndex((l) => isAnswerMarker(l));
+  const textLines = answerIdx >= 0 ? rest.slice(0, answerIdx) : rest;
+  const text = trimEdgeBlankLines(textLines).join("\n").trim();
+  if (!text) {
+    return { error: { block: blockIndex, message: "חסר טקסט לשאלה" } };
+  }
+  let model_answer: string | undefined;
+  if (answerIdx >= 0) {
+    const marker = rest[answerIdx].trim();
+    const afterColon = marker.replace(/^(ANSWER|MODEL|תשובה)\s*:/i, "").trim();
+    const extra = trimEdgeBlankLines(rest.slice(answerIdx + 1)).join("\n").trim();
+    model_answer = [afterColon, extra].filter(Boolean).join("\n").trim() || undefined;
+  }
+  return { q: { text, question_type: "open", points, options: [], model_answer } };
+}
+
 function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; error?: ParseError } {
   const rawLines = block.split("\n").map((l) => l.trimEnd());
   const lines = rawLines.map((l) => l.trim()).filter(Boolean);
@@ -227,6 +257,10 @@ function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; er
     if (headerMatch[2]) points = parseFloat(headerMatch[2]);
     const headerIdx = rawLines.findIndex((l) => l.trim() === lines[0]);
     rawStart = headerIdx >= 0 ? headerIdx + 1 : 1;
+  }
+
+  if (type === "open") {
+    return parseOpenBlock(rawLines, rawStart, points, blockIndex);
   }
 
   const optionStart = findOptionStartIndex(rawLines, rawStart);
@@ -312,6 +346,7 @@ function validateParsedQuestions(questions: ParsedQuestion[]): ParseResult {
   questions.forEach((q, i) => {
     const block = i + 1;
     if (!q.text?.trim()) errors.push({ block, message: "חסר טקסט לשאלה" });
+    if (q.question_type === "open") return;
     if (!q.options?.length) errors.push({ block, message: "חסרות אפשרויות" });
     const correct = q.options.filter((o) => o.is_correct);
     if (q.question_type === "multiple" && correct.length === 0) {
@@ -334,6 +369,7 @@ export function toImportPayload(questions: ParsedQuestion[]): QuestionImportPayl
       is_correct: o.is_correct,
       order_index: oi,
     })),
+    model_answer: q.model_answer ?? null,
   }));
 }
 
@@ -383,6 +419,11 @@ Q3 [true_false]
 מחסנית (Stack) עובדת לפי עקרון FIFO
 נכון
 לא נכון *
+---
+Q4 [open] (2 pt)
+הסבירו בקצרה איך עובד חיפוש בינארי.
+ANSWER:
+חיפוש בינארי מחלק את המערך הממוין לשניים בכל צעד עד למציאת הערך.
 ---`;
 
 export const QCM_GEMINI_PROMPT = `צור מבחן בפורמט הבא בדיוק (הפרד בין שאלות עם שורה ---):

@@ -4,6 +4,8 @@ import CheckIcon from "@mui/icons-material/Check";
 import { OptionDisplay } from "./MultilineOptionLayout";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import QuestionAiExplanation from "./QuestionAiExplanation";
+import QuestionOpenEvaluation from "./QuestionOpenEvaluation";
+import AiExplanationMarkdown from "./AiExplanationMarkdown";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import QuestionTextWithIndex from "./QuestionTextWithIndex";
 import {
@@ -17,6 +19,7 @@ import { he } from "../i18n/he";
 
 interface ExamSubmissionReviewProps {
   review: ExamReview;
+  onAttemptScore?: (score: number | null, maxScore: number | null) => void;
 }
 
 function optionPrefix(idx: number, total: number, mark?: string): string {
@@ -62,13 +65,27 @@ function ReviewQuestionCard({
   sessionId,
   language,
   forPractice = false,
+  onAttemptScore,
 }: {
   q: ExamReviewQuestion;
   index: number;
   sessionId: number;
   language: ExplanationLanguage;
   forPractice?: boolean;
+  onAttemptScore?: (score: number | null, maxScore: number | null) => void;
 }) {
+  if (q.question_type === "open") {
+    return (
+      <OpenReviewQuestionCard
+        q={q}
+        index={index}
+        sessionId={sessionId}
+        language={language}
+        forPractice={forPractice}
+        onAttemptScore={onAttemptScore}
+      />
+    );
+  }
   const wrong = !q.is_correct;
   const qDir = contentDirForQuestionText(q.text);
   const ltr = qDir === "ltr";
@@ -145,7 +162,73 @@ function ReviewQuestionCard({
   );
 }
 
-export default function ExamSubmissionReview({ review }: ExamSubmissionReviewProps) {
+function openReviewChip(q: ExamReviewQuestion): { label: string; color: "default" | "success" | "warning" | "error" } {
+  if (q.evaluation_pending && !q.appreciation) {
+    return { label: he.openEvaluationPending, color: "default" };
+  }
+  if (q.is_correct) return { label: he.questionAnsweredCorrectly, color: "success" };
+  if ((q.earned_points ?? 0) > 0) return { label: he.openEvaluationPartial, color: "warning" };
+  return { label: he.questionAnsweredWrong, color: "error" };
+}
+
+function OpenReviewQuestionCard({
+  q,
+  index,
+  sessionId,
+  language,
+  forPractice = false,
+  onAttemptScore,
+}: {
+  q: ExamReviewQuestion;
+  index: number;
+  sessionId: number;
+  language: ExplanationLanguage;
+  forPractice?: boolean;
+  onAttemptScore?: (score: number | null, maxScore: number | null) => void;
+}) {
+  const qDir = contentDirForQuestionText(q.text);
+  const ltr = qDir === "ltr";
+  const pointsLabel = formatExamPointsLabel(q.points, qDir);
+  const chip = openReviewChip(q);
+  return (
+    <Card sx={{ mb: 2, border: "1px solid", borderColor: "divider" }}>
+      <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
+        <Chip size="small" label={chip.label} color={chip.color} sx={{ mb: 1 }} />
+        <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
+          {" "}
+          <Typography component="span" variant="body2" color="text.secondary">
+            ({pointsLabel})
+          </Typography>
+        </QuestionTextWithIndex>
+        <QuestionImageDisplay url={q.image_url} />
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          {he.yourAnswerLabel}
+        </Typography>
+        {q.student_text_answer?.trim() ? (
+          <Box sx={{ mb: 1.5 }}>
+            <AiExplanationMarkdown content={q.student_text_answer} />
+          </Box>
+        ) : (
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {he.noAnswerGiven}
+          </Typography>
+        )}
+        <QuestionOpenEvaluation
+          sessionId={sessionId}
+          question={q}
+          language={language}
+          forPractice={forPractice}
+          onAttemptScore={onAttemptScore}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function ExamSubmissionReview({
+  review,
+  onAttemptScore,
+}: ExamSubmissionReviewProps) {
   const { user } = useAuth();
   const language: ExplanationLanguage = user?.ai_explanation_language ?? "he";
   const hasQuestions = review.show_correction && review.questions.length > 0;
@@ -167,6 +250,7 @@ export default function ExamSubmissionReview({ review }: ExamSubmissionReviewPro
           sessionId={review.session_id}
           language={language}
           forPractice={review.for_practice}
+          onAttemptScore={onAttemptScore}
         />
       ))}
     </Box>

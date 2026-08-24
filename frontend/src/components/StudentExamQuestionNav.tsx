@@ -18,6 +18,7 @@ import {
 type StudentExamQuestionNavProps = {
   questions: StudentQuestion[];
   answers: Record<number, number[]>;
+  textAnswers?: Record<number, string>;
   activeIndex: number;
   onSelectQuestion: (index: number) => void;
   onNextUnanswered: () => void;
@@ -49,6 +50,7 @@ function pillSx(answered: boolean, active: boolean) {
 function NavPillsRow({
   questions,
   answers,
+  textAnswers = {},
   activeIndex,
   onSelectQuestion,
   onNextUnanswered,
@@ -57,6 +59,7 @@ function NavPillsRow({
   StudentExamQuestionNavProps,
   | "questions"
   | "answers"
+  | "textAnswers"
   | "activeIndex"
   | "onSelectQuestion"
   | "onNextUnanswered"
@@ -103,7 +106,7 @@ function NavPillsRow({
         }}
       >
         {questions.map((q, i) => {
-          const answered = isQuestionAnswered(answers, q.id);
+          const answered = isQuestionAnswered(q, answers, textAnswers);
           const active = i === activeIndex;
           return (
             <Button
@@ -127,13 +130,14 @@ function NavPillsRow({
 export default function StudentExamQuestionNav({
   questions,
   answers,
+  textAnswers = {},
   activeIndex,
   onSelectQuestion,
   onNextUnanswered,
   allAnswered,
 }: StudentExamQuestionNavProps) {
   const total = questions.length;
-  const answeredCount = countAnsweredQuestions(questions, answers);
+  const answeredCount = countAnsweredQuestions(questions, answers, textAnswers);
   const progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
 
   return (
@@ -165,6 +169,7 @@ export default function StudentExamQuestionNav({
       <NavPillsRow
         questions={questions}
         answers={answers}
+        textAnswers={textAnswers}
         activeIndex={activeIndex}
         onSelectQuestion={onSelectQuestion}
         onNextUnanswered={onNextUnanswered}

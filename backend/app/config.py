@@ -120,7 +120,9 @@ class Settings(BaseSettings):
     # Cloud OpenCode (Vercel) — API compatible OpenAI ; prioritaire si OPENCODE_API_KEY est défini.
     opencode_api_key: str = ""
     opencode_api_base_url: str = "https://opencode.ai/zen/go/v1"
-    opencode_model_id: str = "deepseek-v4-flash"
+    # deepseek-v4-flash exige un opt-in « China hosting » (403 RegionError).
+    opencode_model_id: str = "mimo-v2.5"
+    opencode_fallback_models: str = "mimo-v2.5,glm-5.1,hy3"
     # "plan" lance une phase de planification OpenCode — trop lent pour du QCM texte seul.
     opencode_agent: str = "build"
     opencode_session_title: str = "exam-ai-explanation"

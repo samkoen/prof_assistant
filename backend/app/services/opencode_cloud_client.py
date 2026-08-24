@@ -5,7 +5,14 @@ import time
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, OpenAIError, RateLimitError
 
 from app.config import settings
-from app.services.opencode_errors import OpenCodeError, generation_system, run_profile
+from app.services.opencode_errors import (
+    OpenCodeError,
+    REGION_BLOCKED_HE,
+    generation_system,
+    is_region_blocked_text,
+    model_chain,
+    run_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +46,10 @@ def _messages_for_prompt(prompt: str, system: str | None) -> list[dict[str, str]
 
 
 def _map_openai_error(exc: OpenAIError) -> OpenCodeError:
-    msg = str(exc).lower()
+    raw = str(exc)
+    msg = raw.lower()
+    if is_region_blocked_text(raw):
+        return OpenCodeError(REGION_BLOCKED_HE, retryable=False, region_blocked=True)
     if isinstance(exc, RateLimitError) or "rate limit" in msg or "429" in msg:
         return OpenCodeError("מכסת OpenCode Go נגמרה — נסו שוב מאוחר יותר.", retryable=True)
     if isinstance(exc, APITimeoutError):
@@ -53,7 +63,7 @@ def _map_openai_error(exc: OpenAIError) -> OpenCodeError:
         return OpenCodeError("מפתח OPENCODE_API_KEY לא תקין.", retryable=False)
     if "credits" in msg or "quota" in msg:
         return OpenCodeError("אין קרדיטים ב-OpenCode Go — בדקו מנוי ב-opencode.ai/go.", retryable=False)
-    return OpenCodeError(f"שגיאה בשירות OpenCode: {str(exc)[:200]}")
+    return OpenCodeError(f"שגיאה בשירות OpenCode: {raw[:200]}")
 
 
 def _client(timeout: float) -> AsyncOpenAI:
@@ -116,6 +126,23 @@ async def _complete_with_retries(
     raise last
 
 
+async def _complete_across_models(
+    messages: list[dict[str, str]],
+    *,
+    timeout: float,
+) -> str:
+    last: OpenCodeError | None = None
+    for model_id in model_chain():
+        try:
+            return await _complete_with_retries(messages, model_id=model_id, timeout=timeout)
+        except OpenCodeError as exc:
+            last = exc
+            if not exc.region_blocked:
+                raise
+            logger.warning("OpenCode region blocked for model=%s; trying fallback", model_id)
+    raise last or OpenCodeError(REGION_BLOCKED_HE, retryable=False, region_blocked=True)
+
+
 async def generate_text_cloud(
     prompt: str,
     *,
@@ -127,11 +154,7 @@ async def generate_text_cloud(
     timeout = timeout_seconds or float(profile["timeout"])
     resolved = system or (generation_system() if for_generation else None)
     messages = _messages_for_prompt(prompt, resolved)
-    return await _complete_with_retries(
-        messages,
-        model_id=str(profile["model_id"]),
-        timeout=timeout,
-    )
+    return await _complete_across_models(messages, timeout=timeout)
 
 
 async def generate_chat_cloud(
@@ -147,8 +170,4 @@ async def generate_chat_cloud(
     messages = _messages_from_contents(contents, resolved)
     if not any(m["role"] == "user" for m in messages):
         raise OpenCodeError("אין הודעת משתמש ל-OpenCode")
-    return await _complete_with_retries(
-        messages,
-        model_id=str(profile["model_id"]),
-        timeout=timeout,
-    )
+    return await _complete_across_models(messages, timeout=timeout)

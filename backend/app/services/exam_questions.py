@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.enums import ExamStatus, QuestionType
+from app.models.enums import ExamStatus, ModelAnswerSource, QuestionType
 from app.models.exam import ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.schemas.exam import QuestionCreate, QuestionUpdate
 
@@ -48,12 +48,29 @@ def _has_content(text: str, image_url: str | None) -> bool:
     return bool(text.strip()) or bool((image_url or "").strip())
 
 
-def validate_question_body(body: QuestionCreate, index: int) -> None:
+def _normalized_model_answer(text: str | None) -> str | None:
+    cleaned = normalize_question_text(text or "")
+    return cleaned or None
+
+
+def _model_answer_source(
+    text: str | None,
+    requested: ModelAnswerSource | None,
+    previous_text: str | None = None,
+    previous_source: ModelAnswerSource | None = None,
+) -> ModelAnswerSource | None:
+    if not text:
+        return None
+    if requested:
+        return requested
+    if previous_text == text:
+        return previous_source or ModelAnswerSource.TEACHER
+    return ModelAnswerSource.TEACHER
+
+
+def _validate_qcm_options(body: QuestionCreate, label: str) -> None:
     from fastapi import HTTPException
 
-    label = f"שאלה {index + 1}"
-    if not _has_content(body.text, body.image_url):
-        raise HTTPException(status_code=400, detail=f"{label}: נדרש טקסט או תמונה")
     if body.question_type == QuestionType.TRUE_FALSE:
         if len(body.options) != 2:
             raise HTTPException(status_code=400, detail=f"{label}: נדרשות 2 אפשרויות (נכון/לא נכון)")
@@ -74,6 +91,17 @@ def validate_question_body(body: QuestionCreate, index: int) -> None:
             )
 
 
+def validate_question_body(body: QuestionCreate, index: int) -> None:
+    from fastapi import HTTPException
+
+    label = f"שאלה {index + 1}"
+    if not _has_content(body.text, body.image_url):
+        raise HTTPException(status_code=400, detail=f"{label}: נדרש טקסט או תמונה")
+    if body.question_type == QuestionType.OPEN:
+        return
+    _validate_qcm_options(body, label)
+
+
 async def persist_question(
     exam_id: int,
     body: QuestionCreate,
@@ -88,9 +116,15 @@ async def persist_question(
         order_index=order_index,
         points=body.points,
         multiple_scoring_mode=body.multiple_scoring_mode,
+        model_answer=_normalized_model_answer(body.model_answer),
+        model_answer_source=_model_answer_source(
+            _normalized_model_answer(body.model_answer), body.model_answer_source
+        ),
     )
     db.add(question)
     await db.flush()
+    if body.question_type == QuestionType.OPEN:
+        return question
     for opt in body.options:
         db.add(
             QuestionOption(
@@ -144,20 +178,27 @@ async def update_question(
         order_index=question.order_index,
         points=body.points,
         multiple_scoring_mode=body.multiple_scoring_mode,
+        model_answer=body.model_answer,
+        model_answer_source=body.model_answer_source,
         options=body.options,
     )
     validate_question_body(create_body, 0)
-
+    model_text = _normalized_model_answer(body.model_answer)
     question.text = normalize_question_text(body.text)
     question.image_url = body.image_url or None
     question.question_type = body.question_type
     question.points = body.points
     question.multiple_scoring_mode = body.multiple_scoring_mode
+    question.model_answer_source = _model_answer_source(
+        model_text, body.model_answer_source, question.model_answer, question.model_answer_source
+    )
+    question.model_answer = model_text
 
     for opt in list(question.options):
         await db.delete(opt)
     await db.flush()
-
+    if body.question_type == QuestionType.OPEN:
+        return question
     for i, opt in enumerate(body.options):
         db.add(
             QuestionOption(

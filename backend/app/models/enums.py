@@ -30,6 +30,12 @@ class QuestionType(str, enum.Enum):
     SINGLE = "single"
     MULTIPLE = "multiple"
     TRUE_FALSE = "true_false"
+    OPEN = "open"
+
+
+class ModelAnswerSource(str, enum.Enum):
+    TEACHER = "teacher"
+    AI = "ai"
 
 
 class MultipleScoringMode(str, enum.Enum):

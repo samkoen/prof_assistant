@@ -7,7 +7,14 @@ import httpx
 
 from app.config import settings
 from app.services.opencode_cloud_client import generate_chat_cloud, generate_text_cloud
-from app.services.opencode_errors import OpenCodeError, generation_system, run_profile
+from app.services.opencode_errors import (
+    OpenCodeError,
+    REGION_BLOCKED_HE,
+    generation_system,
+    is_region_blocked_text,
+    model_chain,
+    run_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +84,8 @@ def _raise_if_message_error(info: dict) -> None:
     data = error.get("data") if isinstance(error.get("data"), dict) else {}
     message = str(data.get("message") or error.get("name") or "שגיאת API")
     lowered = message.lower()
+    if is_region_blocked_text(message):
+        raise OpenCodeError(REGION_BLOCKED_HE, retryable=False, region_blocked=True)
     if "credits" in lowered or "licenses" in lowered or "permission-denied" in lowered:
         raise OpenCodeError(
             "אין קרדיטים ב-OpenCode Go — בדקו מנוי ומגבלות ב-opencode.ai/go."
@@ -112,9 +121,11 @@ def _parse_api_error(response: httpx.Response) -> tuple[str, list[str]]:
 
 def _user_message(status: int, detail: str, suggestions: list[str]) -> str:
     detail_lower = detail.lower()
+    if is_region_blocked_text(detail):
+        return REGION_BLOCKED_HE
     if "providermodelnotfound" in detail_lower or "model not found" in detail_lower:
         model = settings.opencode_model_id
-        hint = suggestions[0] if suggestions else "deepseek-v4-flash"
+        hint = suggestions[0] if suggestions else "mimo-v2.5"
         return f"המודל '{model}' לא זמין ב-OpenCode Go — עדכן OPENCODE_MODEL_ID (למשל {hint})."
     if status in (401, 403):
         return "אימות שרת OpenCode נכשל — בדקו OPENCODE_SERVER_PASSWORD."
@@ -125,6 +136,12 @@ def _user_message(status: int, detail: str, suggestions: list[str]) -> str:
     if status in _TRANSIENT_STATUSES or "unavailable" in detail_lower:
         return "שירות OpenCode עמוס כרגע — נסו בעוד דקה."
     return "שגיאה בשירות הבינה המלאכותית"
+
+
+def _api_error(status: int, detail: str, suggestions: list[str]) -> OpenCodeError:
+    message = _user_message(status, detail, suggestions)
+    blocked = is_region_blocked_text(detail)
+    return OpenCodeError(message, retryable=not blocked, region_blocked=blocked)
 
 
 def _contents_to_prompt(contents: list[dict]) -> str:
@@ -210,7 +227,7 @@ async def _create_session(timeout: float, *, session_title: str) -> str:
     if response.status_code >= 400:
         detail, suggestions = _parse_api_error(response)
         logger.warning("OpenCode create session %s: %s", response.status_code, detail)
-        raise OpenCodeError(_user_message(response.status_code, detail, suggestions))
+        raise _api_error(response.status_code, detail, suggestions)
     session_id = (response.json() or {}).get("id")
     if not isinstance(session_id, str) or not session_id:
         raise OpenCodeError("אין מזהה סשן מ-OpenCode")
@@ -249,7 +266,7 @@ async def _send_message(
     if response.status_code >= 400:
         detail, suggestions = _parse_api_error(response)
         logger.warning("OpenCode message %s session=%s: %s", response.status_code, session_id, detail)
-        raise OpenCodeError(_user_message(response.status_code, detail, suggestions))
+        raise _api_error(response.status_code, detail, suggestions)
     text = _extract_text(response.json())
     logger.info(
         "OpenCode model replied in %.1fs (session=%s, chars=%d)",
@@ -292,6 +309,38 @@ async def _generate_once(
         await _delete_session(session_id, timeout)
 
 
+async def _generate_with_retries(
+    prompt: str,
+    *,
+    timeout: float,
+    system: str | None,
+    model_id: str,
+    agent: str,
+    session_title: str,
+) -> str:
+    retries = max(0, settings.opencode_retry_count)
+    delay = settings.opencode_retry_delay_seconds
+    last: OpenCodeError | None = None
+    for attempt in range(retries + 1):
+        try:
+            return await _generate_once(
+                prompt,
+                timeout,
+                system=system,
+                model_id=model_id,
+                agent=agent,
+                session_title=session_title,
+            )
+        except OpenCodeError as exc:
+            last = exc
+            if not exc.retryable or attempt >= retries:
+                break
+            logger.info("OpenCode retry %s/%s after error: %s", attempt + 1, retries, exc)
+            await asyncio.sleep(delay * (attempt + 1))
+    assert last is not None
+    raise last
+
+
 async def _generate_with_profile(
     prompt: str,
     *,
@@ -302,35 +351,23 @@ async def _generate_with_profile(
     profile = run_profile(for_generation=for_generation)
     timeout = timeout_seconds or float(profile["timeout"])
     resolved_system = system or (generation_system() if for_generation else None)
-    retries = max(0, settings.opencode_retry_count)
-    delay = settings.opencode_retry_delay_seconds
     last: OpenCodeError | None = None
-    for attempt in range(retries + 1):
+    for model_id in model_chain():
         try:
-            return await _generate_once(
+            return await _generate_with_retries(
                 prompt,
-                timeout,
+                timeout=timeout,
                 system=resolved_system,
-                model_id=str(profile["model_id"]),
+                model_id=model_id,
                 agent=str(profile["agent"]),
                 session_title=str(profile["session_title"]),
             )
         except OpenCodeError as exc:
             last = exc
-            if not exc.retryable:
-                logger.warning("OpenCode error (no retry): %s", exc)
-                break
-            if attempt >= retries:
-                break
-            logger.info(
-                "OpenCode retry %s/%s after error: %s",
-                attempt + 1,
-                retries,
-                exc,
-            )
-            await asyncio.sleep(delay * (attempt + 1))
-    assert last is not None
-    raise last
+            if not exc.region_blocked:
+                raise
+            logger.warning("OpenCode region blocked for model=%s; trying fallback", model_id)
+    raise last or OpenCodeError(REGION_BLOCKED_HE, retryable=False, region_blocked=True)
 
 
 async def generate_text(

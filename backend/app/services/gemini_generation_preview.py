@@ -11,14 +11,16 @@ from app.schemas.gemini_questions import (
     GeminiSourcePreviewItem,
 )
 from app.services.ai_client import AiError, generate_text
+from app.services.ai_prompt_render import render_prompt
+from app.services.ai_prompt_store import get_prompt_body
 from app.services.exam_gemini_source_service import load_sources_for_generation
 from app.services.gemini_text_cleanup import clean_gemini_source_text, clean_gemini_user_text
 
 SOURCE_PREVIEW_CHARS = 500
 
 _TYPE_LABELS = {
-    ExamGeminiSourceType.EXERCISES_FILE: "תרגילים לדוגמה",
-    ExamGeminiSourceType.COURSE_FILE: "חומר לימוד",
+    ExamGeminiSourceType.EXERCISES_FILE: "sample exercises",
+    ExamGeminiSourceType.COURSE_FILE: "course material",
 }
 
 
@@ -44,9 +46,9 @@ def _source_preview_item(src: ExamGeminiSource) -> GeminiSourcePreviewItem:
 def _source_roles_line(src: GeminiSourcePreviewItem) -> str:
     roles: list[str] = []
     if src.use_as_style:
-        roles.append("סגנון")
+        roles.append("style")
     if src.use_as_content:
-        roles.append("תוכן")
+        roles.append("content")
     label = _TYPE_LABELS.get(src.source_type, src.source_type)
     return f"{src.original_filename} ({label}: {', '.join(roles)})"
 
@@ -61,18 +63,17 @@ def _build_summary_prompt(
     if sources:
         src_block = "\n".join(f"- {_source_roles_line(s)}" for s in sources)
     else:
-        src_block = "- ללא מקורות"
-    title_line = f"מבחן: {clean_gemini_user_text(exam_title)}\n" if exam_title else ""
-    return f"""{title_line}קרא את ההנחיות והמקורות. כתוב שורה אחת בעברית בלבד, בדיוק במבנה:
-נושא מובן: <משפט קצר> · מקורות: <רשימה קצרה או «ללא»> · {total_questions} שאלות: <רמה/סוג בקצרה>
-
-הנחיות המורה:
-{instr_block}
-
-מקורות:
-{src_block}
-
-אל תוסיף טקסט נוסף — רק השורה."""
+        src_block = "- none"
+    title_line = f"Exam: {clean_gemini_user_text(exam_title)}\n" if exam_title else ""
+    return render_prompt(
+        get_prompt_body("generation.preview"),
+        {
+            "title_line": title_line,
+            "total_questions": total_questions,
+            "instructions": instr_block,
+            "sources": src_block,
+        },
+    )
 
 
 async def preview_generation_context(

@@ -1,4 +1,4 @@
-import { Box, Chip } from "@mui/material";
+import { Box, Chip, Typography } from "@mui/material";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
 import QuestionTextWithIndex from "./QuestionTextWithIndex";
@@ -14,12 +14,14 @@ const typeLabelRtl: Record<string, string> = {
   single: he.questionTypeSingle,
   multiple: he.questionTypeMultiple,
   true_false: he.questionTypeTrueFalse,
+  open: he.questionTypeOpen,
 };
 
 const typeLabelLtr: Record<string, string> = {
   single: "Choix unique",
   multiple: "Choix multiple",
   true_false: "Vrai / faux",
+  open: "Question ouverte",
 };
 
 function formatPointsLabel(points: number, ltr: boolean): string {
@@ -81,18 +83,24 @@ export function ExamQuestionReadView({
           <Chip size="small" variant="outlined" label={formatPointsLabel(points, ltr)} />
         )}
       </Box>
-      {options.map((o, optIdx) => (
-        <OptionDisplay
-          key={o.id ?? optIdx}
-          prefix={`${String.fromCharCode(65 + optIdx)}) ${o.is_correct ? "✓" : "○"}`}
-          text={o.text}
-          imageUrl={o.image_url}
-          color={o.is_correct ? "success.main" : "text.secondary"}
-          dir={contentDirForOptionText(o.text, text)}
-          examDir={qDir}
-          questionText={text}
-        />
-      ))}
+      {questionType === "open" ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {he.openAnswerPlaceholder}
+        </Typography>
+      ) : (
+        options.map((o, optIdx) => (
+          <OptionDisplay
+            key={o.id ?? optIdx}
+            prefix={`${String.fromCharCode(65 + optIdx)}) ${o.is_correct ? "✓" : "○"}`}
+            text={o.text}
+            imageUrl={o.image_url}
+            color={o.is_correct ? "success.main" : "text.secondary"}
+            dir={contentDirForOptionText(o.text, text)}
+            examDir={qDir}
+            questionText={text}
+          />
+        ))
+      )}
     </Box>
   );
   if (ltr) return <LtrEmotionIsland>{body}</LtrEmotionIsland>;

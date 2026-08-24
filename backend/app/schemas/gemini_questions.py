@@ -12,7 +12,7 @@ class GeminiSeriesInput(BaseModel):
     instructions: str = Field(min_length=1, max_length=4000)
     question_count: int = Field(ge=1, le=50)
     level: GeminiSeriesLevel
-    question_types: list[QuestionType] = Field(min_length=1, max_length=3)
+    question_types: list[QuestionType] = Field(min_length=1, max_length=4)
     language: GeminiSeriesLanguage = "he"
 
 

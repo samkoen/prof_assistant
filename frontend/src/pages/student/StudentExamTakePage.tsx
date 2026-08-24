@@ -16,6 +16,7 @@ import { OptionText } from "../../components/MultilineOptionLayout";
 import QuestionImageDisplay from "../../components/QuestionImageDisplay";
 import { examQuestionLtrSx } from "../../components/examQuestionLtrStyles";
 import QuestionTextWithIndex from "../../components/QuestionTextWithIndex";
+import DirectionalMultilineField from "../../components/DirectionalMultilineField";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import {
@@ -67,14 +68,24 @@ function answersFromSaved(saved: ExamTake["saved_answers"]): Record<number, numb
   return out;
 }
 
+function textsFromSaved(saved: ExamTake["saved_answers"]): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (const row of saved ?? []) {
+    if (row.text_answer) out[row.question_id] = row.text_answer;
+  }
+  return out;
+}
+
 function buildAnswersPayload(
   questions: StudentQuestion[],
   answers: Record<number, number[]>,
+  textAnswers: Record<number, string>,
 ) {
   return {
     answers: questions.map((q) => ({
       question_id: q.id,
       selected_option_ids: answers[q.id] ?? [],
+      text_answer: q.question_type === "open" ? (textAnswers[q.id] ?? "") : null,
     })),
   };
 }
@@ -96,6 +107,7 @@ export default function StudentExamTakePage() {
   const id = Number(sessionId);
   const [paper, setPaper] = useState<ExamTake | null>(null);
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
+  const [textAnswers, setTextAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [startingPractice, setStartingPractice] = useState(false);
@@ -111,9 +123,11 @@ export default function StudentExamTakePage() {
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const paperRef = useRef<ExamTake | null>(null);
   const answersRef = useRef<Record<number, number[]>>({});
+  const textAnswersRef = useRef<Record<number, string>>({});
   const submittingRef = useRef(false);
   paperRef.current = paper;
   answersRef.current = answers;
+  textAnswersRef.current = textAnswers;
 
   const loadPracticeHistory = useCallback(async () => {
     if (!id || Number.isNaN(id)) return;
@@ -162,6 +176,7 @@ export default function StudentExamTakePage() {
       setSuccess("");
       setAutoSubmitted(false);
       setAnswers(answersFromSaved(data.saved_answers));
+      setTextAnswers(textsFromSaved(data.saved_answers));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -197,6 +212,7 @@ export default function StudentExamTakePage() {
         setAutoSubmitted(false);
         setSuccess("");
         setAnswers(answersFromSaved(data.saved_answers));
+        setTextAnswers(textsFromSaved(data.saved_answers));
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -267,9 +283,14 @@ export default function StudentExamTakePage() {
     });
   };
 
+  const setOpenText = (questionId: number, value: string) => {
+    setTextAnswers((prev) => ({ ...prev, [questionId]: value }));
+  };
+
   const saveDraft = useCallback(async () => {
     const p = paperRef.current;
     const a = answersRef.current;
+    const texts = textAnswersRef.current;
     if (!p?.questions.length) return;
     const path =
       phase === "practice"
@@ -281,7 +302,7 @@ export default function StudentExamTakePage() {
     await api(path, {
       method: "PUT",
       headers,
-      body: JSON.stringify(buildAnswersPayload(p.questions, a)),
+      body: JSON.stringify(buildAnswersPayload(p.questions, a, texts)),
     });
   }, [id, phase]);
 
@@ -296,7 +317,7 @@ export default function StudentExamTakePage() {
       });
     }, 400);
     return () => window.clearTimeout(t);
-  }, [answers, phase, rulesPending, paper?.session_id, saveDraft]);
+  }, [answers, textAnswers, phase, rulesPending, paper?.session_id, saveDraft]);
 
   const startPractice = async () => {
     setStartingPractice(true);
@@ -317,12 +338,13 @@ export default function StudentExamTakePage() {
   const submitPractice = useCallback(async () => {
     const p = paperRef.current;
     const a = answersRef.current;
+    const texts = textAnswersRef.current;
     if (!p?.questions.length || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     setError("");
     try {
-      const payload = buildAnswersPayload(p.questions, a);
+      const payload = buildAnswersPayload(p.questions, a, texts);
       const res = await api<ExamAttempt>(`/api/exams/sessions/${id}/practice/submit`, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -343,12 +365,13 @@ export default function StudentExamTakePage() {
     async (force = false) => {
       const p = paperRef.current;
       const a = answersRef.current;
+      const texts = textAnswersRef.current;
       if (!p?.questions.length || submittingRef.current) return;
       submittingRef.current = true;
       setSubmitting(true);
       setError("");
       try {
-        const payload = buildAnswersPayload(p.questions, a);
+        const payload = buildAnswersPayload(p.questions, a, texts);
         const headers = examSessionTokenHeaders(id);
         await api(`/api/exams/sessions/${id}/answers`, {
           method: "PUT",
@@ -418,7 +441,9 @@ export default function StudentExamTakePage() {
 
   const showExamNav = phase === "exam" && !rulesPending && (paper?.questions.length ?? 0) > 0;
   const activeQuestionIndex = useExamQuestionScrollSpy(paper?.questions.length ?? 0, showExamNav);
-  const answeredCount = paper ? countAnsweredQuestions(paper.questions, answers) : 0;
+  const answeredCount = paper
+    ? countAnsweredQuestions(paper.questions, answers, textAnswers)
+    : 0;
   const allQuestionsAnswered =
     !!paper && paper.questions.length > 0 && answeredCount >= paper.questions.length;
 
@@ -428,7 +453,12 @@ export default function StudentExamTakePage() {
 
   const goNextUnanswered = () => {
     if (!paper) return;
-    const next = findNextUnansweredIndex(paper.questions, answers, activeQuestionIndex);
+    const next = findNextUnansweredIndex(
+      paper.questions,
+      answers,
+      activeQuestionIndex,
+      textAnswers,
+    );
     if (next != null) scrollToExamQuestion(next);
   };
 
@@ -535,7 +565,23 @@ export default function StudentExamTakePage() {
               )}
             />
           )}
-          {review && <ExamSubmissionReview review={review} />}
+          {review && (
+            <ExamSubmissionReview
+              review={review}
+              onAttemptScore={(score, maxScore) => {
+                setAttempt((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        ...(phase === "practice_review"
+                          ? { practice_score: score, practice_max_score: maxScore }
+                          : { score, max_score: maxScore }),
+                      }
+                    : prev,
+                );
+              }}
+            />
+          )}
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
             {(phase === "final" || phase === "practice_review") && (
               <Button
@@ -565,8 +611,10 @@ export default function StudentExamTakePage() {
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
+              textValue={textAnswers[q.id] ?? ""}
               onSingle={setSingle}
               onToggle={toggleMultiple}
+              onText={setOpenText}
             />
           ))}
           <Button
@@ -585,6 +633,7 @@ export default function StudentExamTakePage() {
             <StudentExamQuestionNav
               questions={paper.questions}
               answers={answers}
+              textAnswers={textAnswers}
               activeIndex={activeQuestionIndex}
               onSelectQuestion={goToQuestion}
               onNextUnanswered={goNextUnanswered}
@@ -598,9 +647,11 @@ export default function StudentExamTakePage() {
               index={i + 1}
               question={q}
               selected={answers[q.id] ?? []}
-              answered={isQuestionAnswered(answers, q.id)}
+              textValue={textAnswers[q.id] ?? ""}
+              answered={isQuestionAnswered(q, answers, textAnswers)}
               onSingle={setSingle}
               onToggle={toggleMultiple}
+              onText={setOpenText}
             />
           ))}
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2, alignItems: "center" }}>
@@ -640,19 +691,24 @@ function QuestionBlock({
   index,
   question,
   selected,
+  textValue = "",
   answered,
   onSingle,
   onToggle,
+  onText,
 }: {
   elementId: string;
   index: number;
   question: StudentQuestion;
   selected: number[];
+  textValue?: string;
   answered?: boolean;
   onSingle: (questionId: number, optionId: number) => void;
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
+  onText?: (questionId: number, value: string) => void;
 }) {
   const isMultiple = question.question_type === "multiple";
+  const isOpen = question.question_type === "open";
   const qDir = contentDirForQuestionText(question.text);
   const ltr = qDir === "ltr";
   const pointsLabel = formatExamPointsLabel(question.points, qDir);
@@ -677,7 +733,17 @@ function QuestionBlock({
           </Typography>
         </QuestionTextWithIndex>
         <QuestionImageDisplay url={question.image_url} />
-        {isMultiple ? (
+        {isOpen ? (
+          <DirectionalMultilineField
+            variant="mixed"
+            label={he.openStudentAnswerLabel}
+            value={textValue}
+            onChange={(value) => onText?.(question.id, value)}
+            minRows={4}
+            maxRows={12}
+            placeholder={he.openAnswerPlaceholder}
+          />
+        ) : isMultiple ? (
           <Box>
             {question.options.map((o) => (
               <Box

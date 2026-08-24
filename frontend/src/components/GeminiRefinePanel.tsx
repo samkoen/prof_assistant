@@ -5,6 +5,7 @@ import DirectionalMultilineField from "./DirectionalMultilineField";
 import type { GeminiGenerationMessage } from "../types/geminiQuestionSeries";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
+import { displayRefineText, isRefineUserContent } from "../utils/geminiRefineMarkers";
 
 type Props = {
   messages: GeminiGenerationMessage[];
@@ -12,13 +13,6 @@ type Props = {
   disabled?: boolean;
   onSend: (message: string) => void;
 };
-
-function displayRefineText(content: string): string {
-  const marker = "בקשת עדכון מהמורה:\n";
-  if (!content.includes(marker)) return "";
-  const after = content.split(marker, 2)[1] ?? "";
-  return after.split("\n\n")[0].trim();
-}
 
 export default function GeminiRefinePanel({ messages, refining, disabled, onSend }: Props) {
   const [draft, setDraft] = useState("");
@@ -31,7 +25,7 @@ export default function GeminiRefinePanel({ messages, refining, disabled, onSend
   };
 
   const history = messages
-    .filter((m) => m.role === "user" && m.content.includes("בקשת עדכון מהמורה"))
+    .filter((m) => m.role === "user" && isRefineUserContent(m.content))
     .map((m) => ({ id: m.id, text: displayRefineText(m.content) }))
     .filter((m) => m.text.length > 0);
 

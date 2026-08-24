@@ -1,9 +1,11 @@
+from app.models.ai_prompt import AiPromptTemplate
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import (
     Answer,
     Exam,
     ExamSession,
     Question,
+    OpenAnswerEvaluation,
     QuestionAiExplanation,
     QuestionOption,
     StudentExamAttempt,
@@ -19,6 +21,7 @@ from app.models.teacher_share import TeacherContentShare
 from app.models.user import User
 
 __all__ = [
+    "AiPromptTemplate",
     "User",
     "CourseCatalog",
     "CourseOffering",
@@ -28,6 +31,7 @@ __all__ = [
     "ExamSession",
     "Question",
     "QuestionOption",
+    "OpenAnswerEvaluation",
     "QuestionAiExplanation",
     "StudentExamAttempt",
     "Answer",

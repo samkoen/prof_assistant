@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,9 +9,12 @@ from app.logging_config import configure_logging
 from app.spa_static import mount_frontend_spa
 
 configure_logging()
+logger = logging.getLogger(__name__)
+
 from app.routers import (
     admin,
     ai_explanations,
+    ai_prompts,
     auth,
     catalog_courses,
     courses,
@@ -16,12 +22,27 @@ from app.routers import (
     exam_gemini_sources,
     exams,
     notifications,
+    open_answers,
     question_media,
     students_router,
     teacher_shares,
 )
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    try:
+        from app.database import async_session_maker
+        from app.services.ai_prompt_admin import ensure_prompt_catalog
+
+        async with async_session_maker() as db:
+            await ensure_prompt_catalog(db)
+    except Exception:
+        logger.exception("Failed to seed AI prompt catalog")
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,6 +60,8 @@ app.include_router(exam_gemini_generation.router, prefix="/api")
 app.include_router(exam_gemini_sources.router, prefix="/api")
 app.include_router(question_media.router, prefix="/api")
 app.include_router(ai_explanations.router, prefix="/api")
+app.include_router(open_answers.router, prefix="/api")
+app.include_router(ai_prompts.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(students_router.router, prefix="/api")

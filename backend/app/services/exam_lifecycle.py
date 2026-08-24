@@ -145,6 +145,8 @@ async def duplicate_exam_to_catalog(
             order_index=q.order_index,
             points=q.points,
             multiple_scoring_mode=q.multiple_scoring_mode,
+            model_answer=q.model_answer,
+            model_answer_source=q.model_answer_source,
         )
         db.add(new_q)
         await db.flush()
