@@ -88,6 +88,21 @@ async def _load_answer_rows(attempt_id: int, db: AsyncSession, *, for_practice: 
     return list(result.scalars().all())
 
 
+def attempt_score_lock_stmt(attempt_id: int):
+    """SELECT … FOR UPDATE : sérialise les recalculs de note sur la même tentative."""
+    return (
+        select(StudentExamAttempt)
+        .where(StudentExamAttempt.id == attempt_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+async def _lock_attempt_for_rescore(attempt_id: int, db: AsyncSession) -> StudentExamAttempt:
+    result = await db.execute(attempt_score_lock_stmt(attempt_id))
+    return result.scalar_one()
+
+
 async def recalculate_attempt_score(
     attempt: StudentExamAttempt,
     exam_id: int,
@@ -333,6 +348,26 @@ def _to_eval_response(row, question: Question, attempt: StudentExamAttempt, *, f
     )
 
 
+async def _persist_eval_and_rescore(
+    attempt_id: int,
+    question: Question,
+    language: GeminiSeriesLanguage,
+    appreciation: str,
+    score: float,
+    db: AsyncSession,
+    *,
+    for_practice: bool,
+) -> tuple[StudentExamAttempt, OpenAnswerEvaluation]:
+    attempt = await _lock_attempt_for_rescore(attempt_id, db)
+    row = await _upsert_evaluation(
+        attempt.id, question.id, language, appreciation, score, db, for_practice=for_practice
+    )
+    await db.flush()
+    await recalculate_attempt_score(attempt, question.exam_id, db, for_practice=for_practice)
+    await db.commit()
+    return attempt, row
+
+
 async def _generate_and_store(
     attempt: StudentExamAttempt,
     question: Question,
@@ -351,12 +386,10 @@ async def _generate_and_store(
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     _maybe_store_model_answer(question, generated_model)
-    row = await _upsert_evaluation(
-        attempt.id, question.id, language, appreciation, score, db, for_practice=for_practice
+    locked, row = await _persist_eval_and_rescore(
+        attempt.id, question, language, appreciation, score, db, for_practice=for_practice
     )
-    await recalculate_attempt_score(attempt, question.exam_id, db, for_practice=for_practice)
-    await db.commit()
-    return _to_eval_response(row, question, attempt, from_cache=False, for_practice=for_practice)
+    return _to_eval_response(row, question, locked, from_cache=False, for_practice=for_practice)
 
 
 

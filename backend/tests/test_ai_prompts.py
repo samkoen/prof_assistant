@@ -10,7 +10,7 @@ from app.services.gemini_question_prompt import (
     is_generation_prompt,
     is_refine_prompt,
 )
-from app.services.open_answer_prompt import build_model_answer_prompt
+from app.services.open_answer_prompt import build_model_answer_prompt, model_answer_system_prompt
 
 
 def _he_series() -> GeminiSeriesInput:
@@ -70,3 +70,11 @@ def test_model_answer_prompt_english_keeps_question():
     assert "Write the correct model answer" in prompt
     assert q in prompt
     assert "כתוב את התשובה" not in prompt
+
+
+def test_model_answer_system_prompt_is_text_not_json_eval():
+    system = model_answer_system_prompt("he")
+    assert "no JSON" in system
+    assert "JSON only" not in system
+    assert "grade open exam answers" not in system.lower()
+    assert "Hebrew letters" in system

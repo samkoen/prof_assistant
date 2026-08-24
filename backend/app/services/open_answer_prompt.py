@@ -18,7 +18,10 @@ def evaluation_system_prompt(language: GeminiSeriesLanguage, *, strict: bool = F
 
 
 def model_answer_system_prompt(language: GeminiSeriesLanguage) -> str:
-    return evaluation_system_prompt(language)
+    return render_prompt(
+        get_prompt_body("open_model.system"),
+        {"language_rule": output_language_rule(language)},
+    )
 
 
 def build_model_answer_prompt(question_text: str, language: GeminiSeriesLanguage) -> str:

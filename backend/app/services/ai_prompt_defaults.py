@@ -96,6 +96,16 @@ If a model answer was given, repeat it unchanged in model_answer.
         ),
     ),
     PromptSpec(
+        key="open_model.system",
+        body=(
+            "You write a correct model answer for an open exam question. "
+            "Write the answer in {language_rule}. Text only, no JSON, no tools, no preamble. "
+            "Do not invent facts not implied by the question."
+        ),
+        required=("no JSON", "{language_rule}"),
+        placeholders=("language_rule",),
+    ),
+    PromptSpec(
         key="open_model.user",
         body="""Write the correct model answer in {language_rule}.
 Text only, no JSON, no preamble.

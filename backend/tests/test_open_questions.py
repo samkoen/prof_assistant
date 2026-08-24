@@ -1,14 +1,53 @@
 from fastapi import HTTPException
 import pytest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from app.models.enums import QuestionType
 from app.schemas.exam import QuestionCreate
 from app.services.exam_questions import validate_question_body
+from app.services import open_answer_evaluation as open_eval_mod
+from app.services.open_answer_evaluation import attempt_score_lock_stmt
 from app.services.open_answer_parse import parse_open_evaluation_json
 from app.services.open_answer_prompt import build_evaluation_prompt, evaluation_system_prompt
 from app.services.open_answer_text import looks_latin_transliteration, strip_foreign_scripts
 from app.services.scoring import clamp_open_score, score_exam_answers, score_question
 from tests.helpers import make_question
+
+
+def test_attempt_score_lock_stmt_uses_for_update():
+    from sqlalchemy.dialects import postgresql
+
+    sql = str(attempt_score_lock_stmt(42).compile(dialect=postgresql.dialect()))
+    assert "FOR UPDATE" in sql
+    assert "student_exam_attempts" in sql.lower()
+
+
+def _async_track(order: list[str], name: str, result):
+    async def inner(*_args, **_kwargs):
+        order.append(name)
+        return result
+
+    return inner
+
+
+async def test_persist_eval_locks_before_rescore(monkeypatch):
+    order: list[str] = []
+    locked = SimpleNamespace(id=1, score=None, max_score=None)
+    question = SimpleNamespace(id=10, exam_id=99)
+    monkeypatch.setattr(open_eval_mod, "_lock_attempt_for_rescore", _async_track(order, "lock", locked))
+    monkeypatch.setattr(open_eval_mod, "_upsert_evaluation", _async_track(order, "upsert", SimpleNamespace()))
+    monkeypatch.setattr(
+        open_eval_mod, "recalculate_attempt_score", _async_track(order, "recalc", (1.0, 2.0))
+    )
+    db = SimpleNamespace(flush=AsyncMock(), commit=AsyncMock())
+    attempt, _row = await open_eval_mod._persist_eval_and_rescore(
+        1, question, "he", "ok", 1.0, db, for_practice=False
+    )
+    assert order == ["lock", "upsert", "recalc"]
+    assert attempt is locked
+    db.flush.assert_awaited_once()
+    db.commit.assert_awaited_once()
 
 
 def test_open_question_unscored_until_evaluation():

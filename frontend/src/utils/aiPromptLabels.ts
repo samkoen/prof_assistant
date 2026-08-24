@@ -8,6 +8,7 @@ const LABELS: Record<string, string> = {
   "open_eval.system": he.aiPromptOpenEvalSystem,
   "open_eval.strict_he": he.aiPromptOpenEvalStrictHe,
   "open_eval.user": he.aiPromptOpenEvalUser,
+  "open_model.system": he.aiPromptOpenModelSystem,
   "open_model.user": he.aiPromptOpenModelUser,
   "explanation.system": he.aiPromptExplanationSystem,
   "explanation.user": he.aiPromptExplanationUser,

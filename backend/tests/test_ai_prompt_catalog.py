@@ -1,7 +1,11 @@
 from app.services.ai_prompt_defaults import get_prompt_spec
 from app.services.ai_prompt_render import missing_required_snippets, render_prompt
 from app.services.ai_prompt_store import get_prompt_body, override_prompt_cache
-from app.services.open_answer_prompt import build_evaluation_prompt, evaluation_system_prompt
+from app.services.open_answer_prompt import (
+    build_evaluation_prompt,
+    evaluation_system_prompt,
+    model_answer_system_prompt,
+)
 
 
 def setup_function() -> None:
@@ -43,6 +47,14 @@ def test_system_prompt_uses_language_rule_from_catalog():
     override_prompt_cache({"output_language.he": "HE-RULE-TEST"})
     system = evaluation_system_prompt("he")
     assert "HE-RULE-TEST" in system
+
+
+def test_model_answer_system_uses_catalog_not_eval():
+    override_prompt_cache({"open_model.system": "MODEL-SYS {language_rule} no JSON"})
+    system = model_answer_system_prompt("he")
+    assert system.startswith("MODEL-SYS")
+    assert "JSON only" not in system
+    assert "grade open exam answers" not in system.lower()
 
 
 def test_default_catalog_covers_all_builders():

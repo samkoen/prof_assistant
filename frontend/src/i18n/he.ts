@@ -507,6 +507,7 @@ export const he = {
   aiPromptOpenEvalSystem: "הערכת שאלה פתוחה — מערכת",
   aiPromptOpenEvalStrictHe: "הערכה חוזרת בעברית (בלי תעתיק)",
   aiPromptOpenEvalUser: "הערכת שאלה פתוחה — הנחיית משתמש",
+  aiPromptOpenModelSystem: "יצירת תשובה לדוגמה — מערכת",
   aiPromptOpenModelUser: "יצירת תשובה לדוגמה",
   aiPromptExplanationSystem: "הסבר QCM — מערכת",
   aiPromptExplanationUser: "הסבר QCM — הנחיית משתמש",
