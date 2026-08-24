@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 
 from app.models.course import CourseOffering
+from app.services.utc_time import as_utc
 
 JOIN_LINK_EXPIRED_DETAIL = "קישור ההצטרפות פג תוקף — בקשו מהמורה קישור חדש"
 DEFAULT_JOIN_LINK_VALID_DAYS = 30
@@ -28,16 +29,10 @@ def assign_join_token(offering: CourseOffering, valid_days: int = DEFAULT_JOIN_L
     offering.join_token_expires_at = expires_at_from_valid_days(valid_days)
 
 
-def _as_utc(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
 def is_join_link_valid(offering: CourseOffering) -> bool:
     if not offering.join_token or not offering.join_token_expires_at:
         return False
-    return utc_now() < _as_utc(offering.join_token_expires_at)
+    return utc_now() < as_utc(offering.join_token_expires_at)
 
 
 def ensure_join_link_valid(offering: CourseOffering) -> None:
