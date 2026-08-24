@@ -88,3 +88,4 @@ temp/
 *.sqlite
 *.sqlite3
 *.db
+.env*
