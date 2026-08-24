@@ -15,6 +15,7 @@ from app.models.exam import Answer, Exam, ExamSession, Question, QuestionOption,
 from app.models.notification import Notification
 from app.models.enums import NotificationType
 from app.models.user import User
+from app.services.utc_time import as_utc
 from app.schemas.gemini_questions import (
     GeminiGenerateQuestionsRequest,
     GeminiGenerateQuestionsResponse,
@@ -1405,7 +1406,7 @@ async def submit_exam_session(
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     assert_exam_session_token(session, attempt, provided_token)
     now = datetime.now(timezone.utc)
-    if attempt.expires_at and now > attempt.expires_at and not exam.auto_submit_on_timeout:
+    if attempt.expires_at and now > as_utc(attempt.expires_at) and not exam.auto_submit_on_timeout:
         raise HTTPException(status_code=400, detail="הזמן נגמר")
     await finalize_exam_submission(attempt, session, exam, body.answers, db)
     await db.commit()

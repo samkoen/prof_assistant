@@ -15,6 +15,7 @@ from app.models.exam import Answer, Exam, ExamSession, Question, StudentExamAtte
 from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
 from app.services.scoring import score_exam_answers
+from app.services.utc_time import as_utc
 
 
 def persist_fields_for_answer(item: SubmitAnswerItem, question: Question) -> dict:
@@ -154,7 +155,7 @@ async def auto_submit_if_expired(
     if attempt.submitted_at or not attempt.started_at or not attempt.expires_at:
         return attempt
     now = datetime.now(timezone.utc)
-    if now <= attempt.expires_at:
+    if now <= as_utc(attempt.expires_at):
         return attempt
     if not exam.auto_submit_on_timeout:
         raise HTTPException(status_code=400, detail="הזמן נגמר")
