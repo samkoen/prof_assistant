@@ -25,3 +25,7 @@ const LABELS: Record<string, string> = {
 export function aiPromptLabel(key: string): string {
   return LABELS[key] ?? key;
 }
+
+export function aiPromptCatalogKeys(): string[] {
+  return Object.keys(LABELS);
+}

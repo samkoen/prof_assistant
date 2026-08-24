@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Chip, IconButton, Tooltip } from "@mui/material";
+import { Alert, Box, Chip, IconButton, Tooltip, Typography } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import AiPromptEditDialog from "../../components/AiPromptEditDialog";
 import DataListTable from "../../components/DataListTable/DataListTable";
@@ -14,6 +14,67 @@ import {
 import { ApiError } from "../../api/client";
 import { he } from "../../i18n/he";
 import { aiPromptLabel } from "../../utils/aiPromptLabels";
+import { aiPromptUsage } from "../../utils/aiPromptUsage";
+
+function usageCell(row: AiPromptTemplate) {
+  return (
+    <Typography variant="body2" dir="rtl" sx={{ whiteSpace: "normal", textAlign: "right" }}>
+      {aiPromptUsage(row.key)}
+    </Typography>
+  );
+}
+
+function statusCell(row: AiPromptTemplate) {
+  return (
+    <Chip
+      size="small"
+      color={row.is_custom ? "warning" : "default"}
+      label={row.is_custom ? he.aiPromptCustom : he.aiPromptDefault}
+    />
+  );
+}
+
+function nameAndUsageColumns(): DataListColumnDef<AiPromptTemplate>[] {
+  return [
+    {
+      key: "title",
+      label: he.aiPromptName,
+      getValue: (row) => aiPromptLabel(row.key),
+      renderCell: (row) => aiPromptLabel(row.key),
+    },
+    {
+      key: "usage",
+      label: he.aiPromptUsageCol,
+      minWidth: 280,
+      getValue: (row) => aiPromptUsage(row.key),
+      renderCell: usageCell,
+    },
+  ];
+}
+
+function metaColumns(): DataListColumnDef<AiPromptTemplate>[] {
+  return [
+    {
+      key: "key",
+      label: he.aiPromptKey,
+      cellDir: "ltr",
+      getValue: (row) => row.key,
+      renderCell: (row) => row.key,
+    },
+    {
+      key: "status",
+      label: he.aiPromptStatus,
+      getValue: (row) => (row.is_custom ? he.aiPromptCustom : he.aiPromptDefault),
+      renderCell: statusCell,
+    },
+    {
+      key: "version",
+      label: he.aiPromptVersion,
+      getValue: (row) => String(row.version),
+      renderCell: (row) => `v${row.version}`,
+    },
+  ];
+}
 
 export default function AdminAiPromptsPage() {
   const [rows, setRows] = useState<AiPromptTemplate[]>([]);
@@ -22,6 +83,7 @@ export default function AdminAiPromptsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selected, setSelected] = useState<AiPromptTemplate | null>(null);
+  const columns = useMemo(() => [...nameAndUsageColumns(), ...metaColumns()], []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,43 +133,6 @@ export default function AdminAiPromptsPage() {
     }
   };
 
-  const columns: DataListColumnDef<AiPromptTemplate>[] = useMemo(
-    () => [
-      {
-        key: "title",
-        label: he.aiPromptName,
-        getValue: (row) => aiPromptLabel(row.key),
-        renderCell: (row) => aiPromptLabel(row.key),
-      },
-      {
-        key: "key",
-        label: he.aiPromptKey,
-        cellDir: "ltr",
-        getValue: (row) => row.key,
-        renderCell: (row) => row.key,
-      },
-      {
-        key: "status",
-        label: he.aiPromptStatus,
-        getValue: (row) => (row.is_custom ? he.aiPromptCustom : he.aiPromptDefault),
-        renderCell: (row) => (
-          <Chip
-            size="small"
-            color={row.is_custom ? "warning" : "default"}
-            label={row.is_custom ? he.aiPromptCustom : he.aiPromptDefault}
-          />
-        ),
-      },
-      {
-        key: "version",
-        label: he.aiPromptVersion,
-        getValue: (row) => String(row.version),
-        renderCell: (row) => `v${row.version}`,
-      },
-    ],
-    [],
-  );
-
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
       <ListPageToolbar title={he.aiPromptsAdminTitle} subtitle={he.aiPromptsAdminSubtitle} />
@@ -122,7 +147,7 @@ export default function AdminAiPromptsPage() {
         </Alert>
       )}
       <DataListTable
-        viewKey="admin-ai-prompts"
+        viewKey="admin-ai-prompts-v2"
         rows={rows}
         columns={columns}
         loading={loading}

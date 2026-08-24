@@ -15,6 +15,7 @@ import type { AiPromptTemplate } from "../api/aiPrompts";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 import { aiPromptLabel } from "../utils/aiPromptLabels";
+import { aiPromptUsage } from "../utils/aiPromptUsage";
 
 type Props = {
   template: AiPromptTemplate;
@@ -24,6 +25,21 @@ type Props = {
   onSave: (body: string) => void;
   onReset: () => void;
 };
+
+function PromptUsageBlock({ promptKey }: { promptKey: string }) {
+  const text = aiPromptUsage(promptKey);
+  if (!text) return null;
+  return (
+    <>
+      <Typography variant="subtitle2" sx={{ mt: 1.5, ...hebrewAlignRightSx }}>
+        {he.aiPromptUsageCol}
+      </Typography>
+      <Typography variant="body2" sx={{ mt: 0.5, ...hebrewAlignRightSx, whiteSpace: "pre-wrap" }}>
+        {text}
+      </Typography>
+    </>
+  );
+}
 
 function PromptChips({ items, wrap }: { items: string[]; wrap?: boolean }) {
   if (items.length === 0) {
@@ -63,6 +79,7 @@ export default function AiPromptEditDialog({
         <Typography variant="caption" color="text.secondary" dir="ltr" display="block">
           {template.key} · v{template.version}
         </Typography>
+        <PromptUsageBlock promptKey={template.key} />
         <Typography variant="subtitle2" sx={{ mt: 1.5, ...hebrewAlignRightSx }}>
           {he.aiPromptPlaceholders}
         </Typography>
