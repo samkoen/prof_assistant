@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { hebrewAccordionSx } from "../styles/hebrewAlign";
 import { LtrEmotionIsland } from "./LtrEmotionIsland";
 
 interface ExamEditorSectionAccordionProps {
@@ -26,7 +27,7 @@ export default function ExamEditorSectionAccordion({
   children,
 }: ExamEditorSectionAccordionProps) {
   return (
-    <Accordion defaultExpanded={defaultExpanded} disableGutters sx={{ mb: 2 }}>
+    <Accordion defaultExpanded={defaultExpanded} disableGutters sx={{ mb: 2, ...hebrewAccordionSx }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />} dir="rtl">
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
           <Typography variant="h6" component="span" fontWeight={600}>
@@ -40,7 +41,9 @@ export default function ExamEditorSectionAccordion({
         </Box>
       </AccordionSummary>
       <AccordionDetails dir={detailsDir}>
-        {detailsDir === "ltr" ? <LtrEmotionIsland>{children}</LtrEmotionIsland> : children}
+        <Box sx={{ width: "100%" }}>
+          {detailsDir === "ltr" ? <LtrEmotionIsland>{children}</LtrEmotionIsland> : children}
+        </Box>
       </AccordionDetails>
     </Accordion>
   );

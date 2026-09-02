@@ -14,7 +14,8 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SaveIcon from "@mui/icons-material/Save";
-import ExamEditorQuestionsPanel from "../../components/ExamEditorQuestionsPanel";
+import ExamEditorAddQuestionsSection from "../../components/ExamEditorAddQuestionsSection";
+import ExamEditorQuestionsSection from "../../components/ExamEditorQuestionsSection";
 import ExamEditorSectionAccordion from "../../components/ExamEditorSectionAccordion";
 import ExamContextActionsBar from "../../components/ExamContextActionsBar";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
@@ -340,8 +341,7 @@ export default function TeacherExamEditorPage() {
         defaultExpanded
         detailsDir="rtl"
       >
-        <ExamEditorQuestionsPanel
-          examId={id}
+        <ExamEditorQuestionsSection
           exam={exam}
           reordering={reordering}
           deletingQuestionId={deletingQuestionId}
@@ -351,25 +351,38 @@ export default function TeacherExamEditorPage() {
             setQuestionToEdit(q);
           }}
           onDelete={setQuestionToDelete}
-          onAddManual={() => {
-            setQuestionToEdit(null);
-            setCreateQuestionOpen(true);
-          }}
-          paste={paste}
-          onPasteChange={setPaste}
-          parseResult={parseResult}
-          importing={importing}
-          onCopyPrompt={async () => {
-            await navigator.clipboard.writeText(QCM_GEMINI_PROMPT);
-            setSuccess(he.promptCopied);
-          }}
-          onLoadExample={() => setPaste(QCM_FORMAT_EXAMPLE)}
-          onImport={importQuestions}
-          onReload={load}
-          onSuccess={setSuccess}
-          onError={setError}
         />
       </ExamEditorSectionAccordion>
+
+      {exam.is_editable && (
+        <ExamEditorSectionAccordion
+          title={he.addQuestionsSection}
+          defaultExpanded={exam.questions.length === 0}
+          detailsDir="rtl"
+        >
+          <ExamEditorAddQuestionsSection
+            examId={id}
+            exam={exam}
+            onAddManual={() => {
+              setQuestionToEdit(null);
+              setCreateQuestionOpen(true);
+            }}
+            paste={paste}
+            onPasteChange={setPaste}
+            parseResult={parseResult}
+            importing={importing}
+            onCopyPrompt={async () => {
+              await navigator.clipboard.writeText(QCM_GEMINI_PROMPT);
+              setSuccess(he.promptCopied);
+            }}
+            onLoadExample={() => setPaste(QCM_FORMAT_EXAMPLE)}
+            onImport={importQuestions}
+            onReload={load}
+            onSuccess={setSuccess}
+            onError={setError}
+          />
+        </ExamEditorSectionAccordion>
+      )}
 
       <Box
         sx={{

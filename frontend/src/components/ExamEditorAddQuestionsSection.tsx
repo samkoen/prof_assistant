@@ -5,7 +5,6 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  Divider,
   Tab,
   Tabs,
   Typography,
@@ -16,9 +15,8 @@ import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ExamEditorGeminiGenerationSection from "./ExamEditorGeminiGenerationSection";
 import ExamEditorImportSection from "./ExamEditorImportSection";
-import ExamEditorQuestionsSection from "./ExamEditorQuestionsSection";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
-import type { ExamDetail, Question } from "../api/client";
+import type { ExamDetail } from "../api/client";
 import type { ParseResult } from "../utils/qcmImportParser";
 import { he } from "../i18n/he";
 
@@ -26,14 +24,9 @@ export type QuestionAddMethod = "manual" | "gemini" | "paste";
 
 const ADD_METHODS: QuestionAddMethod[] = ["manual", "gemini", "paste"];
 
-type ExamEditorQuestionsPanelProps = {
+type ExamEditorAddQuestionsSectionProps = {
   examId: number;
   exam: ExamDetail;
-  reordering: boolean;
-  deletingQuestionId: number | null;
-  onMove: (index: number, direction: -1 | 1) => void;
-  onEdit: (q: Question) => void;
-  onDelete: (q: Question) => void;
   onAddManual: () => void;
   paste: string;
   onPasteChange: (value: string) => void;
@@ -45,7 +38,6 @@ type ExamEditorQuestionsPanelProps = {
   onReload: () => void | Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
-  onGeminiParseFailed?: (rawText: string) => void;
 };
 
 function methodLabel(method: QuestionAddMethod): string {
@@ -54,8 +46,8 @@ function methodLabel(method: QuestionAddMethod): string {
   return he.addQuestionPaste;
 }
 
-function EmptyMethodCards({ onSelect }: { onSelect: (method: QuestionAddMethod) => void }) {
-  const cards = [
+function emptyMethodCards() {
+  return [
     {
       method: "manual" as const,
       icon: <EditOutlinedIcon fontSize="large" color="primary" />,
@@ -75,13 +67,16 @@ function EmptyMethodCards({ onSelect }: { onSelect: (method: QuestionAddMethod) 
       desc: he.addQuestionEmptyPasteDesc,
     },
   ];
+}
+
+function EmptyMethodCards({ onSelect }: { onSelect: (method: QuestionAddMethod) => void }) {
   return (
     <Box dir="rtl">
       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
         {he.addQuestionEmptyTitle}
       </Typography>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2, mt: 1 }}>
-        {cards.map((c) => (
+        {emptyMethodCards().map((c) => (
           <Card key={c.method} variant="outlined">
             <CardActionArea onClick={() => onSelect(c.method)} sx={{ height: "100%", p: 2 }}>
               <CardContent sx={{ textAlign: "center" }}>
@@ -151,7 +146,7 @@ type AddPanelProps = {
   onAfterImport: () => Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
-  onGeminiParseFailed?: (rawText: string) => void;
+  onGeminiParseFailed: (rawText: string) => void;
 };
 
 function AddMethodPanel({
@@ -201,84 +196,58 @@ function AddMethodPanel({
   );
 }
 
-export default function ExamEditorQuestionsPanel({
-  examId,
-  exam,
-  reordering,
-  deletingQuestionId,
-  onMove,
-  onEdit,
-  onDelete,
-  onAddManual,
-  paste,
-  onPasteChange,
-  parseResult,
-  importing,
-  onCopyPrompt,
-  onLoadExample,
-  onImport,
-  onReload,
-  onSuccess,
-  onError,
-}: ExamEditorQuestionsPanelProps) {
-  const hasQuestions = exam.questions.length > 0;
-  const canEdit = exam.is_editable;
+function toAddPanelProps(
+  panel: ExamEditorAddQuestionsSectionProps,
+  extras: Pick<AddPanelProps, "method" | "onGeminiParseFailed">,
+): AddPanelProps {
+  return {
+    ...extras,
+    examId: panel.examId,
+    exam: panel.exam,
+    onAddManual: panel.onAddManual,
+    paste: panel.paste,
+    onPasteChange: panel.onPasteChange,
+    parseResult: panel.parseResult,
+    importing: panel.importing,
+    onCopyPrompt: panel.onCopyPrompt,
+    onLoadExample: panel.onLoadExample,
+    onImport: panel.onImport,
+    onAfterImport: async () => {
+      await panel.onReload();
+    },
+    onSuccess: panel.onSuccess,
+    onError: panel.onError,
+  };
+}
+
+function AddQuestionsWorkspace({
+  addMethod,
+  onMethodChange,
+  onGeminiParseFailed,
+  ...panel
+}: ExamEditorAddQuestionsSectionProps & {
+  addMethod: QuestionAddMethod;
+  onMethodChange: (method: QuestionAddMethod) => void;
+  onGeminiParseFailed: (rawText: string) => void;
+}) {
+  return (
+    <Box dir="rtl" sx={hebrewAlignRightSx}>
+      <AddMethodTabs method={addMethod} onMethodChange={onMethodChange} />
+      <AddMethodPanel {...toAddPanelProps(panel, { method: addMethod, onGeminiParseFailed })} />
+    </Box>
+  );
+}
+
+export default function ExamEditorAddQuestionsSection(props: ExamEditorAddQuestionsSectionProps) {
+  const hasQuestions = props.exam.questions.length > 0;
   const [addMethod, setAddMethod] = useState<QuestionAddMethod>("manual");
   const [emptyPicker, setEmptyPicker] = useState(!hasQuestions);
 
-  const handleGeminiParseFailed = (rawText: string) => {
-    onPasteChange(rawText);
-    setEmptyPicker(false);
-    onSuccess(he.geminiParseMovedToPaste);
-  };
-
   useEffect(() => {
-    if (hasQuestions) {
-      setEmptyPicker(false);
-      return;
-    }
-    if (canEdit) setEmptyPicker(true);
-  }, [hasQuestions, canEdit]);
+    setEmptyPicker(!hasQuestions);
+  }, [hasQuestions]);
 
-  const afterImport = async () => {
-    await onReload();
-  };
-
-  const renderAddSection = () => (
-    <Box dir="rtl" sx={hebrewAlignRightSx}>
-      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-        {he.addQuestionsSection}
-      </Typography>
-      <AddMethodTabs method={addMethod} onMethodChange={setAddMethod} />
-      <AddMethodPanel
-        method={addMethod}
-        examId={examId}
-        exam={exam}
-        onAddManual={onAddManual}
-        paste={paste}
-        onPasteChange={onPasteChange}
-        parseResult={parseResult}
-        importing={importing}
-        onCopyPrompt={onCopyPrompt}
-        onLoadExample={onLoadExample}
-        onImport={onImport}
-        onAfterImport={afterImport}
-        onSuccess={onSuccess}
-        onError={onError}
-        onGeminiParseFailed={handleGeminiParseFailed}
-      />
-    </Box>
-  );
-
-  if (!canEdit && !hasQuestions) {
-    return (
-      <Typography variant="body2" color="text.secondary" dir="rtl">
-        {he.noQuestionsInExam}
-      </Typography>
-    );
-  }
-
-  if (!hasQuestions && emptyPicker) {
+  if (emptyPicker) {
     return (
       <EmptyMethodCards
         onSelect={(method) => {
@@ -290,23 +259,16 @@ export default function ExamEditorQuestionsPanel({
   }
 
   return (
-    <Box>
-      {hasQuestions && (
-        <ExamEditorQuestionsSection
-          exam={exam}
-          reordering={reordering}
-          deletingQuestionId={deletingQuestionId}
-          onMove={onMove}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      )}
-      {canEdit && (
-        <>
-          {hasQuestions && <Divider sx={{ my: 3 }} />}
-          {renderAddSection()}
-        </>
-      )}
-    </Box>
+    <AddQuestionsWorkspace
+      {...props}
+      addMethod={addMethod}
+      onMethodChange={setAddMethod}
+      onGeminiParseFailed={(rawText) => {
+        props.onPasteChange(rawText);
+        setEmptyPicker(false);
+        setAddMethod("paste");
+        props.onSuccess(he.geminiParseMovedToPaste);
+      }}
+    />
   );
 }
