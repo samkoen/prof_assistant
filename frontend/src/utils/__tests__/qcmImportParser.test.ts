@@ -53,4 +53,43 @@ B) שתיים
     expect(payload[1].order_index).toBe(1);
     expect(payload[0].options[0].order_index).toBe(0);
   });
+
+  it("importe une question ouverte sans A) B) C)", () => {
+    const result = parseQcmText(`
+Q1 [open] (2 pt)
+הסבירו מהו חיפוש בינארי.
+`);
+    expect(result.errors).toEqual([]);
+    expect(result.questions).toHaveLength(1);
+    expect(result.questions[0].question_type).toBe("open");
+    expect(result.questions[0].options).toEqual([]);
+    expect(result.questions[0].text).toContain("חיפוש בינארי");
+  });
+
+  it("traite Q1 sans type ni options comme question ouverte", () => {
+    const result = parseQcmText(`
+Q1 (2 pt)
+הסבירו את ההבדל בין מערך לרשימה.
+`);
+    expect(result.errors).toEqual([]);
+    expect(result.questions[0].question_type).toBe("open");
+    expect(result.questions[0].options).toEqual([]);
+    expect(result.questions[0].points).toBe(2);
+  });
+
+  it("accepte [open] sur la même ligne que le texte", () => {
+    const result = parseQcmText(`Q1 [open] הסבירו מיון מהיר.`);
+    expect(result.errors).toEqual([]);
+    expect(result.questions[0].question_type).toBe("open");
+    expect(result.questions[0].text).toBe("הסבירו מיון מהיר.");
+  });
+
+  it("refuse une single explicite sans options", () => {
+    const result = parseQcmText(`
+Q1 [single]
+שאלה בלי אפשרויות
+`);
+    expect(result.questions).toHaveLength(0);
+    expect(result.errors.some((e) => e.message.includes("אפשרויות"))).toBe(true);
+  });
 });

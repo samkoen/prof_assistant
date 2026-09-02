@@ -198,7 +198,7 @@ Start immediately with --- then Q1 — no preamble.""",
 {teacher_message}
 
 Return the full question set in the required format (Q1 onward in sequence), not only the changes.
-Required: A) B) C) D) only; for single choice exactly one option with * (* line after A) or * at the end of the correct option line).
+Required: A) B) C) D) only for single/multiple/true_false; for single choice exactly one option with * (* line after A) or * at the end of the correct option line). Open questions ([open]): question text only, no A) B).
 {tree_line}""",
         required=("Teacher update request:", "{teacher_message}", "A) B) C) D)"),
         placeholders=("teacher_message", "tree_line"),

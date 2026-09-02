@@ -32,6 +32,7 @@ def test_generation_prompt_english_keeps_teacher_hebrew():
     assert "Hebrew letters" in prompt
     assert "צור שאלות מבחן" not in prompt
     assert is_generation_prompt(prompt)
+    assert "For open questions: question text only, no A) B)" in prompt
 
 
 def test_refine_prompt_english_keeps_teacher_message():
@@ -40,6 +41,7 @@ def test_refine_prompt_english_keeps_teacher_message():
     assert REFINE_USER_MARKER in msg
     assert teacher in msg
     assert "Return the full question set" in msg
+    assert "Open questions ([open]): question text only, no A) B)" in msg
     assert is_refine_prompt(msg)
     assert is_refine_prompt("בקשת עדכון מהמורה:\nold")
     assert is_generation_prompt("צור שאלות מבחן\nQ1")

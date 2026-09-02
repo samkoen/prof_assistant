@@ -53,7 +53,7 @@ const FIX_RULES: FixRule[] = [
   {
     messages: NO_OPTIONS,
     instruction:
-      "Every question must have A) B) C) options (and D) if needed) on separate lines as in the format",
+      "Choice questions (single/multiple/true_false) must have A) B) C) options. Open questions ([open]) need question text only — no A) B)",
   },
   {
     messages: MISSING_TEXT,

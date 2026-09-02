@@ -29,5 +29,6 @@ describe("geminiAutoStructureFix", () => {
     expect(prompt).toContain("Q1");
     expect(prompt).toContain("Q3");
     expect(prompt).toContain("A) B) C)");
+    expect(prompt).toContain("[open]");
   });
 });

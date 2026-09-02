@@ -69,6 +69,32 @@ function normalizeType(raw: string | undefined): QuestionType {
   return "single";
 }
 
+const TYPE_TAG_RE = /\[(single|multiple|true_false|tf|vrai_faux|open)\]/i;
+const HEADER_PREFIX_RE =
+  /^(?:Q\d+[\.\):]?\s*)?(?:\[(?:single|multiple|true_false|tf|vrai_faux|open)\])?\s*(?:\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\))?\s*/i;
+
+type BlockHeader = {
+  type: QuestionType;
+  typeExplicit: boolean;
+  points: number;
+  rawStart: number;
+};
+
+function taggedTypeIn(line: string): QuestionType | undefined {
+  const m = TYPE_TAG_RE.exec(line);
+  return m ? normalizeType(m[1]) : undefined;
+}
+
+function headerPoints(line: string): number | undefined {
+  const m = /\((\d+(?:\.\d+)?)\s*(?:pt|pts|נק)?\)/i.exec(line);
+  return m ? parseFloat(m[1]) : undefined;
+}
+
+function isStandaloneHeader(line: string): boolean {
+  const headerMatch = line.match(HEADER_RE);
+  return Boolean(headerMatch && (headerMatch[1] || headerMatch[2] || /^Q?\d/i.test(line)));
+}
+
 function splitBlocks(raw: string): string[] {
   return raw
     .split(/\n---+\n|^---+\n|\n---+\s*$/m)
@@ -218,13 +244,41 @@ function isAnswerMarker(line: string): boolean {
   return /^(ANSWER|MODEL|תשובה)\s*:/i.test(line.trim());
 }
 
+function stripLeadingHeader(line: string): string {
+  const trimmed = line.trim();
+  if (!/^(?:Q\d+|\[(?:single|multiple|true_false|tf|vrai_faux|open)\])/i.test(trimmed)) {
+    return line;
+  }
+  return trimmed.replace(HEADER_PREFIX_RE, "").trimEnd();
+}
+
+function readBlockHeader(rawLines: string[], first: string): BlockHeader {
+  if (isStandaloneHeader(first)) {
+    const headerMatch = first.match(HEADER_RE);
+    const headerIdx = rawLines.findIndex((l) => l.trim() === first);
+    return {
+      type: headerMatch?.[1] ? normalizeType(headerMatch[1]) : "single",
+      typeExplicit: Boolean(headerMatch?.[1]),
+      points: headerMatch?.[2] ? parseFloat(headerMatch[2]) : 1,
+      rawStart: headerIdx >= 0 ? headerIdx + 1 : 1,
+    };
+  }
+  const tagged = taggedTypeIn(first);
+  return {
+    type: tagged ?? "single",
+    typeExplicit: tagged !== undefined,
+    points: headerPoints(first) ?? 1,
+    rawStart: 0,
+  };
+}
+
 function parseOpenBlock(
   rawLines: string[],
   rawStart: number,
   points: number,
   blockIndex: number,
 ): { q?: ParsedQuestion; error?: ParseError } {
-  const rest = rawLines.slice(rawStart);
+  const rest = rawLines.slice(rawStart).map((line, i) => (i === 0 ? stripLeadingHeader(line) : line));
   const answerIdx = rest.findIndex((l) => isAnswerMarker(l));
   const textLines = answerIdx >= 0 ? rest.slice(0, answerIdx) : rest;
   const text = trimEdgeBlankLines(textLines).join("\n").trim();
@@ -241,74 +295,88 @@ function parseOpenBlock(
   return { q: { text, question_type: "open", points, options: [], model_answer } };
 }
 
+function collectTrueFalseOptions(optionSection: string[]): ParsedQuestionOption[] {
+  const options: ParsedQuestionOption[] = [];
+  for (const line of optionSection.map((l) => l.trim()).filter(Boolean)) {
+    const tf = TF_RE.exec(line);
+    if (!tf) continue;
+    const key = line.replace(/\*/g, "").trim().toLowerCase();
+    options.push({ text: TF_LABELS[key] ?? line.replace(/\*/g, "").trim(), is_correct: !!tf[1] });
+  }
+  return options;
+}
+
+function choiceTypeError(
+  type: QuestionType,
+  options: ParsedQuestionOption[],
+  blockIndex: number,
+): ParseError | undefined {
+  const correct = options.filter((o) => o.is_correct);
+  if (type === "true_false" && options.length !== 2) {
+    return { block: blockIndex, message: "שאלת נכון/לא נכון דורשת 2 אפשרויות" };
+  }
+  if (type !== "multiple" && correct.length === 0) {
+    return { block: blockIndex, message: "נדרשת תשובה נכונה אחת (סמן ב-*)" };
+  }
+  if (type !== "multiple" && correct.length > 1) {
+    return { block: blockIndex, message: "בחירה יחידה: יותר מתשובה נכונה אחת (סמן * רק על אפשרות אחת)" };
+  }
+  if (type === "multiple" && correct.length === 0) {
+    return { block: blockIndex, message: "לפחות תשובה נכונה אחת (סמן ב-*)" };
+  }
+  return undefined;
+}
+
+function missingOptionsResult(
+  header: BlockHeader,
+  rawLines: string[],
+  blockIndex: number,
+): { q?: ParsedQuestion; error?: ParseError } {
+  if (!header.typeExplicit) {
+    return parseOpenBlock(rawLines, header.rawStart, header.points, blockIndex);
+  }
+  return { error: { block: blockIndex, message: "לא נמצאו אפשרויות תשובה" } };
+}
+
+function parseChoiceBlock(
+  rawLines: string[],
+  header: BlockHeader,
+  optionStart: number,
+  blockIndex: number,
+): { q?: ParsedQuestion; error?: ParseError } {
+  const text = trimEdgeBlankLines(rawLines.slice(header.rawStart, optionStart)).join("\n").trim();
+  if (!text) {
+    return { error: { block: blockIndex, message: "חסר טקסט לשאלה" } };
+  }
+  const optionSection = rawLines.slice(optionStart);
+  let options = parseLetterOptions(optionSection);
+  let type = header.type;
+  if (options.length === 0) {
+    options = collectTrueFalseOptions(optionSection);
+    if (options.length) type = "true_false";
+  }
+  if (options.length === 0) {
+    return missingOptionsResult(header, rawLines, blockIndex);
+  }
+  const error = choiceTypeError(type, options, blockIndex);
+  return error ? { error } : { q: { text, question_type: type, points: header.points, options } };
+}
+
 function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; error?: ParseError } {
   const rawLines = block.split("\n").map((l) => l.trimEnd());
   const lines = rawLines.map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) {
     return { error: { block: blockIndex, message: "בלוק ריק" } };
   }
-
-  let type: QuestionType = "single";
-  let points = 1;
-  const headerMatch = lines[0].match(HEADER_RE);
-  let rawStart = 0;
-  if (headerMatch && (headerMatch[1] || headerMatch[2] || /^Q?\d/i.test(lines[0]))) {
-    type = normalizeType(headerMatch[1]);
-    if (headerMatch[2]) points = parseFloat(headerMatch[2]);
-    const headerIdx = rawLines.findIndex((l) => l.trim() === lines[0]);
-    rawStart = headerIdx >= 0 ? headerIdx + 1 : 1;
+  const header = readBlockHeader(rawLines, lines[0]);
+  if (header.type === "open") {
+    return parseOpenBlock(rawLines, header.rawStart, header.points, blockIndex);
   }
-
-  if (type === "open") {
-    return parseOpenBlock(rawLines, rawStart, points, blockIndex);
-  }
-
-  const optionStart = findOptionStartIndex(rawLines, rawStart);
+  const optionStart = findOptionStartIndex(rawLines, header.rawStart);
   if (optionStart < 0) {
-    return { error: { block: blockIndex, message: "לא נמצאו אפשרויות תשובה" } };
+    return missingOptionsResult(header, rawLines, blockIndex);
   }
-
-  const text = trimEdgeBlankLines(rawLines.slice(rawStart, optionStart)).join("\n").trim();
-  if (!text) {
-    return { error: { block: blockIndex, message: "חסר טקסט לשאלה" } };
-  }
-
-  const optionSection = rawLines.slice(optionStart);
-  let options = parseLetterOptions(optionSection);
-
-  if (options.length === 0) {
-    for (const line of optionSection.map((l) => l.trim()).filter(Boolean)) {
-      const tf = TF_RE.exec(line);
-      if (tf) {
-        const key = line.replace(/\*/g, "").trim().toLowerCase();
-        const label = TF_LABELS[key] ?? line.replace(/\*/g, "").trim();
-        options.push({ text: label, is_correct: !!tf[1] });
-        type = "true_false";
-      }
-    }
-  }
-
-  if (options.length === 0) {
-    return { error: { block: blockIndex, message: "לא נמצאו אפשרויות תשובה" } };
-  }
-
-  const correct = options.filter((o) => o.is_correct);
-  if (type === "true_false" && options.length !== 2) {
-    return { error: { block: blockIndex, message: "שאלת נכון/לא נכון דורשת 2 אפשרויות" } };
-  }
-  if (type !== "multiple" && correct.length === 0) {
-    return { error: { block: blockIndex, message: "נדרשת תשובה נכונה אחת (סמן ב-*)" } };
-  }
-  if (type !== "multiple" && correct.length > 1) {
-    return { error: { block: blockIndex, message: "בחירה יחידה: יותר מתשובה נכונה אחת (סמן * רק על אפשרות אחת)" } };
-  }
-  if (type === "multiple" && correct.length === 0) {
-    return { error: { block: blockIndex, message: "לפחות תשובה נכונה אחת (סמן ב-*)" } };
-  }
-
-  return {
-    q: { text, question_type: type, points, options },
-  };
+  return parseChoiceBlock(rawLines, header, optionStart, blockIndex);
 }
 
 export function parseQcmText(raw: string): ParseResult {
@@ -432,4 +500,5 @@ export const QCM_GEMINI_PROMPT = `צור מבחן בפורמט הבא בדיוק
 - סימון נכון: שורה * בלבד אחרי A), או * בסוף השורה האחרונה של האפשרות (לא * בתוך הטקסט)
 - ב-single: בדיוק אפשרות אחת עם *
 - לנכון/לא נכון: "נכון" / "לא נכון" עם * על הנכונה
+- לשאלה פתוחה [open]: טקסט השאלה בלבד, בלי A) B) C)
 שפה: עברית.`;
