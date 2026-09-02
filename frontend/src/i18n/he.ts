@@ -140,7 +140,7 @@ export const he = {
   editExam: "עריכת מבחן",
   viewExam: "צפייה במבחן",
   examTitle: "שם המבחן",
-  examSettings: "פרטי המבחן",
+  examSettings: "פרטי מבחן",
   examTimingSection: "זמן מבחן",
   examDurationMinutes: "משך המבחן (דקות)",
   examWarningMinutes: "התראה לפני סיום (דקות)",
