@@ -265,8 +265,6 @@ export default function ExamEditorAddQuestionsSection(props: ExamEditorAddQuesti
       onMethodChange={setAddMethod}
       onGeminiParseFailed={(rawText) => {
         props.onPasteChange(rawText);
-        setEmptyPicker(false);
-        setAddMethod("paste");
         props.onSuccess(he.geminiParseMovedToPaste);
       }}
     />

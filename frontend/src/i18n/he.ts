@@ -226,10 +226,15 @@ export const he = {
   geminiQuotaExceeded: "מכסת AI נגמרה — נסו שוב מאוחר יותר או בדקו את המנוי",
   geminiParseFailedTitle: "ה-AI השיב, אך הפורמט אינו תקין לייבוא",
   geminiParseFailedHint:
-    "אם התיקון האוטומטי לא הספיק — בקשו תיקון בצ'אט למטה, או לחצו «ביטול» ויצרו מחדש.",
+    "אפשר לעבור ללשונית «הדבקה» ולתקן שם את השאלות ידנית — התשובה כבר הועתקה לשם.",
+  geminiParseFailedHintPaste:
+    "אפשר לתקן את הטקסט למטה ידנית, או להוסיף למבחן רק את השאלות התקינות.",
+  geminiImportValidSkipBroken: (valid: number, skipped: number) =>
+    `הוספת ${valid} שאלות תקינות למבחן (דילוג על ${skipped} שאלות שגויות)`,
+  geminiAiWorking: "ה-AI עובד — ממתינים לתשובה…",
   geminiAutoFixingFormat: "מתקן את פורמט התשובה אוטומטית מול ה-AI…",
   geminiParseMovedToPaste:
-    "תשובת ה-AI הועתקה גם ללשונית «הדבקה» — ניתן לתקן כאן בצ'אט, ב«הדבקה», או ידנית.",
+    "תשובת ה-AI הועתקה ללשונית «הדבקה» — אפשר לתקן שם ידנית.",
   geminiRefineApplied: "ה-AI עדכן את הטקסט — בדקו את התוצאה לפני ייבוא.",
   pasteGeminiFixTitle: "תיקון ב-AI",
   pasteGeminiFixHint:
@@ -586,6 +591,11 @@ export const he = {
   blocked: "חסום",
   blockUser: "חסימת משתמש",
   unblockUser: "ביטול חסימה",
+  resetPassword: "איפוס סיסמה",
+  resetPasswordFor: (name: string, email: string) => `איפוס סיסמה עבור ${name} (${email})`,
+  confirmPassword: "אימות סיסמה",
+  passwordMismatch: "הסיסמאות אינן תואמות",
+  passwordResetSuccess: "הסיסמה עודכנה",
   teacher: "מורה",
   enrollment: "הרשמה",
   open: "פתוח",

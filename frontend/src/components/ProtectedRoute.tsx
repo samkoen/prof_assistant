@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { CircularProgress, Box } from "@mui/material";
+import BrandPageLoader from "./ui/BrandPageLoader";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../api/client";
 
@@ -13,11 +13,7 @@ export default function ProtectedRoute({
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
-      </Box>
-    );
+    return <BrandPageLoader />;
   }
 
   if (!user) return <Navigate to="/login" replace />;

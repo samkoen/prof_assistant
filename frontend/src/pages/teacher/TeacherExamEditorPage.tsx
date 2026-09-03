@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,6 +20,7 @@ import ExamContextActionsBar from "../../components/ExamContextActionsBar";
 import QuestionEditDialog from "../../components/QuestionEditDialog";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamScopeEditor from "../../components/ExamScopeEditor";
+import BrandPageLoader from "../../components/ui/BrandPageLoader";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
 import { api, ApiError, type Exam, type ExamDetail, type ExamSession, type Question, type TeacherOfferingExamsBoard } from "../../api/client";
 import {
@@ -29,6 +29,11 @@ import {
   QCM_GEMINI_PROMPT,
   toImportPayload,
 } from "../../utils/qcmImportParser";
+import {
+  canImportValidQuestions,
+  shouldClearPasteAfterImport,
+} from "../../utils/qcmPartialImport";
+import { abandonActiveGeminiSession } from "../../utils/geminiBatchGeneration";
 import {
   mergeSavedQuestion,
   questionsFingerprint,
@@ -121,7 +126,7 @@ export default function TeacherExamEditorPage() {
   const backLabel = returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
 
   const importQuestions = async () => {
-    if (parseResult.errors.length > 0 || parseResult.questions.length === 0) return;
+    if (!canImportValidQuestions(parseResult)) return;
     setImporting(true);
     setError("");
     setSuccess("");
@@ -131,7 +136,8 @@ export default function TeacherExamEditorPage() {
         body: JSON.stringify({ questions: toImportPayload(parseResult.questions) }),
       });
       setSuccess(`${he.importSuccess}: ${res.imported_count} ${he.questionsImported}`);
-      setPaste("");
+      if (shouldClearPasteAfterImport(parseResult)) setPaste("");
+      await abandonActiveGeminiSession(id).catch(() => {});
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
@@ -249,11 +255,7 @@ export default function TeacherExamEditorPage() {
   };
 
   if (loading && !exam) {
-    return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
-      </Box>
-    );
+    return <BrandPageLoader />;
   }
 
   if (!exam) {
