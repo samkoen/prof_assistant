@@ -102,6 +102,10 @@ function splitBlocks(raw: string): string[] {
     .filter(Boolean);
 }
 
+export function splitQuestionBlocks(raw: string): string[] {
+  return splitBlocks(normalizeGeminiQcmText(raw));
+}
+
 const CORRECT_SUFFIX_HE_PARENS = /\s*[\(\[]\s*נכון\s*[\)\]]\s*$/u;
 
 function hasHebrewCorrectSuffix(trimmed: string): boolean {

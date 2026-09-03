@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
-import { Box, CircularProgress } from "@mui/material";
 import { Navigate, Route, Routes } from "react-router-dom";
+import BrandPageLoader from "./components/ui/BrandPageLoader";
 
 import DashboardLayout from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -41,17 +41,7 @@ const StudentAllExamsPage = lazy(() => import("./pages/student/StudentAllExamsPa
 const StudentJoinByTeacherPage = lazy(() => import("./pages/student/StudentJoinByTeacherPage"));
 
 function PageLoader() {
-  return (
-    <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      minHeight="100vh"
-      sx={{ bgcolor: "transparent" }}
-    >
-      <CircularProgress size={40} thickness={4} />
-    </Box>
-  );
+  return <BrandPageLoader fullScreen />;
 }
 
 function HomeRedirect() {

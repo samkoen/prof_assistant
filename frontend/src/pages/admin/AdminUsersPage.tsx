@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import BlockIcon from "@mui/icons-material/Block";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
+import LockResetIcon from "@mui/icons-material/LockReset";
+import AdminResetPasswordDialog from "../../components/AdminResetPasswordDialog";
 import BidiTextField from "../../components/BidiTextField";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
@@ -40,6 +42,9 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<User | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [success, setSuccess] = useState("");
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -80,6 +85,24 @@ export default function AdminUsersPage() {
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    }
+  };
+
+  const resetPassword = async (newPassword: string) => {
+    if (!resetUser) return;
+    setResetting(true);
+    setError("");
+    try {
+      await api(`/api/admin/users/${resetUser.id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ new_password: newPassword }),
+      });
+      setResetUser(null);
+      setSuccess(he.passwordResetSuccess);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -150,6 +173,11 @@ export default function AdminUsersPage() {
           {error}
         </Alert>
       )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>
+          {success}
+        </Alert>
+      )}
 
       {loading && users.length === 0 ? (
         <Box display="flex" justifyContent="center" py={8}>
@@ -164,19 +192,11 @@ export default function AdminUsersPage() {
           emptyMessage={he.noUsers}
           getRowId={(u) => u.id}
           renderActions={(u) => (
-            <Tooltip title={u.is_blocked ? he.unblockUser : he.blockUser}>
-              <IconButton
-                size="small"
-                color={u.is_blocked ? "success" : "warning"}
-                onClick={() => toggleBlock(u, !u.is_blocked)}
-              >
-                {u.is_blocked ? (
-                  <LockOpenIcon fontSize="small" />
-                ) : (
-                  <BlockIcon fontSize="small" />
-                )}
-              </IconButton>
-            </Tooltip>
+            <UserRowActions
+              user={u}
+              onReset={() => setResetUser(u)}
+              onToggleBlock={() => toggleBlock(u, !u.is_blocked)}
+            />
           )}
         />
       )}
@@ -232,6 +252,41 @@ export default function AdminUsersPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <AdminResetPasswordDialog
+        user={resetUser}
+        saving={resetting}
+        onClose={() => setResetUser(null)}
+        onSubmit={(password) => void resetPassword(password)}
+      />
     </Box>
+  );
+}
+
+function UserRowActions({
+  user,
+  onReset,
+  onToggleBlock,
+}: {
+  user: User;
+  onReset: () => void;
+  onToggleBlock: () => void;
+}) {
+  return (
+    <>
+      <Tooltip title={he.resetPassword}>
+        <IconButton size="small" color="primary" onClick={onReset} aria-label={he.resetPassword}>
+          <LockResetIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={user.is_blocked ? he.unblockUser : he.blockUser}>
+        <IconButton
+          size="small"
+          color={user.is_blocked ? "success" : "warning"}
+          onClick={onToggleBlock}
+        >
+          {user.is_blocked ? <LockOpenIcon fontSize="small" /> : <BlockIcon fontSize="small" />}
+        </IconButton>
+      </Tooltip>
+    </>
   );
 }

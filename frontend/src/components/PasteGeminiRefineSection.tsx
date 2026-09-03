@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Typography } from "@mui/material";
-import GeminiRefinePanel from "./GeminiRefinePanel";
+import { Box } from "@mui/material";
+import GeminiAiWorkingBanner from "./GeminiAiWorkingBanner";
 import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { api } from "../api/client";
 import type { GeminiGenerationSession } from "../types/geminiQuestionSeries";
 import type { ParseError } from "../utils/qcmImportParser";
-import { resolveGeminiApiError } from "../utils/geminiBatchGeneration";
-import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
 type Props = {
@@ -17,6 +15,7 @@ type Props = {
   onRawText: (text: string) => void;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
+  onBusyChange?: (busy: boolean) => void;
 };
 
 async function loadActiveGeminiSession(examId: number): Promise<GeminiGenerationSession | null> {
@@ -31,10 +30,10 @@ export default function PasteGeminiRefineSection({
   onRawText,
   onError,
   onSuccess,
+  onBusyChange,
 }: Props) {
   const [session, setSession] = useState<GeminiGenerationSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [refining, setRefining] = useState(false);
 
   useEffect(() => {
     if (errors.length === 0) {
@@ -72,60 +71,21 @@ export default function PasteGeminiRefineSection({
     session,
     errors,
     rawText: pasteText || session?.raw_text || null,
-    enabled: editable && !loadingSession && !refining && errors.length > 0,
+    enabled: editable && !loadingSession && errors.length > 0,
     onSessionUpdate: handleSessionUpdate,
     onError,
     onRawText,
   });
 
-  const refineSession = useCallback(
-    async (message: string) => {
-      if (!session) return;
-      setRefining(true);
-      onError("");
-      try {
-        const updated = await api<GeminiGenerationSession>(
-          `/api/gemini-sessions/${session.id}/messages`,
-          { method: "POST", body: JSON.stringify({ message }) },
-        );
-        handleSessionUpdate(updated);
-      } catch (e) {
-        onError(resolveGeminiApiError(e));
-      } finally {
-        setRefining(false);
-      }
-    },
-    [session, onError, handleSessionUpdate],
-  );
+  useEffect(() => {
+    onBusyChange?.(autoFixing);
+  }, [autoFixing, onBusyChange]);
 
-  if (errors.length === 0 || loadingSession || !session) return null;
-
-  const busy = refining || autoFixing;
+  if (!autoFixing) return null;
 
   return (
     <Box sx={{ mb: 2 }} dir="rtl">
-      {autoFixing ? (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2" sx={hebrewAlignRightSx}>
-            {he.geminiAutoFixingFormat}
-          </Typography>
-        </Alert>
-      ) : (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
-            {he.pasteGeminiFixTitle}
-          </Typography>
-          <Typography variant="body2" sx={hebrewAlignRightSx}>
-            {he.pasteGeminiFixHint}
-          </Typography>
-        </Alert>
-      )}
-      <GeminiRefinePanel
-        messages={session.messages}
-        refining={busy}
-        disabled={!editable || autoFixing}
-        onSend={(message) => void refineSession(message)}
-      />
+      <GeminiAiWorkingBanner message={he.geminiAutoFixingFormat} />
     </Box>
   );
 }

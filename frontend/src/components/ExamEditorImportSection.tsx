@@ -1,5 +1,5 @@
+import { useState } from "react";
 import {
-  Alert,
   Box,
   Button,
   Divider,
@@ -10,13 +10,11 @@ import UploadIcon from "@mui/icons-material/Upload";
 import DirectionalMultilineField from "./DirectionalMultilineField";
 import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import DisabledActionTooltip from "./DisabledActionTooltip";
+import QcmParseFailureAlert from "./QcmParseFailureAlert";
 import type { ExamDetail } from "../api/client";
 import { QCM_FORMAT_EXAMPLE, type ParsedQuestion, type ParseResult } from "../utils/qcmImportParser";
+import { canImportValidQuestions } from "../utils/qcmPartialImport";
 import { contentDirFromFirstQuestion } from "../utils/examQuestionsLanguage";
-import {
-  geminiParseErrorDetail,
-  geminiParseErrorLocation,
-} from "../utils/geminiParseErrors";
 import PasteGeminiRefineSection from "./PasteGeminiRefineSection";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
@@ -49,6 +47,9 @@ export default function ExamEditorImportSection({
   onSuccess,
   onError,
 }: ExamEditorImportSectionProps) {
+  const [autoFixing, setAutoFixing] = useState(false);
+  const showFailure = parseResult.errors.length > 0 && !autoFixing;
+  const showPreview = canImportValidQuestions(parseResult) && !autoFixing;
   return (
     <Box dir="rtl" sx={hebrewAlignRightSx}>
       <Box display="flex" alignItems="flex-start" gap={1} mb={1} flexDirection="row-reverse">
@@ -87,31 +88,28 @@ export default function ExamEditorImportSection({
         />
       </DisabledActionTooltip>
       {parseResult.errors.length > 0 && (
-        <>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={hebrewAlignRightSx}>
-              {he.geminiParseFailedTitle}
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
-              {parseResult.errors.map((e) => (
-                <Typography key={`${e.block}-${e.message}`} component="li" variant="body2">
-                  <strong>{geminiParseErrorLocation(e.block)}:</strong> {geminiParseErrorDetail(e)}
-                </Typography>
-              ))}
-            </Box>
-          </Alert>
-          <PasteGeminiRefineSection
-            examId={examId}
-            errors={parseResult.errors}
-            editable={exam.is_editable}
-            pasteText={paste}
-            onRawText={onPasteChange}
-            onError={onError}
-            onSuccess={onSuccess}
-          />
-        </>
+        <PasteGeminiRefineSection
+          examId={examId}
+          errors={parseResult.errors}
+          editable={exam.is_editable}
+          pasteText={paste}
+          onRawText={onPasteChange}
+          onError={onError}
+          onSuccess={onSuccess}
+          onBusyChange={setAutoFixing}
+        />
       )}
-      {parseResult.questions.length > 0 && parseResult.errors.length === 0 && (
+      {showFailure && (
+        <QcmParseFailureAlert
+          errors={parseResult.errors}
+          validCount={parseResult.questions.length}
+          hint={he.geminiParseFailedHintPaste}
+          editable={exam.is_editable}
+          importing={importing}
+          onImportValid={onImport}
+        />
+      )}
+      {showPreview && parseResult.errors.length === 0 && (
         <ImportPreview questions={parseResult.questions} exam={exam} importing={importing} onImport={onImport} />
       )}
     </Box>

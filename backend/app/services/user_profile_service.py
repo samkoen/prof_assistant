@@ -8,6 +8,7 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.auth import UserProfileUpdateRequest
 from app.security import hash_password, verify_password
+from app.services.auth_messages import EMAIL_ALREADY_EXISTS
 from app.services.email import send_verification_email
 
 
@@ -37,7 +38,7 @@ async def _apply_email_change(
     if normalized == user.email.lower():
         return False
     if await _email_taken(db, normalized, user.id):
-        raise HTTPException(status_code=400, detail="האימייל כבר קיים")
+        raise HTTPException(status_code=400, detail=EMAIL_ALREADY_EXISTS)
     user.email = normalized
     user.email_verified = False
     user.email_verified_by_teacher = False

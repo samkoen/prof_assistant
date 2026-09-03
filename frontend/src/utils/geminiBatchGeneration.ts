@@ -56,3 +56,11 @@ export function geminiBatchProgressLabel(session: GeminiGenerationSession | null
   const { generated_questions, total_questions, completed_batches, total_batches } = progress;
   return `${generated_questions} / ${total_questions} (${completed_batches}/${total_batches})`;
 }
+
+export async function abandonActiveGeminiSession(examId: number): Promise<void> {
+  const active = await api<GeminiGenerationSession | null>(
+    `/api/exams/${examId}/gemini-sessions/active`,
+  );
+  if (!active) return;
+  await api(`/api/gemini-sessions/${active.id}/abandon`, { method: "POST" });
+}

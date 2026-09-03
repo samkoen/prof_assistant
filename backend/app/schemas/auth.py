@@ -19,6 +19,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ResendVerificationRequest(BaseModel):
+    email: AppEmail
+
+
+class ResendVerificationResponse(BaseModel):
+    ok: bool = True
+
+
 class UserResponse(BaseModel):
     id: int
     email: str
