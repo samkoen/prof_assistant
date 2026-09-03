@@ -10,12 +10,16 @@ from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
+    ResendVerificationRequest,
+    ResendVerificationResponse,
     TokenResponse,
     UserAiExplanationLanguageUpdateRequest,
     UserProfileUpdateRequest,
     UserProfileUpdateResponse,
     UserResponse,
 )
+from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_NOT_VERIFIED
+from app.services.auth_verification import resend_verification_for_email
 from app.services.user_profile_service import update_user_profile
 from app.security import (
     COOKIE_NAME,
@@ -57,7 +61,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="רק תלמידים יכולים להירשם בעצמם")
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="האימייל כבר קיים")
+        raise HTTPException(status_code=400, detail=EMAIL_ALREADY_EXISTS)
     user = User(
         email=body.email.lower(),
         password_hash=hash_password(body.password),
@@ -72,6 +76,15 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
     await send_verification_email(user.email, user.id, user.full_name)
     return user
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification(
+    body: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    await resend_verification_for_email(db, body.email)
+    return ResendVerificationResponse()
 
 
 @router.get("/verify-email")
@@ -99,7 +112,7 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
     if user.is_blocked:
         raise HTTPException(status_code=403, detail="המשתמש חסום")
     if not user.email_verified and not user.email_verified_by_teacher:
-        raise HTTPException(status_code=403, detail="יש לאמת את האימייל")
+        raise HTTPException(status_code=403, detail=EMAIL_NOT_VERIFIED)
     token = create_access_token(user.id, user.role)
     _set_auth_cookie(response, token, user.role)
     return TokenResponse(user=UserResponse.model_validate(user))

@@ -3,6 +3,7 @@ import { parseQcmText } from "../qcmImportParser";
 import {
   canImportValidQuestions,
   partialImportCounts,
+  remainingPasteAfterImport,
   shouldClearPasteAfterImport,
 } from "../qcmPartialImport";
 
@@ -27,16 +28,24 @@ describe("qcmPartialImport", () => {
     expect(shouldClearPasteAfterImport(result)).toBe(false);
   });
 
+  it("retire les questions déjà importées du collage", () => {
+    const remaining = remainingPasteAfterImport(MIXED);
+    expect(remaining).toContain("שאלה בלי אפשרויות");
+    expect(remaining).not.toContain("מהי בירת ישראל");
+    expect(canImportValidQuestions(parseQcmText(remaining))).toBe(false);
+  });
+
   it("vide le collage seulement si tout est valide", () => {
-    const result = parseQcmText(`
+    const valid = `
 Q1 [single]
 שאלה
 A) * אחת
 B) שתיים
-`);
+`;
+    const result = parseQcmText(valid);
     expect(result.errors).toEqual([]);
-    expect(canImportValidQuestions(result)).toBe(true);
     expect(shouldClearPasteAfterImport(result)).toBe(true);
+    expect(remainingPasteAfterImport(valid)).toBe("");
   });
 
   it("refuse l'import s'il n'y a aucune question valide", () => {

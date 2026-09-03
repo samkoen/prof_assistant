@@ -176,6 +176,7 @@ function AddMethodPanel({
         onSuccess={onSuccess}
         onError={onError}
         onParseFailed={onGeminiParseFailed}
+        onPasteChange={onPasteChange}
       />
     );
   }

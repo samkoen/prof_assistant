@@ -26,6 +26,7 @@ import {
   resolveGeminiApiError,
 } from "../utils/geminiBatchGeneration";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
+import { remainingPasteAfterImport } from "../utils/qcmPartialImport";
 import { isLowTopicOverlap } from "../utils/geminiTopicOverlap";
 import type { GeminiGenerationPreview } from "../types/geminiGenerationPreview";
 import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
@@ -39,6 +40,7 @@ interface ExamEditorGeminiGenerationSectionProps {
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
   onParseFailed?: (rawText: string) => void;
+  onPasteChange?: (value: string) => void;
 }
 
 export default function ExamEditorGeminiGenerationSection({
@@ -48,6 +50,7 @@ export default function ExamEditorGeminiGenerationSection({
   onSuccess,
   onError,
   onParseFailed,
+  onPasteChange,
 }: ExamEditorGeminiGenerationSectionProps) {
   const lastForwardedRawRef = useRef<string | null>(null);
   const lastReportedRawRef = useRef<string | null>(null);
@@ -262,6 +265,16 @@ export default function ExamEditorGeminiGenerationSection({
     }
   };
 
+  const finishAcceptedImport = async (importedCount: number) => {
+    onSuccess(`${he.importSuccess}: ${importedCount} ${he.questionsImported}`);
+    onPasteChange?.(remainingPasteAfterImport(rawText ?? ""));
+    setSession(null);
+    setBatchError(null);
+    setPreviewStep(false);
+    setPreviewData(null);
+    await onImported();
+  };
+
   const acceptDraft = async () => {
     if (!parseResult || parseResult.questions.length === 0 || !session || !generationComplete) {
       return;
@@ -280,12 +293,7 @@ export default function ExamEditorGeminiGenerationSection({
           }),
         },
       );
-      onSuccess(`${he.importSuccess}: ${res.imported_count} ${he.questionsImported}`);
-      setSession(null);
-      setBatchError(null);
-      setPreviewStep(false);
-      setPreviewData(null);
-      await onImported();
+      await finishAcceptedImport(res.imported_count);
     } catch (e) {
       onError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {

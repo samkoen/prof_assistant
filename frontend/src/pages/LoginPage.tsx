@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Box, Link, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Link, TextField, Typography } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
 import LoadingButton from "../components/ui/LoadingButton";
 import PasswordField from "../components/ui/PasswordField";
@@ -8,6 +8,8 @@ import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 import { ApiError } from "../api/client";
 import { joinRedirectPath } from "../utils/joinCourse";
+import { shouldOfferResendVerification } from "../utils/resendVerification";
+import ResendVerificationForm from "../components/ResendVerificationForm";
 
 export default function LoginPage() {
   const { login, user } = useAuth();
@@ -18,6 +20,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -33,7 +36,9 @@ export default function LoginPage() {
       await login(email, password);
       navigate(joinToken ? joinRedirectPath(joinToken) : "/", { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : he.errorGeneric);
+      const message = err instanceof ApiError ? err.message : he.errorGeneric;
+      setError(message);
+      if (shouldOfferResendVerification(message)) setShowResend(true);
     } finally {
       setLoading(false);
     }
@@ -74,6 +79,14 @@ export default function LoginPage() {
           {he.login}
         </LoadingButton>
       </Box>
+      {(showResend || shouldOfferResendVerification(error)) && (
+        <ResendVerificationForm initialEmail={email} />
+      )}
+      {!showResend && !shouldOfferResendVerification(error) && (
+        <Button variant="text" fullWidth sx={{ mt: 1.5 }} onClick={() => setShowResend(true)}>
+          {he.resendVerification}
+        </Button>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: "center" }}>
         {he.noAccountPrompt}{" "}
         <Link component={RouterLink} to={registerTo} fontWeight={700}>

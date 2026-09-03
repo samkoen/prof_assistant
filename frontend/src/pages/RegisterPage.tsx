@@ -6,6 +6,8 @@ import LoadingButton from "../components/ui/LoadingButton";
 import PasswordField from "../components/ui/PasswordField";
 import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
+import { shouldOfferResendVerification } from "../utils/resendVerification";
+import ResendVerificationForm from "../components/ResendVerificationForm";
 
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
@@ -55,7 +57,8 @@ export default function RegisterPage() {
         <Alert severity="success" sx={{ mb: 2.5 }}>
           {he.registerSuccessAwaitVerification}
         </Alert>
-        <Button component={RouterLink} to={loginLink} variant="contained" size="large" fullWidth>
+        <ResendVerificationForm initialEmail={form.email} lockEmail />
+        <Button component={RouterLink} to={loginLink} variant="contained" size="large" fullWidth sx={{ mt: 2 }}>
           {he.goToLogin}
         </Button>
       </AuthLayout>
@@ -68,6 +71,9 @@ export default function RegisterPage() {
         <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+      {shouldOfferResendVerification(error) && (
+        <ResendVerificationForm initialEmail={form.email} />
       )}
       <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.25}>
         <TextField

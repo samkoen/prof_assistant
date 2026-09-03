@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import { Alert, Button, CircularProgress } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
+import ResendVerificationForm from "../components/ResendVerificationForm";
 import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
 
@@ -60,6 +61,7 @@ export default function VerifyEmailPage() {
           {he.login}
         </Button>
       )}
+      {state === "error" && <ResendVerificationForm />}
     </AuthLayout>
   );
 }

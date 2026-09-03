@@ -31,7 +31,7 @@ import {
 } from "../../utils/qcmImportParser";
 import {
   canImportValidQuestions,
-  shouldClearPasteAfterImport,
+  remainingPasteAfterImport,
 } from "../../utils/qcmPartialImport";
 import { abandonActiveGeminiSession } from "../../utils/geminiBatchGeneration";
 import {
@@ -136,7 +136,7 @@ export default function TeacherExamEditorPage() {
         body: JSON.stringify({ questions: toImportPayload(parseResult.questions) }),
       });
       setSuccess(`${he.importSuccess}: ${res.imported_count} ${he.questionsImported}`);
-      if (shouldClearPasteAfterImport(parseResult)) setPaste("");
+      setPaste(remainingPasteAfterImport(paste));
       await abandonActiveGeminiSession(id).catch(() => {});
       await load();
     } catch (e) {
