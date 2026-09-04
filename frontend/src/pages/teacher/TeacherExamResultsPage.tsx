@@ -18,6 +18,8 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { api, ApiError, type ExamSessionResults } from "../../api/client";
+import ExamAnswerKeyDialog from "../../components/ExamAnswerKeyDialog";
+import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import { he } from "../../i18n/he";
 import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
 import { formatHiddenDuration } from "../../utils/formatHiddenDuration";
@@ -48,6 +50,8 @@ export default function TeacherExamResultsPage() {
   const [data, setData] = useState<ExamSessionResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [keyOpen, setKeyOpen] = useState(false);
 
   const backTo = `/teacher/courses/${courseId}/exams`;
 
@@ -109,6 +113,22 @@ export default function TeacherExamResultsPage() {
           {data.offering_label}
         </Typography>
       </Box>
+      <Box sx={{ mb: 2, ...hebrewAlignRightSx }}>
+        <DisabledActionTooltip
+          disabled={!data.can_correct_answer_key}
+          disabledReason={
+            data.can_correct_answer_key ? undefined : he.correctAnswerKeyBlocked
+          }
+        >
+          <Button
+            variant="outlined"
+            onClick={() => setKeyOpen(true)}
+            disabled={!data.can_correct_answer_key}
+          >
+            {he.correctAnswerKey}
+          </Button>
+        </DisabledActionTooltip>
+      </Box>
       {data.integrity_mode_enabled && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {he.integrityMode}: {he.integrityModeHint}
@@ -124,6 +144,11 @@ export default function TeacherExamResultsPage() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>
+          {success}
         </Alert>
       )}
 
@@ -189,6 +214,16 @@ export default function TeacherExamResultsPage() {
           )}
         </CardContent>
       </Card>
+      <ExamAnswerKeyDialog
+        open={keyOpen}
+        examId={data.exam_id}
+        submittedCount={summary?.submitted ?? 0}
+        onClose={() => setKeyOpen(false)}
+        onSaved={(message) => {
+          setSuccess(message);
+          void load();
+        }}
+      />
     </Box>
   );
 }

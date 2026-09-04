@@ -11,9 +11,18 @@ from sqlalchemy.orm import selectinload
 
 from app.models.course import CourseEnrollment
 from app.models.enums import EnrollmentStatus, ExamStatus
-from app.models.exam import Answer, Exam, ExamSession, Question, StudentExamAttempt
+from app.models.exam import (
+    Answer,
+    Exam,
+    ExamSession,
+    OpenAnswerEvaluation,
+    Question,
+    QuestionAiExplanation,
+    StudentExamAttempt,
+)
 from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
+from app.services.exam_kind import is_tirgoul
 from app.services.scoring import score_exam_answers
 from app.services.utc_time import as_utc
 
@@ -85,7 +94,26 @@ async def save_draft_answers(
     await db.flush()
 
 
-async def _close_session_if_all_done(session: ExamSession, db: AsyncSession) -> None:
+async def _delete_attempt_rows(model, attempt_id: int, db: AsyncSession) -> None:
+    rows = await db.execute(select(model).where(model.attempt_id == attempt_id))
+    for row in rows.scalars():
+        await db.delete(row)
+
+
+async def restart_resubmit_attempt(attempt: StudentExamAttempt, db: AsyncSession) -> None:
+    if not attempt.can_resubmit:
+        return
+    await _delete_attempt_rows(Answer, attempt.id, db)
+    await _delete_attempt_rows(QuestionAiExplanation, attempt.id, db)
+    await _delete_attempt_rows(OpenAnswerEvaluation, attempt.id, db)
+    attempt.submitted_at = None
+    attempt.score = None
+    attempt.max_score = None
+
+
+async def _close_session_if_all_done(session: ExamSession, exam: Exam, db: AsyncSession) -> None:
+    if is_tirgoul(exam):
+        return
     enrolled = await db.scalar(
         select(func.count())
         .select_from(CourseEnrollment)
@@ -140,9 +168,9 @@ async def finalize_exam_submission(
     attempt.submitted_at = now
     attempt.score = total
     attempt.max_score = max_total
-    attempt.can_resubmit = False
+    attempt.can_resubmit = is_tirgoul(exam)
     await db.flush()
-    await _close_session_if_all_done(session, db)
+    await _close_session_if_all_done(session, exam, db)
     return attempt
 
 

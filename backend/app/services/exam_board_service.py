@@ -9,6 +9,7 @@ from app.models.enums import EnrollmentStatus, ExamStatus
 from app.models.exam import ExamSession, Question, StudentExamAttempt
 from app.models.user import User
 from app.schemas.exam import AttemptResponse, ExamSessionResponse, StudentExamSessionRow
+from app.services.exam_kind import hide_attempt_score, is_tirgoul
 from app.services.exam_lifecycle import student_visible_sessions_clause
 
 
@@ -84,6 +85,7 @@ def session_response(
         closed_at=session.closed_at,
         results_published=session.results_published,
         integrity_mode_enabled=session.integrity_mode_enabled,
+        is_tirgoul=is_tirgoul(session.exam),
         question_count=question_count,
     )
 
@@ -142,9 +144,12 @@ async def build_student_session_rows(
     }
     rows: list[StudentExamSessionRow] = []
     for session in sessions:
-        base = session_response(session, counts.get(session.exam_id, 0))
+        count = counts.get(session.exam_id, 0)
+        if is_tirgoul(session.exam) and count == 0:
+            continue
+        base = session_response(session, count)
         attempt = attempts_by_session.get(session.id)
-        hide_score = bool(attempt and attempt.submitted_at and not session.results_published)
+        hide_score = bool(attempt and hide_attempt_score(session.exam, session, attempt))
         rows.append(
             StudentExamSessionRow(
                 **base.model_dump(),

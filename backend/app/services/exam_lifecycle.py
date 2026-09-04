@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.course import CourseEnrollment
+from app.models.course import CourseEnrollment, CourseOffering
 from app.models.enums import EnrollmentStatus, ExamStatus, NotificationType
 from app.models.exam import (
     Answer,
@@ -22,6 +24,8 @@ from app.models.exam_gemini_generation import (
 )
 from app.models.exam_gemini_source import ExamGeminiSource
 from app.models.notification import Notification
+from app.services.catalog_scope import catalog_item_matches_offering
+from app.services.exam_kind import apply_exam_kind, is_tirgoul
 from app.services.question_media import copy_image_url_for_duplicate
 
 
@@ -78,6 +82,41 @@ async def ensure_draft_session(
     return session
 
 
+async def _matching_tirgoul_offerings(exam: Exam, db: AsyncSession) -> list[CourseOffering]:
+    rows = await db.execute(
+        select(CourseOffering).where(CourseOffering.catalog_course_id == exam.catalog_course_id)
+    )
+    return [o for o in rows.scalars().all() if catalog_item_matches_offering(exam, o)]
+
+
+async def _ensure_tirgoul_offering_sessions(exam: Exam, db: AsyncSession) -> None:
+    for offering in await _matching_tirgoul_offerings(exam, db):
+        await ensure_draft_session(exam.id, offering.id, db)
+
+
+async def _activate_draft_tirgoul_sessions(exam: Exam, db: AsyncSession) -> None:
+    result = await db.execute(select(ExamSession).where(ExamSession.exam_id == exam.id))
+    now = datetime.now(timezone.utc)
+    for session in result.scalars().all():
+        if session.status != ExamStatus.DRAFT:
+            continue
+        session.status = ExamStatus.ACTIVE
+        session.activated_at = now
+        session.integrity_mode_enabled = False
+        await notify_exam_available_to_pending_students(session, exam, db)
+
+
+async def open_tirgoul_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> None:
+    if not is_tirgoul(exam):
+        return
+    assert exam is not None
+    qcount = await db.scalar(select(func.count()).select_from(Question).where(Question.exam_id == exam.id))
+    if not qcount:
+        return
+    await _ensure_tirgoul_offering_sessions(exam, db)
+    await _activate_draft_tirgoul_sessions(exam, db)
+
+
 async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[int, bool]:
     if not exam_ids:
         return {}
@@ -132,7 +171,9 @@ async def duplicate_exam_to_catalog(
         auto_submit_on_timeout=source.auto_submit_on_timeout,
         default_multiple_scoring=source.default_multiple_scoring,
         questions_language=source.questions_language,
+        is_tirgoul=source.is_tirgoul,
     )
+    apply_exam_kind(copy, bool(source.is_tirgoul))
     db.add(copy)
     await db.flush()
 
@@ -161,6 +202,7 @@ async def duplicate_exam_to_catalog(
                 )
             )
 
+    await open_tirgoul_sessions_if_ready(copy, db)
     return copy
 
 

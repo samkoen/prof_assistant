@@ -19,14 +19,16 @@ export function getExamOfferingActionRules(
   hasQuestions: boolean,
   activatingId: number | null = null,
 ): ExamOfferingActionRules {
+  const isTirgoul = exam.is_tirgoul === true;
   const isActive = session?.status === "active";
-  const canStart = !session || session.status === "draft";
+  const canStart = !isTirgoul && (!session || session.status === "draft");
   const canViewGrades = !!session && session.status !== "draft";
   const showClose =
+    !isTirgoul &&
     !!session &&
     (session.status === "active" || (session.status === "closed" && !session.results_published));
-  const showDeactivate = isActive && !!session;
-  const showReopen = session?.status === "closed";
+  const showDeactivate = !isTirgoul && isActive && !!session;
+  const showReopen = !isTirgoul && session?.status === "closed";
   const showStart = (canStart && hasQuestions) || activatingId === exam.id;
   const showStartBlocked = canStart && !hasQuestions && activatingId !== exam.id;
   const gradesPath =

@@ -21,6 +21,8 @@ from app.schemas.gemini_questions import (
     GeminiGenerateQuestionsResponse,
 )
 from app.schemas.exam import (
+    AnswerKeyUpdateRequest,
+    AnswerKeyUpdateResponse,
     AttemptResponse,
     ExamCreate,
     ExamDetailResponse,
@@ -58,7 +60,15 @@ from app.services.exam_lifecycle import (
     exam_has_non_draft_sessions,
     exams_can_delete_map,
     notify_exam_available_to_pending_students,
+    open_tirgoul_sessions_if_ready,
     session_allows_student_work,
+)
+from app.services.exam_kind import (
+    apply_exam_kind,
+    integrity_on_activate,
+    is_tirgoul,
+    should_shuffle,
+    student_sees_official_results,
 )
 from app.services.exam_questions import (
     delete_question,
@@ -69,6 +79,7 @@ from app.services.exam_questions import (
     update_question,
     validate_question_body,
 )
+from app.services.exam_answer_key_apply import apply_answer_key_and_regrade
 from app.services.catalog_item_response import scope_to_response
 from app.services.course_helpers import offering_to_response
 from app.services.catalog_teacher import enforce_teacher_scope_id, teacher_owns_catalog
@@ -101,6 +112,7 @@ from app.services.exam_practice_service import (
 from app.services.exam_submit_service import (
     auto_submit_if_expired,
     finalize_exam_submission,
+    restart_resubmit_attempt,
     save_draft_answers,
 )
 from app.services.exam_review import review_question_row
@@ -141,6 +153,7 @@ def _exam_response(
         auto_submit_on_timeout=exam.auto_submit_on_timeout,
         default_multiple_scoring=exam.default_multiple_scoring,
         questions_language=exam.questions_language,
+        is_tirgoul=is_tirgoul(exam),
         question_count=question_count,
         can_delete=can_delete,
         **scope_to_response(exam, names),
@@ -163,6 +176,7 @@ def _session_response(session: ExamSession, question_count: int = 0) -> ExamSess
         closed_at=session.closed_at,
         results_published=session.results_published,
         integrity_mode_enabled=session.integrity_mode_enabled,
+        is_tirgoul=is_tirgoul(session.exam),
         question_count=question_count,
     )
 
@@ -298,6 +312,7 @@ def _take_meta(session: ExamSession, exam: Exam) -> dict:
         "integrity_mode_enabled": session.integrity_mode_enabled,
         "results_published": session.results_published,
         "questions_language": exam.questions_language,
+        "is_tirgoul": is_tirgoul(exam),
     }
 
 
@@ -307,10 +322,13 @@ def _attempt_response(
     *,
     results_published: bool = False,
     include_session_token: bool = False,
+    exam: Exam | None = None,
 ) -> AttemptResponse:
     from app.services.exam_board_service import attempt_response
 
     hide = bool(attempt.submitted_at and not results_published)
+    if is_tirgoul(exam):
+        hide = False
     return attempt_response(
         attempt,
         exam_id,
@@ -330,12 +348,12 @@ def _exam_token_header(
 def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
     rng = random.Random(attempt_id)
     ordered = list(questions)
-    if exam.shuffle_questions:
+    if should_shuffle(exam):
         rng.shuffle(ordered)
     out: list[StudentQuestionResponse] = []
     for qi, q in enumerate(ordered):
         opts = list(q.options)
-        if exam.shuffle_options:
+        if should_shuffle(exam):
             rng.shuffle(opts)
         out.append(
             StudentQuestionResponse(
@@ -359,12 +377,12 @@ def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> li
 def _practice_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
     rng = random.Random(attempt_id ^ 0x5A5A5A5A)
     ordered = list(questions)
-    if exam.shuffle_questions:
+    if should_shuffle(exam):
         rng.shuffle(ordered)
     out: list[StudentQuestionResponse] = []
     for qi, q in enumerate(ordered):
         opts = list(q.options)
-        if exam.shuffle_options:
+        if should_shuffle(exam):
             rng.shuffle(opts)
         out.append(
             StudentQuestionResponse(
@@ -453,16 +471,22 @@ async def _ensure_attempt_started(
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
     starting = not attempt.started_at or attempt.can_resubmit
     if starting:
-        attempt.started_at = now
-        attempt.expires_at = now + timedelta(minutes=exam.duration_minutes)
-        attempt.can_resubmit = False
-        if not session.integrity_mode_enabled:
-            attempt.session_token = new_exam_session_token()
+        await _start_attempt_clock(attempt, exam, session, now, db)
     bind_exam_session_token(
         session, attempt, provided_token, starting_fresh=starting
     )
     await db.flush()
     return attempt
+
+
+async def _start_attempt_clock(attempt, exam, session, now, db) -> None:
+    if attempt.can_resubmit:
+        await restart_resubmit_attempt(attempt, db)
+    attempt.started_at = now
+    attempt.expires_at = None if is_tirgoul(exam) else now + timedelta(minutes=exam.duration_minutes)
+    attempt.can_resubmit = False
+    if not session.integrity_mode_enabled:
+        attempt.session_token = new_exam_session_token()
 
 
 @router.post("", response_model=ExamResponse)
@@ -490,7 +514,9 @@ async def create_exam(
         warning_minutes=body.warning_minutes,
         auto_submit_on_timeout=body.auto_submit_on_timeout,
         default_multiple_scoring=body.default_multiple_scoring,
+        is_tirgoul=body.is_tirgoul,
     )
+    apply_exam_kind(exam, body.is_tirgoul)
     apply_scope_fields(exam, body, user.id)
     db.add(exam)
     await db.flush()
@@ -498,6 +524,7 @@ async def create_exam(
         offering = await db.get(CourseOffering, body.offering_id)
         if offering and offering.catalog_course_id == exam.catalog_course_id:
             await ensure_draft_session(exam.id, offering.id, db)
+            await open_tirgoul_sessions_if_ready(exam, db)
     await db.commit()
     await db.refresh(exam)
     names = await load_scope_teacher_names(db, [exam])
@@ -735,6 +762,7 @@ async def update_exam(
         raise HTTPException(status_code=403, detail="לא ניתן להגביל למורה אחר")
     for key, value in data.items():
         setattr(exam, key, value)
+    apply_exam_kind(exam, exam.is_tirgoul)
     await db.commit()
     await db.refresh(exam)
     cnt = await db.scalar(
@@ -789,6 +817,7 @@ async def attach_exam_to_offering(
     if not catalog_item_matches_offering(exam, offering):
         raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
     await ensure_draft_session(exam_id, body.offering_id, db)
+    await open_tirgoul_sessions_if_ready(exam, db)
     await db.commit()
     await db.refresh(exam)
     cnt = await db.scalar(
@@ -973,6 +1002,21 @@ async def edit_question(
     return QuestionResponse.model_validate(q)
 
 
+@router.post("/{exam_id}/answer-key", response_model=AnswerKeyUpdateResponse)
+async def update_answer_key(
+    exam_id: int,
+    body: AnswerKeyUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    await _get_teacher_exam(exam_id, user, db)
+    if await exam_has_active_sessions(exam_id, db):
+        raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
+    updated = await apply_answer_key_and_regrade(exam_id, body.questions, db)
+    await db.commit()
+    return updated
+
+
 @router.delete("/{exam_id}/questions/{question_id}", status_code=204)
 async def remove_question(
     exam_id: int,
@@ -999,6 +1043,8 @@ async def activate_exam(
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     if not catalog_item_visible_to_teacher(exam, user.id):
         raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
+    if is_tirgoul(exam):
+        raise HTTPException(status_code=400, detail="תרגול נפתח אוטומטית אחרי הוספת שאלות")
     offering = await db.execute(
         select(CourseOffering)
         .options(selectinload(CourseOffering.catalog_course))
@@ -1038,7 +1084,7 @@ async def activate_exam(
         exam.auto_submit_on_timeout = body.auto_submit_on_timeout
     session.status = ExamStatus.ACTIVE
     session.activated_at = datetime.now(timezone.utc)
-    session.integrity_mode_enabled = body.integrity_mode_enabled
+    session.integrity_mode_enabled = integrity_on_activate(exam)
     await db.flush()
 
     enrollments = await db.execute(
@@ -1149,6 +1195,7 @@ async def get_session_results(
     offering = session.offering
     catalog_name = offering.catalog_course.name if offering.catalog_course else ""
     offering_label = f"{catalog_name} — {offering.group_name} ({offering.academic_year}, סמסטר {offering.semester})"
+    can_correct = not await exam_has_active_sessions(session.exam_id, db)
 
     return ExamSessionResultsResponse(
         session_id=session.id,
@@ -1156,6 +1203,7 @@ async def get_session_results(
         exam_title=session.exam.title,
         offering_label=offering_label,
         integrity_mode_enabled=session.integrity_mode_enabled,
+        can_correct_answer_key=can_correct,
         results=rows,
     )
 
@@ -1167,6 +1215,8 @@ async def close_exam_session(
     user: User = Depends(require_roles(UserRole.TEACHER)),
 ):
     session = await _get_teacher_session(session_id, user, db)
+    if is_tirgoul(session.exam):
+        raise HTTPException(status_code=400, detail="תרגול נשאר פתוח")
     if session.status == ExamStatus.DRAFT:
         raise HTTPException(status_code=400, detail="המבחן לא הופעל")
     if session.results_published:
@@ -1190,6 +1240,8 @@ async def deactivate_exam_session(
 ):
     """Ferme les nouvelles soumissions ; les élèves déjà en cours peuvent encore rendre."""
     session = await _get_teacher_session(session_id, user, db)
+    if is_tirgoul(session.exam):
+        raise HTTPException(status_code=400, detail="תרגול נשאר פתוח")
     if session.status != ExamStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="המבחן אינו פעיל")
     session.status = ExamStatus.CLOSED
@@ -1210,6 +1262,8 @@ async def reopen_exam_session(
 ):
     """Rouvre un mבחן fermé — seuls les élèves sans copie rendue peuvent participer."""
     session = await _get_teacher_session(session_id, user, db)
+    if is_tirgoul(session.exam):
+        raise HTTPException(status_code=400, detail="תרגול נשאר פתוח")
     if session.status != ExamStatus.CLOSED:
         raise HTTPException(status_code=400, detail="המבחן לא סגור")
     exam = session.exam
@@ -1257,10 +1311,10 @@ async def take_exam_session(
     )
     existing = attempt_result.scalar_one_or_none()
     published = session.results_published
-    if existing and existing.submitted_at and not existing.can_resubmit:
+    if existing and existing.submitted_at:
         return ExamTakeResponse(
             **_take_meta(session, exam),
-            attempt=_attempt_response(existing, exam.id, results_published=published),
+            attempt=_attempt_response(existing, exam.id, results_published=published, exam=exam),
             questions=[],
         )
 
@@ -1293,13 +1347,14 @@ async def take_exam_session(
     saved = [] if attempt.submitted_at else await _saved_answers_for_attempt(attempt.id, db)
     return ExamTakeResponse(
         **_take_meta(session, exam),
-        attempt=_attempt_response(
-            attempt,
-            exam.id,
-            results_published=session.results_published,
-            include_session_token=session.integrity_mode_enabled
-            and not attempt.submitted_at,
-        ),
+            attempt=_attempt_response(
+                attempt,
+                exam.id,
+                results_published=session.results_published,
+                include_session_token=session.integrity_mode_enabled
+                and not attempt.submitted_at,
+                exam=exam,
+            ),
         questions=paper,
         saved_answers=saved,
     )
@@ -1396,7 +1451,7 @@ async def submit_exam_session(
     attempt = attempt_result.scalar_one_or_none()
     if not attempt or not attempt.started_at:
         raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
-    if attempt.submitted_at and not attempt.can_resubmit:
+    if attempt.submitted_at:
         raise HTTPException(status_code=400, detail="כבר הוגש")
     if session.results_published:
         raise HTTPException(status_code=400, detail="המבחן נסגר")
@@ -1413,7 +1468,7 @@ async def submit_exam_session(
     await db.refresh(attempt)
     await db.refresh(session)
     return _attempt_response(
-        attempt, exam.id, results_published=session.results_published
+        attempt, exam.id, results_published=session.results_published, exam=exam
     )
 
 
@@ -1436,8 +1491,8 @@ async def get_session_review(
         raise HTTPException(status_code=400, detail="המבחן טרם הוגש")
 
     published = session.results_published
-    attempt_resp = _attempt_response(attempt, exam.id, results_published=published)
-    can_show = exam.show_detailed_correction and published
+    attempt_resp = _attempt_response(attempt, exam.id, results_published=published, exam=exam)
+    can_show = exam.show_detailed_correction and student_sees_official_results(exam, session)
     if not can_show:
         return ExamReviewResponse(
             session_id=session.id,
@@ -1480,6 +1535,8 @@ async def start_practice_session(
     user: User = Depends(require_roles(UserRole.STUDENT)),
 ):
     session = await _get_student_session(session_id, user, db)
+    if is_tirgoul(session.exam):
+        raise HTTPException(status_code=400, detail="בתרגול אפשר לחזור על המבחן עצמו")
     attempt = await get_submitted_attempt(session_id, user.id, db)
     attempt = await start_practice(attempt, db)
     await db.commit()

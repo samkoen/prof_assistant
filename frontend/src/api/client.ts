@@ -240,6 +240,7 @@ export interface Exam extends CatalogItemScope {
   auto_submit_on_timeout: boolean;
   default_multiple_scoring: string;
   questions_language: "he" | "fr" | "en" | "ru";
+  is_tirgoul?: boolean;
   question_count: number;
   can_delete?: boolean;
 }
@@ -258,6 +259,7 @@ export interface ExamSession {
   closed_at: string | null;
   results_published: boolean;
   integrity_mode_enabled: boolean;
+  is_tirgoul?: boolean;
   question_count: number;
 }
 
@@ -346,6 +348,7 @@ export interface ExamSessionResults {
   exam_title: string;
   offering_label: string;
   integrity_mode_enabled: boolean;
+  can_correct_answer_key: boolean;
   results: StudentExamResult[];
 }
 
@@ -382,6 +385,7 @@ export interface ExamTake {
   integrity_mode_enabled: boolean;
   results_published?: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
+  is_tirgoul?: boolean;
   attempt: ExamAttempt;
   questions: StudentQuestion[];
   saved_answers?: { question_id: number; selected_option_ids: number[]; text_answer?: string | null }[];

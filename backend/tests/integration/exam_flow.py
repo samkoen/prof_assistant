@@ -3,6 +3,20 @@ from httpx import AsyncClient
 from tests.integration.http_helpers import json_ok, login, logout
 from tests.integration.seed import STUDENT_EMAIL, TEACHER_EMAIL
 
+EXAM_TOKEN_HEADER = "X-Exam-Session-Token"
+_session_tokens: dict[int, str] = {}
+
+
+def exam_token_headers(session_id: int) -> dict[str, str]:
+    token = _session_tokens.get(session_id)
+    return {EXAM_TOKEN_HEADER: token} if token else {}
+
+
+def _remember_token(session_id: int, payload: dict) -> None:
+    token = payload.get("session_token") or (payload.get("attempt") or {}).get("session_token")
+    if token:
+        _session_tokens[session_id] = token
+
 
 async def teacher_catalog_and_offering(client: AsyncClient) -> tuple[int, int]:
     catalog = await json_ok(
@@ -23,13 +37,16 @@ async def teacher_catalog_and_offering(client: AsyncClient) -> tuple[int, int]:
 
 
 async def create_draft_exam(
-    client: AsyncClient, catalog_id: int, offering_id: int | None = None, title: str = "מבחן IT"
+    client: AsyncClient, catalog_id: int, offering_id: int | None = None, title: str = "מבחן IT",
+    *,
+    is_tirgoul: bool = False,
 ) -> dict:
     payload: dict = {
         "catalog_course_id": catalog_id,
         "title": title,
         "shuffle_questions": False,
         "shuffle_options": False,
+        "is_tirgoul": is_tirgoul,
     }
     if offering_id is not None:
         payload["offering_id"] = offering_id
@@ -92,13 +109,29 @@ async def enroll_student(client: AsyncClient, offering_id: int, student_id: int)
     )
 
 
+async def student_start_exam(client: AsyncClient, session_id: int) -> dict:
+    take = await json_ok(await client.get(f"/api/exams/sessions/{session_id}/take"))
+    if take.get("integrity_mode_enabled") and not take["attempt"].get("rules_accepted_at"):
+        accepted = await json_ok(await client.post(f"/api/exams/sessions/{session_id}/accept-rules"))
+        _remember_token(session_id, accepted)
+        take = await json_ok(
+            await client.get(
+                f"/api/exams/sessions/{session_id}/take",
+                headers=exam_token_headers(session_id),
+            )
+        )
+    _remember_token(session_id, take)
+    return take
+
+
 async def student_submit_open(
     client: AsyncClient, session_id: int, question_id: int, text: str
 ) -> None:
-    await json_ok(await client.post(f"/api/exams/sessions/{session_id}/open"))
+    await student_start_exam(client, session_id)
     await json_ok(
         await client.post(
             f"/api/exams/sessions/{session_id}/submit",
+            headers=exam_token_headers(session_id),
             json={
                 "answers": [
                     {
@@ -112,15 +145,11 @@ async def student_submit_open(
     )
 
 
-async def student_start_exam(client: AsyncClient, session_id: int) -> dict:
-    await json_ok(await client.post(f"/api/exams/sessions/{session_id}/open"))
-    return await json_ok(await client.get(f"/api/exams/sessions/{session_id}/take"))
-
-
 async def student_submit_qcm(client: AsyncClient, session_id: int, question_id: int, option_id: int) -> dict:
     return await json_ok(
         await client.post(
             f"/api/exams/sessions/{session_id}/submit",
+            headers=exam_token_headers(session_id),
             json={
                 "answers": [
                     {"question_id": question_id, "selected_option_ids": [option_id], "text_answer": None}

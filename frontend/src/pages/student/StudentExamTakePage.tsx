@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Chip,
   CircularProgress,
   FormControl,
   Radio,
@@ -319,6 +320,20 @@ export default function StudentExamTakePage() {
     return () => window.clearTimeout(t);
   }, [answers, textAnswers, phase, rulesPending, paper?.session_id, saveDraft]);
 
+  const retryTirgoul = async () => {
+    setStartingPractice(true);
+    setError("");
+    try {
+      await api(`/api/exams/sessions/${id}/open`, { method: "POST" });
+      setPhase("exam");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setStartingPractice(false);
+    }
+  };
+
   const startPractice = async () => {
     setStartingPractice(true);
     setError("");
@@ -500,6 +515,9 @@ export default function StudentExamTakePage() {
         <Box sx={hebrewToolbarTitleSx}>
           <Typography variant="h5" fontWeight={700}>
             {paper.exam_title}
+            {paper.is_tirgoul && (
+              <Chip size="small" label={he.tirgoulChip} sx={{ marginInlineStart: 1 }} />
+            )}
           </Typography>
           {paper.description && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -507,7 +525,7 @@ export default function StudentExamTakePage() {
             </Typography>
           )}
         </Box>
-        {!submitted && attempt?.started_at && phase === "exam" && (
+        {!submitted && attempt?.started_at && phase === "exam" && attempt.expires_at && !paper.is_tirgoul && (
           <Typography variant="h6" color="primary" fontWeight={700} sx={{ flexShrink: 0 }}>
             {he.timeRemaining}: {timeLeft}
           </Typography>
@@ -561,7 +579,7 @@ export default function StudentExamTakePage() {
               attempt={attempt}
               practiceResults={practiceResults}
               resultsPublished={Boolean(
-                review?.results_published ?? paper.results_published,
+                paper.is_tirgoul || (review?.results_published ?? paper.results_published),
               )}
             />
           )}
@@ -583,7 +601,17 @@ export default function StudentExamTakePage() {
             />
           )}
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
-            {(phase === "final" || phase === "practice_review") && (
+            {phase === "final" && paper.is_tirgoul && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => void retryTirgoul()}
+                disabled={startingPractice}
+              >
+                {startingPractice ? he.loading : he.retryTirgoul}
+              </Button>
+            )}
+            {(phase === "final" || phase === "practice_review") && !paper.is_tirgoul && (
               <Button
                 variant="contained"
                 color="success"

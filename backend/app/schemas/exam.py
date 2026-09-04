@@ -76,6 +76,7 @@ class ExamCreate(CatalogItemScopeFields):
     warning_minutes: int = Field(default=10, ge=1, le=60)
     auto_submit_on_timeout: bool = True
     default_multiple_scoring: MultipleScoringMode = MultipleScoringMode.PROPORTIONAL
+    is_tirgoul: bool = False
 
 
 class ExamUpdate(BaseModel):
@@ -111,6 +112,7 @@ class ExamResponse(CatalogItemScopeResponse):
     auto_submit_on_timeout: bool
     default_multiple_scoring: MultipleScoringMode
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
+    is_tirgoul: bool = False
     question_count: int = 0
     can_delete: bool = True
 
@@ -131,6 +133,7 @@ class ExamSessionResponse(BaseModel):
     closed_at: datetime | None
     results_published: bool
     integrity_mode_enabled: bool = False
+    is_tirgoul: bool = False
     question_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -228,6 +231,7 @@ class ExamSessionResultsResponse(BaseModel):
     exam_title: str
     offering_label: str
     integrity_mode_enabled: bool = False
+    can_correct_answer_key: bool = False
     results: list[StudentExamResultRow]
 
 
@@ -267,6 +271,20 @@ class QuestionsReorderRequest(BaseModel):
     question_ids: list[int] = Field(min_length=1)
 
 
+class AnswerKeyQuestionPatch(BaseModel):
+    question_id: int
+    correct_option_ids: list[int] = Field(min_length=1)
+
+
+class AnswerKeyUpdateRequest(BaseModel):
+    questions: list[AnswerKeyQuestionPatch] = Field(min_length=1)
+
+
+class AnswerKeyUpdateResponse(BaseModel):
+    questions_updated: int
+    regraded_attempts: int
+
+
 class ExamDetailResponse(ExamResponse):
     catalog_course_name: str = ""
     questions: list[QuestionResponse] = []
@@ -303,6 +321,7 @@ class ExamTakeResponse(BaseModel):
     integrity_mode_enabled: bool = False
     results_published: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
+    is_tirgoul: bool = False
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
     saved_answers: list[SavedAnswerDraft] = []
