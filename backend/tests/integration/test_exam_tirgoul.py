@@ -121,3 +121,21 @@ async def test_tirgoul_opens_matching_offerings_without_offering_id(it_env: ItEn
     assert session["offering_id"] == offering_id
     assert session["status"] == "active"
     assert session["integrity_mode_enabled"] is False
+
+
+@pytest.mark.integration
+async def test_duplicated_tirgoul_opens_for_matching_offerings(it_env: ItEnv):
+    client = it_env.client
+    await login(client, TEACHER_EMAIL)
+    catalog_id, offering_id = await teacher_catalog_and_offering(client)
+    exam = await create_draft_exam(
+        client, catalog_id, offering_id, title="תרגול מקור", is_tirgoul=True
+    )
+    await add_single_question(client, exam["id"])
+    copy = await json_ok(await client.post(f"/api/exams/{exam['id']}/duplicate"))
+    assert copy["is_tirgoul"] is True
+    sessions = await json_ok(await client.get("/api/exams/sessions/mine"))
+    copied = next(s for s in sessions if s["exam_id"] == copy["id"])
+    assert copied["offering_id"] == offering_id
+    assert copied["status"] == "active"
+    assert copied["integrity_mode_enabled"] is False

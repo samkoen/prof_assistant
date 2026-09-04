@@ -202,6 +202,7 @@ async def duplicate_exam_to_catalog(
                 )
             )
 
+    await open_tirgoul_sessions_if_ready(copy, db)
     return copy
 
 
