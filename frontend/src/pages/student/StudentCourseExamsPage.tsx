@@ -176,16 +176,17 @@ export default function StudentCourseExamsPage() {
                   <Box sx={examListRowDetailsSx}>
                     <Typography variant="body2" color="text.secondary" component="span">
                       <HebrewCountPhrase label={he.questionsInExam} count={s.question_count} />
-                      {submitted && s.results_published && s.attempt?.score != null && s.attempt.max_score != null && (
+                      {submitted && (s.is_tirgoul || s.results_published) && s.attempt?.score != null && s.attempt.max_score != null && (
                         <> · {he.yourScore}: {s.attempt.score} / {s.attempt.max_score}</>
                       )}
-                      {submitted && !s.results_published && <> · {he.examSubmitted}</>}
+                      {submitted && !s.is_tirgoul && !s.results_published && <> · {he.examSubmitted}</>}
                       {inProgress && <> · {he.continueExam}</>}
                     </Typography>
                   </Box>
                   <Chip size="small" color={chip.color} label={chip.label} />
                   <Typography variant="h6" fontWeight={700} sx={examListRowTitleSx}>
                     {s.exam_title}
+                    {s.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
                   </Typography>
                 </>
               }

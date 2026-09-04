@@ -143,6 +143,11 @@ export const he = {
   examDuplicated: "המבחן שוכפל",
   examDeleted: "המבחן נמחק",
   createExam: "יצירת מבחן",
+  examIsTirgoul: "תרגול (לא מבחן רשמי)",
+  examIsTirgoulHint:
+    "ללא שעון וללא מעקב. הציון והתיקון מוצגים מיד, ואפשר לחזור על התרגול.",
+  retryTirgoul: "ניסיון נוסף",
+  tirgoulChip: "תרגול",
   activateExam: "הפעלת מבחן",
   editExam: "עריכת מבחן",
   viewExam: "צפייה במבחן",
@@ -362,6 +367,16 @@ export const he = {
   examScopeSaved: "הזמינות נשמרה",
   viewExamGrades: "ציונים",
   examResults: "ציוני מבחן",
+  correctAnswerKey: "תיקון מפתח תשובות",
+  correctAnswerKeyHint:
+    "התיקון נשמר במבחן לכל השיעורים והעותקים הבאים, ומעדכן את הציונים שכבר הוגשו.",
+  correctAnswerKeyConfirm: (n: number) =>
+    `לשמור את המפתח ולחשב מחדש ${n} הגשות?`,
+  correctAnswerKeySuccess: (updated: number, regraded: number) =>
+    `המפתח עודכן (${updated} שאלות). ${regraded} ציונים חושבו מחדש.`,
+  correctAnswerKeyNoQcm: "אין במבחן שאלות רב-ברירה לעדכון.",
+  correctAnswerKeyBlocked: "לא ניתן לתקן כל עוד המבחן פעיל או שיש תלמידים שעדיין כותבים",
+  saveAnswerKey: "שמירת מפתח וחישוב ציונים",
   resultsSummary: "הגישו",
   noResultsYet: "אין תלמידים בקורס או שטרם הוגשו מבחנים",
   resultNotStarted: "לא התחיל",
@@ -665,7 +680,7 @@ export const he = {
   noData: "אין נתונים",
   integrityMode: "מבחן רשמי (מעקב)",
   integrityModeHint:
-    "מבחן רשמי: לפני ההתחלה התלמיד מאשר כללים; יציאות מהדף נרשמות. הציון והתיקון נחשפים רק אחרי פרסום התוצאות. ללא מעקב — עדיין מבחן רשמי (בלי דוח יציאות). לתרגול עם משוב מיידי התלמיד משתמש ב«בדיקת ידע» אחרי ההגשה.",
+    "לפני ההתחלה התלמיד מאשר כללים; יציאות מהדף נרשמות. הציון והתיקון נחשפים רק אחרי פרסום התוצאות.",
   examRulesTitle: "כללי מבחן",
   examRulesIntro: "לפני תחילת המבחן עליך לאשר את הכללים הבאים:",
   examRuleStayOnTab: "אין לעבור ללשונית אחרת, חלון אחר או יישום אחר במהלך המבחן.",

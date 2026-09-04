@@ -13,11 +13,14 @@ export interface CourseExamRow {
   session?: ExamSession;
 }
 
-function statusProps(session: ExamSession | undefined) {
-  if (session?.status === "active") {
+function statusProps(row: CourseExamRow) {
+  if (row.exam.is_tirgoul) {
+    return { color: "info" as const, label: he.tirgoulChip };
+  }
+  if (row.session?.status === "active") {
     return { color: "success" as const, label: he.examAlreadyActive };
   }
-  if (session?.status === "closed") {
+  if (row.session?.status === "closed") {
     return { color: "default" as const, label: he.examClosed };
   }
   return { color: "warning" as const, label: he.examDraftStatus };
@@ -29,10 +32,11 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       key: "title",
       label: he.examTitle,
       minWidth: 180,
-      getValue: (r) => r.exam.title,
+      getValue: (r) => (r.exam.is_tirgoul ? `${r.exam.title} · ${he.tirgoulChip}` : r.exam.title),
       renderCell: (r) => (
         <Typography variant="body2" fontWeight={600}>
           {r.exam.title}
+          {r.exam.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
         </Typography>
       ),
     },
@@ -40,9 +44,9 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       key: "status",
       label: he.status,
       minWidth: 120,
-      getValue: (r) => statusProps(r.session).label,
+      getValue: (r) => statusProps(r).label,
       renderCell: (r) => {
-        const s = statusProps(r.session);
+        const s = statusProps(r);
         return <Chip size="small" color={s.color} label={s.label} />;
       },
     },

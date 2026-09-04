@@ -21,6 +21,7 @@ from app.models.exam import (
 from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.ai_client import AiError, generate_text
+from app.services.exam_kind import is_tirgoul
 from app.services.open_answer_parse import parse_open_evaluation_json
 from app.services.open_answer_prompt import (
     build_evaluation_prompt,
@@ -174,7 +175,7 @@ def _assert_review_allowed(session: ExamSession, *, for_practice: bool) -> None:
     exam = session.exam
     if not exam.show_detailed_correction:
         raise HTTPException(status_code=403, detail="הסבר אינו זמין למבחן זה")
-    if not for_practice and not session.results_published:
+    if not for_practice and not session.results_published and not is_tirgoul(exam):
         raise HTTPException(status_code=403, detail="התוצאות טרם פורסמו")
 
 

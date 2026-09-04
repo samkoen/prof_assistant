@@ -33,6 +33,20 @@ describe("examOfferingActionRules", () => {
     expect(rules.gradesPath).toContain("/sessions/9/results");
   });
 
+  it("tirgoul : pas d'activation ni de fermeture", () => {
+    const rules = getExamOfferingActionRules(
+      { ...exam, is_tirgoul: true },
+      { id: 9, status: "active" } as ExamSession,
+      3,
+      true,
+    );
+    expect(rules.showStart).toBe(false);
+    expect(rules.showClose).toBe(false);
+    expect(rules.showDeactivate).toBe(false);
+    expect(rules.showReopen).toBe(false);
+    expect(rules.canViewGrades).toBe(true);
+  });
+
   it("parse l'offering depuis returnTo", () => {
     expect(parseOfferingIdFromReturn("/teacher/courses/42/exams")).toBe(42);
     expect(parseOfferingIdFromReturn("/elsewhere")).toBeNull();

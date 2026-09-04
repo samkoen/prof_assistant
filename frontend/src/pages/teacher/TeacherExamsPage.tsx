@@ -11,8 +11,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
-  Checkbox,
   MenuItem,
   TextField,
   Typography,
@@ -52,9 +50,10 @@ function splitSessions(sessions: ExamSession[]) {
   return { open, closed };
 }
 
-function sessionStatusLabel(status: ExamSession["status"]): string {
-  if (status === "active") return he.examAlreadyActive;
-  if (status === "closed") return he.examClosed;
+function sessionStatusLabel(session: ExamSession): string {
+  if (session.is_tirgoul) return he.tirgoulChip;
+  if (session.status === "active") return he.examAlreadyActive;
+  if (session.status === "closed") return he.examClosed;
   return he.examDraftStatus;
 }
 
@@ -69,7 +68,6 @@ export default function TeacherExamsPage() {
   const [activateOpen, setActivateOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [activateOfferingId, setActivateOfferingId] = useState("");
-  const [activateIntegrity, setActivateIntegrity] = useState(false);
   const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
     durationMinutes: "45",
     warningMinutes: "10",
@@ -119,7 +117,6 @@ export default function TeacherExamsPage() {
   const openActivate = (exam: Exam, offeringId = "") => {
     setSelectedExam(exam);
     setActivateOfferingId(offeringId);
-    setActivateIntegrity(false);
     setActivateTiming(timingFromExam(exam));
     setActivateOpen(true);
   };
@@ -145,7 +142,7 @@ export default function TeacherExamsPage() {
         method: "POST",
         body: JSON.stringify({
           offering_id: Number(activateOfferingId),
-          integrity_mode_enabled: activateIntegrity,
+          integrity_mode_enabled: true,
           ...timingActivatePayload(activateTiming),
         }),
       });
@@ -261,10 +258,8 @@ export default function TeacherExamsPage() {
         exam={selectedExam}
         offerings={matchingOfferings}
         offeringId={activateOfferingId}
-        integrity={activateIntegrity}
         timing={activateTiming}
         onOfferingChange={setActivateOfferingId}
-        onIntegrityChange={setActivateIntegrity}
         onTimingChange={setActivateTiming}
         onClose={() => setActivateOpen(false)}
         onActivate={activate}
@@ -403,92 +398,225 @@ function ExamSessionCard({
   onActivateSession?: (session: ExamSession) => void;
 }) {
   const gradesPath = `/teacher/courses/${s.offering_id}/exams/sessions/${s.id}/results`;
-
   return (
     <Card key={s.id} sx={{ mb: 1 }}>
       <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
         <Box flex={1} minWidth={200}>
-          <Typography fontWeight={600}>{s.exam_title}</Typography>
+          <Typography fontWeight={600}>
+            {s.exam_title}
+            {s.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {s.catalog_name} — {s.group_name} ({s.academic_year}, {semesterLabel(s.semester)}) —{" "}
-            {sessionStatusLabel(s.status)} — {s.question_count} שאלות
+            {sessionStatusLabel(s)} — {s.question_count} שאלות
           </Typography>
         </Box>
-        {closedTab ? (
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              startIcon={<PlayArrowIcon />}
-              disabled={reopeningSessionId === s.id}
-              onClick={() => onReopenClick?.(s)}
-            >
-              {reopeningSessionId === s.id ? he.loading : he.reopenExam}
-            </Button>
-            {!s.results_published && (
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<DoneAllIcon />}
-                disabled={closingSessionId === s.id}
-                onClick={() => onCloseClick?.(s)}
-              >
-                {closingSessionId === s.id ? he.loading : he.closeExam}
-              </Button>
-            )}
-            <Button
-              size="small"
-              variant="outlined"
-              component={RouterLink}
-              to={gradesPath}
-              startIcon={<GradingIcon />}
-            >
-              {he.viewExamGrades}
-            </Button>
-          </Box>
-        ) : s.status === "draft" ? (
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <ExamEditLink examId={s.exam_id} returnTo="/teacher/exams" />
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              disabled={s.question_count < 1}
-              onClick={() => onActivateSession?.(s)}
-            >
-              {he.activateExam}
-            </Button>
-          </Box>
-        ) : (
-          s.status === "active" && (
-            <>
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<DoneAllIcon />}
-                disabled={closingSessionId === s.id}
-                onClick={() => onCloseClick?.(s)}
-              >
-                {closingSessionId === s.id ? he.loading : he.closeExam}
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="warning"
-                startIcon={<StopIcon />}
-                disabled={deactivatingSessionId === s.id}
-                onClick={() => onDeactivateClick?.(s)}
-              >
-                {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
-              </Button>
-            </>
-          )
-        )}
+        <SessionCardActions
+          session={s}
+          gradesPath={gradesPath}
+          closedTab={closedTab}
+          closingSessionId={closingSessionId}
+          deactivatingSessionId={deactivatingSessionId}
+          reopeningSessionId={reopeningSessionId}
+          onCloseClick={onCloseClick}
+          onDeactivateClick={onDeactivateClick}
+          onReopenClick={onReopenClick}
+          onActivateSession={onActivateSession}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+function SessionCardActions({
+  session: s,
+  gradesPath,
+  closedTab,
+  closingSessionId,
+  deactivatingSessionId,
+  reopeningSessionId,
+  onCloseClick,
+  onDeactivateClick,
+  onReopenClick,
+  onActivateSession,
+}: {
+  session: ExamSession;
+  gradesPath: string;
+  closedTab: boolean;
+  closingSessionId?: number | null;
+  deactivatingSessionId?: number | null;
+  reopeningSessionId?: number | null;
+  onCloseClick?: (s: ExamSession) => void;
+  onDeactivateClick?: (s: ExamSession) => void;
+  onReopenClick?: (s: ExamSession) => void;
+  onActivateSession?: (session: ExamSession) => void;
+}) {
+  if (s.is_tirgoul) {
+    return <TirgoulSessionActions session={s} gradesPath={gradesPath} />;
+  }
+  if (closedTab) {
+    return (
+      <ClosedSessionActions
+        session={s}
+        gradesPath={gradesPath}
+        closingSessionId={closingSessionId}
+        reopeningSessionId={reopeningSessionId}
+        onCloseClick={onCloseClick}
+        onReopenClick={onReopenClick}
+      />
+    );
+  }
+  if (s.status === "draft") {
+    return <DraftSessionActions session={s} onActivateSession={onActivateSession} />;
+  }
+  if (s.status === "active") {
+    return (
+      <ActiveSessionActions
+        session={s}
+        closingSessionId={closingSessionId}
+        deactivatingSessionId={deactivatingSessionId}
+        onCloseClick={onCloseClick}
+        onDeactivateClick={onDeactivateClick}
+      />
+    );
+  }
+  return null;
+}
+
+function DraftSessionActions({
+  session: s,
+  onActivateSession,
+}: {
+  session: ExamSession;
+  onActivateSession?: (session: ExamSession) => void;
+}) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+      <ExamEditLink examId={s.exam_id} returnTo="/teacher/exams" />
+      <Button
+        size="small"
+        variant="contained"
+        color="success"
+        disabled={s.question_count < 1}
+        onClick={() => onActivateSession?.(s)}
+      >
+        {he.activateExam}
+      </Button>
+    </Box>
+  );
+}
+
+function ActiveSessionActions({
+  session: s,
+  closingSessionId,
+  deactivatingSessionId,
+  onCloseClick,
+  onDeactivateClick,
+}: {
+  session: ExamSession;
+  closingSessionId?: number | null;
+  deactivatingSessionId?: number | null;
+  onCloseClick?: (s: ExamSession) => void;
+  onDeactivateClick?: (s: ExamSession) => void;
+}) {
+  return (
+    <>
+      <Button
+        size="small"
+        variant="contained"
+        color="primary"
+        startIcon={<DoneAllIcon />}
+        disabled={closingSessionId === s.id}
+        onClick={() => onCloseClick?.(s)}
+      >
+        {closingSessionId === s.id ? he.loading : he.closeExam}
+      </Button>
+      <Button
+        size="small"
+        variant="outlined"
+        color="warning"
+        startIcon={<StopIcon />}
+        disabled={deactivatingSessionId === s.id}
+        onClick={() => onDeactivateClick?.(s)}
+      >
+        {deactivatingSessionId === s.id ? he.loading : he.cancelActivation}
+      </Button>
+    </>
+  );
+}
+
+function TirgoulSessionActions({
+  session: s,
+  gradesPath,
+}: {
+  session: ExamSession;
+  gradesPath: string;
+}) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+      <ExamEditLink examId={s.exam_id} returnTo="/teacher/exams" />
+      <Button
+        size="small"
+        variant="outlined"
+        component={RouterLink}
+        to={gradesPath}
+        startIcon={<GradingIcon />}
+      >
+        {he.viewExamGrades}
+      </Button>
+    </Box>
+  );
+}
+
+function ClosedSessionActions({
+  session: s,
+  gradesPath,
+  closingSessionId,
+  reopeningSessionId,
+  onCloseClick,
+  onReopenClick,
+}: {
+  session: ExamSession;
+  gradesPath: string;
+  closingSessionId?: number | null;
+  reopeningSessionId?: number | null;
+  onCloseClick?: (s: ExamSession) => void;
+  onReopenClick?: (s: ExamSession) => void;
+}) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+      <Button
+        size="small"
+        variant="contained"
+        color="success"
+        startIcon={<PlayArrowIcon />}
+        disabled={reopeningSessionId === s.id}
+        onClick={() => onReopenClick?.(s)}
+      >
+        {reopeningSessionId === s.id ? he.loading : he.reopenExam}
+      </Button>
+      {!s.results_published && (
+        <Button
+          size="small"
+          variant="contained"
+          color="primary"
+          startIcon={<DoneAllIcon />}
+          disabled={closingSessionId === s.id}
+          onClick={() => onCloseClick?.(s)}
+        >
+          {closingSessionId === s.id ? he.loading : he.closeExam}
+        </Button>
+      )}
+      <Button
+        size="small"
+        variant="outlined"
+        component={RouterLink}
+        to={gradesPath}
+        startIcon={<GradingIcon />}
+      >
+        {he.viewExamGrades}
+      </Button>
+    </Box>
   );
 }
 
@@ -527,7 +655,10 @@ function CatalogExamsList({
     <Card key={exam.id} sx={{ mb: 1 }}>
       <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
         <Box flex={1} minWidth={200}>
-          <Typography fontWeight={600}>{exam.title}</Typography>
+          <Typography fontWeight={600}>
+            {exam.title}
+            {exam.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {catalogName} — {exam.question_count} שאלות · {formatScopeSummary(exam)}
           </Typography>
@@ -535,9 +666,11 @@ function CatalogExamsList({
         <Box sx={{ display: "flex", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
           <ExamEditLink examId={exam.id} viewOnly={exam.can_delete === false} />
           <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} />
-          <Button size="small" variant="contained" onClick={() => onActivate(exam)}>
-            {he.activateExam}
-          </Button>
+          {!exam.is_tirgoul && (
+            <Button size="small" variant="contained" onClick={() => onActivate(exam)}>
+              {he.activateExam}
+            </Button>
+          )}
         </Box>
       </CardContent>
     </Card>
@@ -549,10 +682,8 @@ function ActivateExamDialog({
   exam,
   offerings,
   offeringId,
-  integrity,
   timing,
   onOfferingChange,
-  onIntegrityChange,
   onTimingChange,
   onClose,
   onActivate,
@@ -561,10 +692,8 @@ function ActivateExamDialog({
   exam: Exam | null;
   offerings: CourseOffering[];
   offeringId: string;
-  integrity: boolean;
   timing: ExamTimingForm;
   onOfferingChange: (id: string) => void;
-  onIntegrityChange: (v: boolean) => void;
   onTimingChange: (v: ExamTimingForm) => void;
   onClose: () => void;
   onActivate: () => void;
@@ -591,13 +720,6 @@ function ActivateExamDialog({
             </MenuItem>
           ))}
         </TextField>
-        <FormControlLabel
-          control={<Checkbox checked={integrity} onChange={(e) => onIntegrityChange(e.target.checked)} />}
-          label={he.integrityMode}
-        />
-        <Typography variant="caption" color="text.secondary" display="block">
-          {he.integrityModeHint}
-        </Typography>
         <ExamActivateTimingFields value={timing} onChange={onTimingChange} />
       </DialogContent>
       <DialogActions>

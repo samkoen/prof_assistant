@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   FormControlLabel,
+  Checkbox,
   MenuItem,
   Radio,
   RadioGroup,
@@ -23,6 +24,7 @@ import {
   hebrewFormFieldRowSx,
   hebrewFormFieldSx,
   hebrewFormSectionSx,
+  hebrewFormControlLabelSx,
   hebrewRadioGroupSx,
   pageFullWidthSx,
 } from "../../styles/hebrewAlign";
@@ -35,6 +37,7 @@ const emptyForm = {
   scope_academic_year: "",
   scope_semester: "",
   scope_group_name: "",
+  is_tirgoul: false,
 };
 
 export default function TeacherExamCreatePage() {
@@ -119,8 +122,9 @@ export default function TeacherExamCreatePage() {
           catalog_course_id: Number(form.catalog_course_id),
           offering_id: fromGroup && offering ? offering.id : null,
           title: form.title.trim() || "מבחן חדש",
-          shuffle_questions: true,
-          shuffle_options: true,
+          shuffle_questions: !form.is_tirgoul,
+          shuffle_options: !form.is_tirgoul,
+          is_tirgoul: form.is_tirgoul,
           scope_teacher_id,
           scope_academic_year,
           scope_semester,
@@ -184,6 +188,22 @@ export default function TeacherExamCreatePage() {
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             sx={hebrewFormFieldSx}
           />
+        </Box>
+
+        <Box sx={{ ...hebrewFormSectionSx, mb: 1 }}>
+          <FormControlLabel
+            sx={hebrewFormControlLabelSx}
+            control={
+              <Checkbox
+                checked={form.is_tirgoul}
+                onChange={(e) => setForm({ ...form, is_tirgoul: e.target.checked })}
+              />
+            }
+            label={he.examIsTirgoul}
+          />
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ textAlign: "right" }}>
+            {he.examIsTirgoulHint}
+          </Typography>
         </Box>
 
         {fromGroup ? (

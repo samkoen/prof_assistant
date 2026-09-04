@@ -3,13 +3,11 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   IconButton,
   Tooltip,
   Typography,
@@ -209,7 +207,6 @@ export default function ExamContextActionsBar({
   const [closingSessionId, setClosingSessionId] = useState<number | null>(null);
   const [reopeningSessionId, setReopeningSessionId] = useState<number | null>(null);
   const [activateExam, setActivateExam] = useState<Exam | null>(null);
-  const [activateIntegrity, setActivateIntegrity] = useState(false);
   const [activateTiming, setActivateTiming] = useState<ExamTimingForm>({
     durationMinutes: "45",
     warningMinutes: "10",
@@ -270,7 +267,7 @@ export default function ExamContextActionsBar({
         method: "POST",
         body: JSON.stringify({
           offering_id: courseId,
-          integrity_mode_enabled: activateIntegrity,
+          integrity_mode_enabled: true,
           ...timingActivatePayload(activateTiming),
         }),
       });
@@ -345,7 +342,6 @@ export default function ExamContextActionsBar({
             deactivatingSessionId={deactivatingSessionId}
             reopeningSessionId={reopeningSessionId}
             onStartClick={(target) => {
-              setActivateIntegrity(false);
               setActivateTiming(timingFromExam(target));
               setActivateExam(target);
             }}
@@ -389,18 +385,6 @@ export default function ExamContextActionsBar({
               {activateExam.title}
             </Typography>
           )}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={activateIntegrity}
-                onChange={(e) => setActivateIntegrity(e.target.checked)}
-              />
-            }
-            label={he.integrityMode}
-          />
-          <Typography variant="caption" color="text.secondary" display="block">
-            {he.integrityModeHint}
-          </Typography>
           <ExamActivateTimingFields value={activateTiming} onChange={setActivateTiming} />
         </DialogContent>
         <DialogActions>

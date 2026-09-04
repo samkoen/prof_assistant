@@ -14,6 +14,7 @@ from app.services.ai_explanation_prompt import (
     explanation_system_prompt,
 )
 from app.services.ai_client import AiError, generate_text
+from app.services.exam_kind import is_tirgoul
 
 
 def _resolve_language(user: User) -> ExplanationLanguage:
@@ -56,7 +57,7 @@ async def _load_review_context(
     exam = session.exam
     if not exam.show_detailed_correction:
         raise HTTPException(status_code=403, detail="הסבר אינו זמין למבחן זה")
-    if not for_practice and not session.results_published:
+    if not for_practice and not session.results_published and not is_tirgoul(exam):
         raise HTTPException(status_code=403, detail="התוצאות טרם פורסמו")
 
     attempt_row = await db.execute(

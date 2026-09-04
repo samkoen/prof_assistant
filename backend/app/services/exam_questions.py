@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enums import ExamStatus, ModelAnswerSource, QuestionType
-from app.models.exam import ExamSession, Question, QuestionOption, StudentExamAttempt
+from app.models.exam import Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.schemas.exam import QuestionCreate, QuestionUpdate
+from app.services.exam_kind import is_tirgoul
 
 _TRIM_EDGES = "\n\r\t"
 
@@ -16,6 +17,9 @@ def normalize_question_text(text: str) -> str:
 
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
     """Vrai si session active ou fermée avec au moins une tentative en cours."""
+    exam = await db.get(Exam, exam_id)
+    if is_tirgoul(exam):
+        return False
     active = await db.scalar(
         select(func.count())
         .select_from(ExamSession)
@@ -123,19 +127,25 @@ async def persist_question(
     )
     db.add(question)
     await db.flush()
-    if body.question_type == QuestionType.OPEN:
-        return question
+    from app.services.exam_lifecycle import open_tirgoul_sessions_if_ready
+
+    await open_tirgoul_sessions_if_ready(await db.get(Exam, exam_id), db)
+    if body.question_type != QuestionType.OPEN:
+        _add_question_options(question.id, body, db)
+    return question
+
+
+def _add_question_options(question_id: int, body: QuestionCreate, db: AsyncSession) -> None:
     for opt in body.options:
         db.add(
             QuestionOption(
-                question_id=question.id,
+                question_id=question_id,
                 text=normalize_question_text(opt.text),
                 image_url=(opt.image_url or None),
                 is_correct=opt.is_correct,
                 order_index=opt.order_index,
             )
         )
-    return question
 
 
 async def delete_question(exam_id: int, question_id: int, db: AsyncSession) -> None:
