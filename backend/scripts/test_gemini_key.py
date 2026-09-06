@@ -51,6 +51,8 @@ async def main() -> None:
     print(f"AI_PROVIDER_TEACHER={settings.ai_provider_teacher or settings.ai_provider}")
     print(f"AI_PROVIDER_STUDENT={settings.ai_provider_student or settings.ai_provider}")
     print(f"GEMINI_MODEL={settings.gemini_model}")
+    print(f"GEMINI_MODEL_TEACHER={settings.gemini_primary_model(for_generation=True)}")
+    print(f"GEMINI_MODEL_STUDENT={settings.gemini_primary_model(for_generation=False)}")
     if not key:
         print("ERREUR: GEMINI_API_KEY manquant dans backend/.env")
         sys.exit(1)

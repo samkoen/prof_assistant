@@ -53,17 +53,33 @@ def _parse_models_csv(raw: str) -> list[str]:
     return [m.strip() for m in raw.split(",") if m.strip()]
 
 
+def resolve_gemini_primary(
+    *,
+    for_generation: bool,
+    default_model: str,
+    teacher_model: str = "",
+    student_model: str = "",
+) -> str:
+    override = teacher_model if for_generation else student_model
+    chosen = (override or "").strip() or (default_model or "").strip()
+    return chosen or "gemini-2.5-flash"
+
+
+def build_models_chain(primary: str, fallbacks: str) -> list[str]:
+    chain = [primary.strip() or "gemini-2.5-flash"]
+    for model in _parse_models_csv(fallbacks):
+        if model not in chain:
+            chain.append(model)
+    return chain
+
+
 def _models_chain(primary: str, *, use_generation_fallbacks: bool) -> list[str]:
-    chain = [primary.strip() or "gemini-2.0-flash"]
     extra = (
         settings.gemini_generation_fallback_models
         if use_generation_fallbacks
         else settings.gemini_fallback_models
     )
-    for model in _parse_models_csv(extra):
-        if model not in chain:
-            chain.append(model)
-    return chain
+    return build_models_chain(primary, extra)
 
 
 def _parse_api_error(response: httpx.Response) -> str:
@@ -79,7 +95,7 @@ def _user_message(status: int, model: str, detail: str) -> tuple[str, bool]:
     """Retourne (message hébreu, auth_failure)."""
     detail_lower = detail.lower()
     if status == 404:
-        return f"המודל '{model}' לא זמין. עדכן GEMINI_MODEL (למשל gemini-2.0-flash).", False
+        return f"המודל '{model}' לא זמין. עדכן GEMINI_MODEL (למשל gemini-2.5-flash).", False
     if status == 429:
         return "מכסת Gemini נגמרה — בדוק ב-AI Studio את החיוב והמכסה.", False
     if status in (401, 403):
@@ -180,7 +196,7 @@ async def _generate_with_body(
             else "הוסף GEMINI_API_KEY לקובץ backend/.env."
         )
         raise GeminiError(f"שירות ההסבר אינו מוגדר. {hint}", auth_failure=True)
-    primary = settings.gemini_model.strip() or "gemini-2.0-flash"
+    primary = settings.gemini_primary_model(for_generation=use_generation_fallbacks)
     timeout = timeout_seconds or settings.gemini_timeout_seconds
     models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)
     return await _generate_across_models(models, api_key, body, timeout)

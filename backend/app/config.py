@@ -95,15 +95,17 @@ class Settings(BaseSettings):
     ai_provider_teacher: str = ""
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_model_teacher: str = ""
+    gemini_model_student: str = "gemini-2.5-flash-lite"
     gemini_temperature: float = 0.3
     gemini_max_output_tokens: int = 2048
     gemini_generation_max_output_tokens: int = 8192
     gemini_thinking_budget: int = 0
     gemini_timeout_seconds: float = 45.0
     gemini_generation_timeout_seconds: float = 120.0
-    gemini_fallback_models: str = "gemini-2.0-flash,gemini-2.5-flash-lite"
-    gemini_generation_fallback_models: str = "gemini-2.0-flash,gemini-2.5-flash-lite"
+    gemini_fallback_models: str = "gemini-2.5-flash"
+    gemini_generation_fallback_models: str = "gemini-2.5-flash-lite"
     gemini_retry_count: int = 2
     gemini_retry_delay_seconds: float = 2.0
 
@@ -149,6 +151,12 @@ class Settings(BaseSettings):
         if (override or "").strip():
             return normalize_ai_provider_name(override, base)
         return base
+
+    def gemini_primary_model(self, *, for_generation: bool) -> str:
+        """Prof : Flash. Élève : Flash-Lite (sauf override)."""
+        override = self.gemini_model_teacher if for_generation else self.gemini_model_student
+        chosen = (override or "").strip() or (self.gemini_model or "").strip()
+        return chosen or "gemini-2.5-flash"
 
     @model_validator(mode="after")
     def apply_vercel_storage_defaults(self) -> "Settings":

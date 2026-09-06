@@ -76,7 +76,7 @@ def _describe_ai_call(for_generation: bool) -> tuple[str, str, str, str]:
     audience = _audience(for_generation)
     provider = ai_provider(for_generation=for_generation)
     if provider == "gemini":
-        model = settings.gemini_model.strip() or "gemini-2.0-flash"
+        model = settings.gemini_primary_model(for_generation=for_generation)
         transport = "gemini-api"
     else:
         model = settings.opencode_model_id
