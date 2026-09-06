@@ -12,7 +12,7 @@ from tests.integration.exam_flow import (
     teacher_catalog_and_offering,
 )
 from tests.integration.http_helpers import json_ok, login, logout
-from tests.integration.seed import STUDENT_EMAIL, TEACHER_EMAIL
+from tests.integration.seed import CLASSMATE_EMAIL, STUDENT_EMAIL, TEACHER_EMAIL
 
 
 @pytest.mark.integration
@@ -96,3 +96,26 @@ async def _student_sees_score(it_env: ItEnv, session_id: int) -> None:
     assert review["attempt"]["score"] == 1
     assert review["questions"][0]["is_correct"] is True
     assert review["questions"][0]["earned_points"] == 1
+
+
+def _board_has_session(rows: list[dict], session_id: int) -> bool:
+    return any(row["id"] == session_id for row in rows)
+
+
+@pytest.mark.integration
+async def test_student_board_lists_closed_exam_without_attempt(it_env: ItEnv):
+    ctx = await prepared_qcm_session(
+        it_env.client, it_env.users.student_id, it_env.users.classmate_id
+    )
+    await login(it_env.client, TEACHER_EMAIL)
+    await json_ok(await it_env.client.post(f"/api/exams/sessions/{ctx['session_id']}/close"))
+    await logout(it_env.client)
+    await login(it_env.client, CLASSMATE_EMAIL)
+    board = await json_ok(
+        await it_env.client.get(
+            f"/api/exams/sessions/offering/{ctx['offering_id']}/student-board"
+        )
+    )
+    mine = await json_ok(await it_env.client.get("/api/exams/sessions/mine/student-board"))
+    assert _board_has_session(board["sessions"], ctx["session_id"])
+    assert _board_has_session(mine, ctx["session_id"])

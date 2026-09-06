@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -335,24 +335,12 @@ async def notify_exam_available_to_pending_students(
         )
 
 
+def student_visible_session_statuses() -> tuple[ExamStatus, ...]:
+    """Statuts listés côté élève — les brouillons restent cachés."""
+    return (ExamStatus.ACTIVE, ExamStatus.CLOSED)
+
+
 def student_visible_sessions_clause(student_id: int):
-    """Session active, ou fermée visible si l'élève a soumis ou est encore en cours."""
-    in_progress = exists(
-        select(StudentExamAttempt.id).where(
-            StudentExamAttempt.exam_session_id == ExamSession.id,
-            StudentExamAttempt.student_id == student_id,
-            StudentExamAttempt.started_at.isnot(None),
-            StudentExamAttempt.submitted_at.is_(None),
-        )
-    )
-    submitted = exists(
-        select(StudentExamAttempt.id).where(
-            StudentExamAttempt.exam_session_id == ExamSession.id,
-            StudentExamAttempt.student_id == student_id,
-            StudentExamAttempt.submitted_at.isnot(None),
-        )
-    )
-    return or_(
-        ExamSession.status == ExamStatus.ACTIVE,
-        and_(ExamSession.status == ExamStatus.CLOSED, or_(in_progress, submitted)),
-    )
+    """Sessions actives et fermées du cours ; `student_id` garde la signature des appels."""
+    _ = student_id
+    return ExamSession.status.in_(student_visible_session_statuses())
