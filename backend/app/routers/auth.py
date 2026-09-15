@@ -19,6 +19,7 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_NOT_VERIFIED
+from app.services.auth_register import resolve_self_register_role, student_id_for_register
 from app.services.auth_verification import resend_verification_for_email
 from app.services.user_profile_service import update_user_profile
 from app.security import (
@@ -57,8 +58,7 @@ def _set_auth_cookie(response: Response, token: str, role: UserRole | str) -> No
 
 @router.post("/register", response_model=UserResponse)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    if body.role != UserRole.STUDENT:
-        raise HTTPException(status_code=400, detail="רק תלמידים יכולים להירשם בעצמם")
+    role = resolve_self_register_role(body.role)
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=EMAIL_ALREADY_EXISTS)
@@ -66,9 +66,9 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         email=body.email.lower(),
         password_hash=hash_password(body.password),
         full_name=body.full_name,
-        role=UserRole.STUDENT,
+        role=role,
         phone=body.phone,
-        student_id=body.student_id,
+        student_id=student_id_for_register(role, body.student_id),
         email_verified=False,
     )
     db.add(user)
