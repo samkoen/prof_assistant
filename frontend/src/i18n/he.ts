@@ -13,6 +13,8 @@ export const he = {
   showSidebar: "הצג תפריט",
   login: "התחברות",
   register: "הרשמה",
+  registerAsTeacher: "הרשמה כמורה",
+  registerRoleHint: "בחרו אם אתם תלמיד או מורה",
   noAccountPrompt: "אין לך חשבון?",
   alreadyHaveAccount: "כבר יש לך חשבון?",
   showPassword: "הצגת סיסמה",

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { Alert, Box, Button, Link, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Link, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
 import LoadingButton from "../components/ui/LoadingButton";
 import PasswordField from "../components/ui/PasswordField";
@@ -8,17 +8,60 @@ import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
 import { shouldOfferResendVerification } from "../utils/resendVerification";
 import ResendVerificationForm from "../components/ResendVerificationForm";
+import {
+  applyRegisterRole,
+  buildRegisterPayload,
+  canChooseRegisterRole,
+  showStudentIdField,
+  type RegisterFormValues,
+  type SelfRegisterRole,
+} from "../utils/registerForm";
+import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 
-export default function RegisterPage() {
-  const [searchParams] = useSearchParams();
-  const joinToken = searchParams.get("joinToken") ?? searchParams.get("join");
-  const [form, setForm] = useState({
+function emptyForm(): RegisterFormValues {
+  return {
     email: "",
     password: "",
     full_name: "",
     phone: "",
     student_id: "",
-  });
+    role: "student",
+  };
+}
+
+function RegisterRoleToggle({
+  role,
+  onChange,
+}: {
+  role: SelfRegisterRole;
+  onChange: (role: SelfRegisterRole) => void;
+}) {
+  return (
+    <Box sx={hebrewAlignRightSx}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        {he.registerRoleHint}
+      </Typography>
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
+        color="primary"
+        value={role}
+        onChange={(_, value: SelfRegisterRole | null) => {
+          if (value) onChange(value);
+        }}
+        aria-label={he.role}
+      >
+        <ToggleButton value="student">{he.roleStudent}</ToggleButton>
+        <ToggleButton value="teacher">{he.roleTeacher}</ToggleButton>
+      </ToggleButtonGroup>
+    </Box>
+  );
+}
+
+export default function RegisterPage() {
+  const [searchParams] = useSearchParams();
+  const joinToken = searchParams.get("joinToken") ?? searchParams.get("join");
+  const [form, setForm] = useState<RegisterFormValues>(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,6 +69,8 @@ export default function RegisterPage() {
   const loginLink = joinToken
     ? `/login?joinToken=${encodeURIComponent(joinToken)}`
     : "/login";
+  const chooseRole = canChooseRegisterRole(joinToken);
+  const title = form.role === "teacher" ? he.registerAsTeacher : he.register;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,14 +79,7 @@ export default function RegisterPage() {
     try {
       await api("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          full_name: form.full_name,
-          phone: form.phone || null,
-          student_id: form.student_id || null,
-          role: "student",
-        }),
+        body: JSON.stringify(buildRegisterPayload(form)),
       });
       setSuccess(true);
     } catch (err) {
@@ -53,7 +91,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <AuthLayout title={he.register}>
+      <AuthLayout title={title}>
         <Alert severity="success" sx={{ mb: 2.5 }}>
           {he.registerSuccessAwaitVerification}
         </Alert>
@@ -66,7 +104,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthLayout title={he.register}>
+    <AuthLayout title={title}>
       {error && (
         <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError("")}>
           {error}
@@ -76,6 +114,12 @@ export default function RegisterPage() {
         <ResendVerificationForm initialEmail={form.email} />
       )}
       <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.25}>
+        {chooseRole && (
+          <RegisterRoleToggle
+            role={form.role}
+            onChange={(role) => setForm(applyRegisterRole(form, role))}
+          />
+        )}
         <TextField
           label={he.fullName}
           value={form.full_name}
@@ -110,14 +154,16 @@ export default function RegisterPage() {
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           fullWidth
         />
-        <TextField
-          label={he.studentId}
-          value={form.student_id}
-          onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-          fullWidth
-        />
+        {showStudentIdField(form.role) && (
+          <TextField
+            label={he.studentId}
+            value={form.student_id}
+            onChange={(e) => setForm({ ...form, student_id: e.target.value })}
+            fullWidth
+          />
+        )}
         <LoadingButton type="submit" variant="contained" size="large" loading={loading} sx={{ mt: 0.5 }}>
-          {he.register}
+          {title}
         </LoadingButton>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: "center" }}>
