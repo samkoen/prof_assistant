@@ -81,7 +81,8 @@ from app.services.exam_questions import (
 )
 from app.services.exam_answer_key_apply import apply_answer_key_and_regrade
 from app.services.catalog_item_response import scope_to_response
-from app.services.course_helpers import offering_to_response
+from app.services.course_helpers import offering_eager_options, offering_to_response
+from app.services.offering_access import is_offering_member, offering_managed_by_clause
 from app.services.catalog_teacher import enforce_teacher_scope_id, teacher_owns_catalog
 from app.services.catalog_scope import (
     apply_scope_fields,
@@ -203,7 +204,7 @@ async def _get_teacher_session(session_id: int, user: User, db: AsyncSession) ->
             selectinload(ExamSession.exam),
             selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
         )
-        .where(ExamSession.id == session_id, CourseOffering.teacher_id == user.id)
+        .where(ExamSession.id == session_id, offering_managed_by_clause(user.id))
     )
     session = result.scalar_one_or_none()
     if not session:
@@ -233,10 +234,7 @@ async def _load_student_offering_enrollment(
 ) -> tuple[CourseOffering, CourseEnrollment] | None:
     offering_row = await db.execute(
         select(CourseOffering)
-        .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
-        )
+        .options(*offering_eager_options())
         .where(CourseOffering.id == offering_id)
     )
     offering = offering_row.scalar_one_or_none()
@@ -612,7 +610,7 @@ async def _catalog_exams_for_offering(
 ) -> list[ExamResponse]:
     q = select(Exam).where(Exam.catalog_course_id == offering.catalog_course_id)
     if user.role == UserRole.TEACHER:
-        q = q.where(scope_teacher_filter(Exam, user.id))
+        q = q.where(scope_teacher_filter(Exam, offering.teacher_id))
     result = await db.execute(q)
     exams = list(result.scalars().all())
     exams = [e for e in exams if catalog_item_matches_offering(e, offering)]
@@ -636,11 +634,8 @@ async def teacher_offering_exams_board(
 ):
     offering_row = await db.execute(
         select(CourseOffering)
-        .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
-        )
-        .where(CourseOffering.id == offering_id, CourseOffering.teacher_id == user.id)
+        .options(*offering_eager_options())
+        .where(CourseOffering.id == offering_id, offering_managed_by_clause(user.id))
     )
     offering = offering_row.scalar_one_or_none()
     if not offering:
@@ -671,7 +666,7 @@ async def list_offering_exam_sessions(
     offering = await db.get(CourseOffering, offering_id)
     if not offering:
         raise HTTPException(status_code=404, detail="קורס לא נמצא")
-    if user.role == UserRole.TEACHER and offering.teacher_id != user.id:
+    if user.role == UserRole.TEACHER and not await is_offering_member(db, offering_id, user.id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     if user.role == UserRole.STUDENT:
         approved = await db.execute(
@@ -711,7 +706,7 @@ async def list_my_exam_sessions(
                 selectinload(ExamSession.exam),
                 selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
             )
-            .where(CourseOffering.teacher_id == user.id)
+            .where(offering_managed_by_clause(user.id))
             .order_by(ExamSession.created_at.desc())
         )
     elif user.role == UserRole.STUDENT:
@@ -806,7 +801,7 @@ async def attach_exam_to_offering(
     offering = await db.get(CourseOffering, body.offering_id)
     if not offering:
         raise HTTPException(status_code=404, detail="קורס לא נמצא")
-    if user.role == UserRole.TEACHER and offering.teacher_id != user.id:
+    if user.role == UserRole.TEACHER and not await is_offering_member(db, body.offering_id, user.id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     if offering.catalog_course_id != exam.catalog_course_id:
         raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
@@ -1041,8 +1036,6 @@ async def activate_exam(
     exam = await db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
-    if not catalog_item_visible_to_teacher(exam, user.id):
-        raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
     if is_tirgoul(exam):
         raise HTTPException(status_code=400, detail="תרגול נפתח אוטומטית אחרי הוספת שאלות")
     offering = await db.execute(
@@ -1050,13 +1043,15 @@ async def activate_exam(
         .options(selectinload(CourseOffering.catalog_course))
         .where(
             CourseOffering.id == body.offering_id,
-            CourseOffering.teacher_id == user.id,
+            offering_managed_by_clause(user.id),
             CourseOffering.catalog_course_id == exam.catalog_course_id,
         )
     )
     offering_obj = offering.scalar_one_or_none()
     if not offering_obj:
         raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
+    if not catalog_item_visible_to_teacher(exam, offering_obj.teacher_id):
+        raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
     if not catalog_item_matches_offering(exam, offering_obj):
         raise HTTPException(status_code=400, detail="המבחן לא מיועד להרצה זו (היקף/הרשאות)")
 

@@ -136,6 +136,36 @@ export interface User {
 /** Cours catalogue — contenu pédagogique réutilisable. */
 export type TeacherShareType = "exam" | "catalog";
 export type TeacherShareStatus = "pending" | "accepted" | "declined";
+export type OfferingTeacherRole = "owner" | "co_teacher";
+export type OfferingTeacherInviteStatus = "pending" | "accepted" | "declined";
+
+export interface OfferingTeacherRef {
+  id: number;
+  name: string;
+  role: OfferingTeacherRole;
+}
+
+export interface OfferingTeacherInvite {
+  id: number;
+  offering_id: number;
+  catalog_name: string;
+  group_name: string;
+  academic_year: number;
+  semester: number;
+  inviter_id: number;
+  inviter_name: string;
+  recipient_id: number;
+  recipient_name: string;
+  status: OfferingTeacherInviteStatus;
+  message: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface OfferingTeachersPayload {
+  teachers: OfferingTeacherRef[];
+  pending_invites: OfferingTeacherInvite[];
+}
 
 export interface TeacherShare {
   id: number;
@@ -181,6 +211,7 @@ export interface CourseOffering {
   is_open_enrollment: boolean;
   auto_approve_enrollment: boolean;
   teacher_name: string;
+  teachers?: OfferingTeacherRef[];
   created_at: string;
   enrollment_status?: "pending" | "approved" | "rejected" | null;
   join_token?: string | null;
@@ -201,6 +232,7 @@ export interface JoinPreview {
   academic_year: number;
   semester: number;
   teacher_name: string;
+  teachers?: OfferingTeacherRef[];
   description: string | null;
   is_open_enrollment: boolean;
   auto_approve_enrollment: boolean;

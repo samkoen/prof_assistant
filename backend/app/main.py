@@ -25,6 +25,7 @@ from app.routers import (
     open_answers,
     question_media,
     students_router,
+    offering_teachers,
     teacher_shares,
 )
 
@@ -66,6 +67,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(students_router.router, prefix="/api")
 app.include_router(teacher_shares.router, prefix="/api")
+app.include_router(offering_teachers.router, prefix="/api")
 
 
 @app.get("/api/health")

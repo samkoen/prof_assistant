@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { api, offeringLabel, semesterLabel, type CourseOffering, type ExamSession, ApiError } from "../api/client";
 import { he } from "../i18n/he";
+import { offeringTeacherNames } from "../utils/offeringTeachers";
 import { hebrewAlignRightSx, hebrewCardRowSx } from "../styles/hebrewAlign";
 
 export default function StudentDashboard() {
@@ -69,7 +70,7 @@ export default function StudentDashboard() {
               <Card>
                 <CardContent>
                   <Typography variant="h6">{offeringLabel(o)}</Typography>
-                  <Typography color="text.secondary">{o.teacher_name}</Typography>
+                  <Typography color="text.secondary">{offeringTeacherNames(o)}</Typography>
                 </CardContent>
               </Card>
             </Grid>

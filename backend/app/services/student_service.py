@@ -3,6 +3,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import CourseEnrollment, CourseOffering
+from app.services.offering_access import offering_managed_by_clause
 from app.models.exam import StudentExamAttempt
 from app.models.enums import UserRole
 from app.models.notification import Notification
@@ -36,7 +37,7 @@ async def enrolled_student_ids_for_teacher(db: AsyncSession, teacher_id: int) ->
     result = await db.execute(
         select(CourseEnrollment.student_id)
         .join(CourseOffering)
-        .where(CourseOffering.teacher_id == teacher_id)
+        .where(offering_managed_by_clause(teacher_id))
         .distinct()
     )
     return set(result.scalars().all())
@@ -57,7 +58,7 @@ async def teacher_can_access_student(db: AsyncSession, teacher_id: int, student_
         .join(CourseOffering)
         .where(
             CourseEnrollment.student_id == student_id,
-            CourseOffering.teacher_id == teacher_id,
+            offering_managed_by_clause(teacher_id),
         )
         .limit(1)
     )

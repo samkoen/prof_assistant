@@ -17,6 +17,7 @@ import DataListTable from "../../components/DataListTable/DataListTable";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
 import { api, ApiError, offeringLabel, type CourseOffering } from "../../api/client";
 import { he } from "../../i18n/he";
+import { offeringTeacherNames } from "../../utils/offeringTeachers";
 
 interface TeacherOption {
   id: number;
@@ -125,10 +126,10 @@ export default function AdminCoursesPage() {
       },
       {
         key: "teacher_name",
-        label: he.teacher,
+        label: he.teachers,
         minWidth: 140,
-        getValue: (c) => c.teacher_name,
-        renderCell: (c) => c.teacher_name,
+        getValue: (c) => offeringTeacherNames(c),
+        renderCell: (c) => offeringTeacherNames(c),
       },
       {
         key: "enrollment",

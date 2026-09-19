@@ -17,12 +17,18 @@ import {
   Tooltip,
 } from "@mui/material";
 import GroupIcon from "@mui/icons-material/Group";
+import PeopleIcon from "@mui/icons-material/People";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import QuizIcon from "@mui/icons-material/Quiz";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { OfferingCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
-import { api, ApiError, type CatalogCourse, type CourseOffering } from "../../api/client";
+import InviteOfferingTeacherDialog from "../../components/InviteOfferingTeacherDialog";
+import OfferingTeachersDialog from "../../components/OfferingTeachersDialog";
+import { api, ApiError, offeringLabel, type CatalogCourse, type CourseOffering } from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 import { he } from "../../i18n/he";
+import { isOfferingOwner } from "../../utils/offeringTeachers";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const NEW_CATALOG_ID = "__new__";
@@ -38,7 +44,10 @@ const emptyOfferingForm = () => ({
 });
 
 export default function TeacherCoursesPage() {
+  const { user } = useAuth();
   const [offerings, setOfferings] = useState<CourseOffering[]>([]);
+  const [inviteOffering, setInviteOffering] = useState<CourseOffering | null>(null);
+  const [manageOffering, setManageOffering] = useState<CourseOffering | null>(null);
   const [catalogs, setCatalogs] = useState<CatalogCourse[]>([]);
   const [catalogsFetched, setCatalogsFetched] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -177,6 +186,26 @@ export default function TeacherCoursesPage() {
           emptyMessage={he.noCourses}
           renderActions={(o) => (
             <>
+              <Tooltip title={he.manageOfferingTeachers}>
+                <IconButton
+                  size="small"
+                  sx={{ color: "text.secondary" }}
+                  onClick={() => setManageOffering(o)}
+                >
+                  <PeopleIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              {isOfferingOwner(o.teachers, user?.id) && (
+                <Tooltip title={he.inviteOfferingTeacher}>
+                  <IconButton
+                    size="small"
+                    sx={{ color: "secondary.main" }}
+                    onClick={() => setInviteOffering(o)}
+                  >
+                    <PersonAddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title={he.manageCourseStudents}>
                 <IconButton
                   component={RouterLink}
@@ -329,6 +358,20 @@ export default function TeacherCoursesPage() {
           </DisabledActionTooltip>
         </DialogActions>
       </Dialog>
+      <InviteOfferingTeacherDialog
+        open={!!inviteOffering}
+        offeringId={inviteOffering?.id ?? null}
+        itemLabel={inviteOffering ? offeringLabel(inviteOffering) : ""}
+        onClose={() => setInviteOffering(null)}
+        onSent={loadOfferings}
+      />
+      <OfferingTeachersDialog
+        open={!!manageOffering}
+        offeringId={manageOffering?.id ?? null}
+        userId={user?.id}
+        onClose={() => setManageOffering(null)}
+        onChanged={loadOfferings}
+      />
     </Box>
   );
 }

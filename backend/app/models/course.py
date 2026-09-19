@@ -55,6 +55,9 @@ class CourseOffering(Base):
 
     catalog_course = relationship("CourseCatalog", back_populates="offerings")
     teacher = relationship("User", back_populates="offerings_teaching")
+    teacher_members = relationship(
+        "OfferingTeacher", back_populates="offering", cascade="all, delete-orphan"
+    )
     enrollments = relationship("CourseEnrollment", back_populates="offering")
     exam_sessions = relationship("ExamSession", back_populates="offering")
 

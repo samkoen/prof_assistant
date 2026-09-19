@@ -13,6 +13,7 @@ import { api, ApiError, semesterLabel, type JoinPreview } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { authPathWithJoin, formatJoinExpiresAt } from "../utils/joinCourse";
 import { he } from "../i18n/he";
+import { offeringTeacherNames } from "../utils/offeringTeachers";
 
 function joinPreviewPath(joinToken?: string, legacyOfferingId?: number): string | null {
   if (joinToken) {
@@ -112,7 +113,7 @@ export default function StudentJoinCoursePage() {
             {offeringSummary}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {he.teacher}: {preview.teacher_name}
+            {he.teachers}: {offeringTeacherNames(preview)}
           </Typography>
           {preview.description && (
             <Typography variant="body2" sx={{ mt: 1 }}>
