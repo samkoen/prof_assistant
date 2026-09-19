@@ -52,6 +52,7 @@ class NotificationType(str, enum.Enum):
     TIME_WARNING = "time_warning"
     TIME_EXPIRED = "time_expired"
     TEACHER_SHARE_RECEIVED = "teacher_share_received"
+    OFFERING_TEACHER_INVITE = "offering_teacher_invite"
 
 
 class TeacherShareType(str, enum.Enum):
@@ -60,6 +61,17 @@ class TeacherShareType(str, enum.Enum):
 
 
 class TeacherShareStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
+class OfferingTeacherRole(str, enum.Enum):
+    OWNER = "owner"
+    CO_TEACHER = "co_teacher"
+
+
+class OfferingTeacherInviteStatus(str, enum.Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"

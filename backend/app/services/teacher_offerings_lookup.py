@@ -9,6 +9,7 @@ from app.models.enums import UserRole
 from app.models.user import User
 from app.services.course_helpers import offering_to_response
 from app.services.enrollment_service import load_student_enrolled_session_keys
+from app.services.offering_access import offering_managed_by_clause
 
 
 async def find_teacher_by_email(db: AsyncSession, email: str) -> User:
@@ -43,7 +44,7 @@ async def load_teacher_open_offerings(
 ) -> list[CourseOffering]:
     result = await db.execute(
         offering_query.where(
-            CourseOffering.teacher_id == teacher_id,
+            offering_managed_by_clause(teacher_id),
             CourseOffering.is_open_enrollment.is_(True),
         ).order_by(CourseOffering.academic_year.desc(), CourseOffering.semester, CourseOffering.group_name)
     )

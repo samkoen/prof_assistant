@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import AcceptTeacherShareDialog from "../../components/AcceptTeacherShareDialog";
+import OfferingTeacherInvitesSection from "../../components/OfferingTeacherInvitesSection";
 import { api, ApiError, type TeacherShare } from "../../api/client";
 import { he } from "../../i18n/he";
 
@@ -146,6 +147,7 @@ export default function TeacherSharesPage() {
               </TableBody>
             </Table>
           </Paper>
+          <OfferingTeacherInvitesSection onError={setError} />
         </>
       )}
       <AcceptTeacherShareDialog

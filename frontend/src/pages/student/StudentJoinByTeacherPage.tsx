@@ -22,6 +22,7 @@ import {
   type TeacherOpenOfferings,
 } from "../../api/client";
 import { he } from "../../i18n/he";
+import { offeringTeacherNames } from "../../utils/offeringTeachers";
 
 async function requestEnrollment(offeringId: number): Promise<{ status: string }> {
   return api("/api/enrollments/request", {
@@ -79,6 +80,9 @@ function OfferingJoinCard({
       <CardContent>
         <Typography variant="h6" fontWeight={600}>
           {offeringLabel(offering)}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {offeringTeacherNames(offering)}
         </Typography>
         {offering.description && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>

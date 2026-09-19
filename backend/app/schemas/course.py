@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.enums import EnrollmentStatus
+from app.schemas.offering_teacher import OfferingTeacherRef
 
 
 class CourseOfferingCreate(BaseModel):
@@ -36,6 +37,7 @@ class CourseOfferingResponse(BaseModel):
     is_open_enrollment: bool
     auto_approve_enrollment: bool
     teacher_name: str
+    teachers: list[OfferingTeacherRef] = Field(default_factory=list)
     created_at: datetime
     enrollment_status: EnrollmentStatus | None = None
     join_token: str | None = None
@@ -51,6 +53,7 @@ class JoinPreviewResponse(BaseModel):
     academic_year: int
     semester: int
     teacher_name: str
+    teachers: list[OfferingTeacherRef] = Field(default_factory=list)
     description: str | None
     is_open_enrollment: bool
     auto_approve_enrollment: bool

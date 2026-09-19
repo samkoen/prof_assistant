@@ -6,8 +6,6 @@ from pydantic import BaseModel, Field
 from app.schemas.types import AppEmail
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
@@ -17,7 +15,8 @@ from app.models.user import User
 from app.schemas.auth import UserResponse
 from app.schemas.course import CourseOfferingCreate, CourseOfferingResponse
 from app.security import hash_password
-from app.services.course_helpers import offering_to_response
+from app.services.course_helpers import offering_eager_options, offering_to_response
+from app.services.offering_access import ensure_owner_membership, offering_managed_by_clause
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -128,7 +127,10 @@ async def reset_password(
         enrolled = await db.execute(
             select(CourseEnrollment)
             .join(CourseOffering)
-            .where(CourseEnrollment.student_id == user_id, CourseOffering.teacher_id == current.id)
+            .where(
+                CourseEnrollment.student_id == user_id,
+                offering_managed_by_clause(current.id),
+            )
         )
         if not enrolled.scalar_one_or_none():
             raise HTTPException(status_code=403, detail="התלמיד לא בקורס שלך")
@@ -148,29 +150,12 @@ async def list_teachers(
     return result.scalars().all()
 
 
-@router.post("/courses", response_model=CourseOfferingResponse)
-async def admin_create_offering(
-    body: AdminOfferingCreate,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN)),
-):
-    teacher = await db.get(User, body.teacher_id)
-    if not teacher or teacher.role != UserRole.TEACHER:
-        raise HTTPException(status_code=400, detail="מורה לא נמצא")
-
-    catalog = CourseCatalog(
-        name=body.catalog_name,
-        description=body.catalog_description,
-        teacher_id=teacher.id,
-    )
-    db.add(catalog)
-    await db.flush()
-
+def _admin_new_offering(body: AdminOfferingCreate, catalog_id: int, teacher_id: int) -> CourseOffering:
     from app.services.join_token_service import assign_join_token, expires_at_from_valid_days
 
     offering = CourseOffering(
-        catalog_course_id=catalog.id,
-        teacher_id=teacher.id,
+        catalog_course_id=catalog_id,
+        teacher_id=teacher_id,
         group_name=body.group_name,
         academic_year=body.academic_year,
         semester=body.semester,
@@ -180,16 +165,32 @@ async def admin_create_offering(
         join_token_expires_at=expires_at_from_valid_days(1),
     )
     assign_join_token(offering)
-    db.add(offering)
-    await db.commit()
+    return offering
 
+
+@router.post("/courses", response_model=CourseOfferingResponse)
+async def admin_create_offering(
+    body: AdminOfferingCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    teacher = await db.get(User, body.teacher_id)
+    if not teacher or teacher.role != UserRole.TEACHER:
+        raise HTTPException(status_code=400, detail="מורה לא נמצא")
+    catalog = CourseCatalog(
+        name=body.catalog_name,
+        description=body.catalog_description,
+        teacher_id=teacher.id,
+    )
+    db.add(catalog)
+    await db.flush()
+    offering = _admin_new_offering(body, catalog.id, teacher.id)
+    db.add(offering)
+    await db.flush()
+    await ensure_owner_membership(db, offering)
+    await db.commit()
     result = await db.execute(
-        select(CourseOffering)
-        .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
-        )
-        .where(CourseOffering.id == offering.id)
+        select(CourseOffering).options(*offering_eager_options()).where(CourseOffering.id == offering.id)
     )
     return offering_to_response(result.scalar_one())
 
@@ -200,10 +201,7 @@ async def all_offerings(
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
     result = await db.execute(
-        select(CourseOffering).options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
-        )
+        select(CourseOffering).options(*offering_eager_options())
     )
     return [offering_to_response(o) for o in result.scalars().all()]
 

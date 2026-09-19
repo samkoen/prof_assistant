@@ -14,6 +14,7 @@ import type { CatalogCourse, CourseOffering } from "../../api/client";
 import { semesterLabel } from "../../api/client";
 import { courseCardColor } from "../../constants/courseCardColors";
 import { he } from "../../i18n/he";
+import { offeringTeacherNames } from "../../utils/offeringTeachers";
 
 function formatDate(iso: string): string {
   try {
@@ -146,12 +147,11 @@ export function OfferingCardGrid({
                 >
                   {offering.description}
                 </Typography>
-              ) : (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, color: "text.secondary" }}>
-                  <MenuBookOutlinedIcon sx={{ fontSize: 18, opacity: 0.7 }} />
-                  <Typography variant="caption">{offering.teacher_name}</Typography>
-                </Box>
-              )}
+              ) : null}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, color: "text.secondary" }}>
+                <MenuBookOutlinedIcon sx={{ fontSize: 18, opacity: 0.7 }} />
+                <Typography variant="caption">{offeringTeacherNames(offering)}</Typography>
+              </Box>
             </Box>
           </Card>
         );

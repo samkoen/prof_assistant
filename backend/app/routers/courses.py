@@ -32,7 +32,12 @@ from app.services.teacher_offerings_lookup import (
 )
 from app.schemas.student import AddStudentToCourseRequest, CourseEnrollmentDetail
 from app.schemas.exam import StudentOfferingExamResultRow, StudentOfferingExamResultsResponse
-from app.services.course_helpers import offering_to_response
+from app.services.course_helpers import offering_eager_options, offering_to_response
+from app.services.offering_access import (
+    ensure_owner_membership,
+    offering_managed_by_clause,
+    require_teacher_manages_offering,
+)
 from app.services.exam_board_service import active_exam_counts_for_student
 from app.services.enrollment_service import (
     create_student_enrollment,
@@ -58,36 +63,11 @@ from app.services.join_preview import (
 router = APIRouter(tags=["courses"])
 
 
-async def _teacher_owns_offering(offering_id: int, teacher_id: int, db: AsyncSession) -> CourseOffering:
-    result = await db.execute(
-        select(CourseOffering).where(CourseOffering.id == offering_id, CourseOffering.teacher_id == teacher_id)
-    )
-    offering = result.scalar_one_or_none()
-    if not offering:
-        raise HTTPException(status_code=404, detail="קורס לא נמצא")
-    return offering
-
-
 def _offering_query():
-    return select(CourseOffering).options(
-        selectinload(CourseOffering.catalog_course),
-        selectinload(CourseOffering.teacher),
-    )
+    return select(CourseOffering).options(*offering_eager_options())
 
 
-@router.post("/courses", response_model=CourseOfferingResponse)
-async def create_offering(
-    body: CourseOfferingCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
-):
-    catalog = await db.get(CourseCatalog, body.catalog_course_id)
-    if not catalog:
-        raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
-    if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
-        raise HTTPException(status_code=403, detail="אין הרשאה לקורס קטלוג זה")
-
-    teacher_id = user.id
+def _new_offering(body: CourseOfferingCreate, teacher_id: int) -> CourseOffering:
     offering = CourseOffering(
         catalog_course_id=body.catalog_course_id,
         teacher_id=teacher_id,
@@ -101,8 +81,14 @@ async def create_offering(
         join_token_expires_at=expires_at_from_valid_days(1),
     )
     assign_join_token(offering)
+    return offering
+
+
+async def _persist_new_offering(db: AsyncSession, offering: CourseOffering) -> CourseOffering:
     db.add(offering)
     try:
+        await db.flush()
+        await ensure_owner_membership(db, offering)
         await db.commit()
     except IntegrityError:
         await db.rollback()
@@ -111,7 +97,22 @@ async def create_offering(
             detail="הרצה זו כבר קיימת (אותו קורס, שנה, סמסטר וקבוצה)",
         )
     result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
-    return offering_to_response(result.scalar_one(), include_join_link=True)
+    return result.scalar_one()
+
+
+@router.post("/courses", response_model=CourseOfferingResponse)
+async def create_offering(
+    body: CourseOfferingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    catalog = await db.get(CourseCatalog, body.catalog_course_id)
+    if not catalog:
+        raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+    if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
+        raise HTTPException(status_code=403, detail="אין הרשאה לקורס קטלוג זה")
+    offering = await _persist_new_offering(db, _new_offering(body, user.id))
+    return offering_to_response(offering, include_join_link=True)
 
 
 async def _join_preview_response(
@@ -165,7 +166,7 @@ async def update_enrollment_settings(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     if user.role == UserRole.TEACHER:
-        offering = await _teacher_owns_offering(offering_id, user.id, db)
+        offering = await require_teacher_manages_offering(db, offering_id, user.id)
     else:
         offering = await db.get(CourseOffering, offering_id)
         if not offering:
@@ -184,7 +185,7 @@ async def renew_join_link(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     if user.role == UserRole.TEACHER:
-        offering = await _teacher_owns_offering(offering_id, user.id, db)
+        offering = await require_teacher_manages_offering(db, offering_id, user.id)
     else:
         offering = await db.get(CourseOffering, offering_id)
         if not offering:
@@ -202,7 +203,7 @@ async def list_offering_enrollments(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     if user.role == UserRole.TEACHER:
-        await _teacher_owns_offering(offering_id, user.id, db)
+        await require_teacher_manages_offering(db, offering_id, user.id)
     result = await db.execute(
         select(CourseEnrollment)
         .options(selectinload(CourseEnrollment.student))
@@ -238,7 +239,7 @@ async def get_student_offering_exam_results(
         result = await db.execute(
             select(CourseOffering)
             .options(selectinload(CourseOffering.catalog_course))
-            .where(CourseOffering.id == offering_id, CourseOffering.teacher_id == user.id)
+            .where(CourseOffering.id == offering_id, offering_managed_by_clause(user.id))
         )
         offering = result.scalar_one_or_none()
         if not offering:
@@ -341,7 +342,7 @@ async def add_student_to_offering(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     if user.role == UserRole.TEACHER:
-        offering = await _teacher_owns_offering(offering_id, user.id, db)
+        offering = await require_teacher_manages_offering(db, offering_id, user.id)
     else:
         offering = await db.get(CourseOffering, offering_id)
         if not offering:
@@ -423,8 +424,10 @@ async def remove_student_from_offering(
     enrollment = result.scalar_one_or_none()
     if not enrollment:
         raise HTTPException(status_code=404, detail="רישום לא נמצא")
-    if user.role == UserRole.TEACHER and enrollment.offering.teacher_id != user.id:
-        raise HTTPException(status_code=403, detail="אין הרשאה")
+    if user.role == UserRole.TEACHER:
+        await require_teacher_manages_offering(
+            db, enrollment.offering_id, user.id, status_code=403, detail="אין הרשאה"
+        )
 
     await db.delete(enrollment)
     await db.commit()
@@ -440,8 +443,7 @@ async def student_courses_board(
         select(CourseOffering, CourseEnrollment.status, CourseEnrollment.created_at)
         .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
         .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
+            *offering_eager_options(),
         )
         .where(
             CourseEnrollment.student_id == user.id,
@@ -454,8 +456,7 @@ async def student_courses_board(
         select(CourseOffering, CourseEnrollment.status)
         .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
         .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
+            *offering_eager_options(),
         )
         .where(
             CourseEnrollment.student_id == user.id,
@@ -484,15 +485,12 @@ async def my_offerings(
 ):
     q = _offering_query()
     if user.role == UserRole.TEACHER:
-        q = q.where(CourseOffering.teacher_id == user.id)
+        q = q.where(offering_managed_by_clause(user.id))
     elif user.role == UserRole.STUDENT:
         result = await db.execute(
             select(CourseOffering, CourseEnrollment.status, CourseEnrollment.created_at)
             .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
-            .options(
-                selectinload(CourseOffering.catalog_course),
-                selectinload(CourseOffering.teacher),
-            )
+            .options(*offering_eager_options())
             .where(
                 CourseEnrollment.student_id == user.id,
                 CourseEnrollment.status == EnrollmentStatus.APPROVED,
@@ -520,8 +518,7 @@ async def my_pending_offerings(
         select(CourseOffering, CourseEnrollment.status)
         .join(CourseEnrollment, CourseEnrollment.offering_id == CourseOffering.id)
         .options(
-            selectinload(CourseOffering.catalog_course),
-            selectinload(CourseOffering.teacher),
+            *offering_eager_options(),
         )
         .where(
             CourseEnrollment.student_id == user.id,
@@ -598,7 +595,7 @@ async def pending_enrollments(
             selectinload(CourseEnrollment.offering).selectinload(CourseOffering.catalog_course),
         )
         .where(
-            CourseOffering.teacher_id == user.id,
+            offering_managed_by_clause(user.id),
             CourseEnrollment.status == EnrollmentStatus.PENDING,
         )
     )
@@ -623,7 +620,7 @@ async def review_enrollment(
             selectinload(CourseEnrollment.student),
             selectinload(CourseEnrollment.offering).selectinload(CourseOffering.catalog_course),
         )
-        .where(CourseEnrollment.id == enrollment_id, CourseOffering.teacher_id == user.id)
+        .where(CourseEnrollment.id == enrollment_id, offering_managed_by_clause(user.id))
     )
     enrollment = result.scalar_one_or_none()
     if not enrollment:

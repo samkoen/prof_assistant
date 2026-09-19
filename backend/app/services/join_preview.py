@@ -7,6 +7,7 @@ from app.models.enums import EnrollmentStatus
 from app.models.user import User
 from app.schemas.course import JoinPreviewResponse
 from app.services.enrollment_service import find_existing_enrollment
+from app.services.offering_teacher_service import teacher_refs_from_members
 from app.services.join_token_service import ensure_join_link_valid, is_join_link_valid
 
 
@@ -22,6 +23,7 @@ def build_join_preview(
         academic_year=offering.academic_year,
         semester=offering.semester,
         teacher_name=offering.teacher.full_name,
+        teachers=teacher_refs_from_members(list(offering.teacher_members or []), offering),
         description=offering.description,
         is_open_enrollment=offering.is_open_enrollment and link_valid,
         auto_approve_enrollment=offering.auto_approve_enrollment,

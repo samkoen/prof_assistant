@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.course import CourseEnrollment, CourseOffering
+from app.services.course_helpers import offering_eager_options
+from app.services.offering_access import list_offering_member_ids
 from app.models.enums import EnrollmentStatus, NotificationType, UserRole
 from app.models.notification import Notification
 from app.models.user import User
@@ -100,15 +102,19 @@ async def create_student_enrollment(
     if status == EnrollmentStatus.APPROVED:
         await notify_student_enrollment_approved(db, student.id, offering.id)
     else:
-        await notify_teacher_enrollment_request(db, offering.teacher_id, student, offering)
+        await notify_offering_teachers_enrollment_request(db, student, offering)
     return enrollment
 
 
+async def notify_offering_teachers_enrollment_request(
+    db: AsyncSession, student: User, offering: CourseOffering
+) -> None:
+    for teacher_id in await list_offering_member_ids(db, offering.id):
+        await notify_teacher_enrollment_request(db, teacher_id, student, offering)
+
+
 def _offering_join_query():
-    return select(CourseOffering).options(
-        selectinload(CourseOffering.catalog_course),
-        selectinload(CourseOffering.teacher),
-    )
+    return select(CourseOffering).options(*offering_eager_options())
 
 
 async def load_offering_for_join(offering_id: int, db: AsyncSession) -> CourseOffering | None:
