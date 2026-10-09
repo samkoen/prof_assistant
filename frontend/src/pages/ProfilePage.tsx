@@ -8,6 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import AiCreditsProfileCard from "../components/AiCreditsProfileCard";
 import BidiTextField from "../components/BidiTextField";
 import ListPageToolbar from "../components/ListPageToolbar";
 import StudentGeminiConfigCard from "../components/StudentGeminiConfigCard";
@@ -105,6 +106,7 @@ export default function ProfilePage() {
   return (
     <Box dir="rtl">
       <ListPageToolbar title={he.myProfile} subtitle={he.profileSubtitle} />
+      <AiCreditsProfileCard role={user.role} />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>

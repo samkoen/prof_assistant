@@ -16,6 +16,7 @@ type Options = {
   enabled: boolean;
   onSessionUpdate: (session: GeminiGenerationSession) => void;
   onError: (message: string) => void;
+  onCreditsRequired?: (error: unknown) => boolean;
   onRawText?: (text: string) => void;
 };
 
@@ -34,6 +35,7 @@ export function useGeminiAutoStructureFix({
   enabled,
   onSessionUpdate,
   onError,
+  onCreditsRequired,
   onRawText,
 }: Options): { autoFixing: boolean } {
   const [autoFixing, setAutoFixing] = useState(false);
@@ -41,10 +43,10 @@ export function useGeminiAutoStructureFix({
   const lastTriedRawRef = useRef<string | null>(null);
   const sessionIdRef = useRef<number | null>(null);
   const errorsRef = useRef(errors);
-  const callbacksRef = useRef({ onSessionUpdate, onError, onRawText });
+  const callbacksRef = useRef({ onSessionUpdate, onError, onCreditsRequired, onRawText });
 
   errorsRef.current = errors;
-  callbacksRef.current = { onSessionUpdate, onError, onRawText };
+  callbacksRef.current = { onSessionUpdate, onError, onCreditsRequired, onRawText };
 
   if (session?.id !== sessionIdRef.current) {
     sessionIdRef.current = session?.id ?? null;
@@ -81,7 +83,9 @@ export function useGeminiAutoStructureFix({
         callbacksRef.current.onSessionUpdate(updated);
         if (updated.raw_text) callbacksRef.current.onRawText?.(updated.raw_text);
       } catch (e) {
-        if (!cancelled) callbacksRef.current.onError(resolveGeminiApiError(e));
+        if (cancelled) return;
+        if (callbacksRef.current.onCreditsRequired?.(e)) return;
+        callbacksRef.current.onError(resolveGeminiApiError(e));
       } finally {
         setAutoFixing(false);
       }

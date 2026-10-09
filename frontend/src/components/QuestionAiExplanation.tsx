@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
+import { notifyBillingChanged } from "../api/billing";
 import { api, ApiError, type AiExplanation } from "../api/client";
 import AiExplanationMarkdown from "./AiExplanationMarkdown";
+import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
+import { STUDENT_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
 
 interface QuestionAiExplanationProps {
@@ -24,6 +27,7 @@ export default function QuestionAiExplanation({
   const [error, setError] = useState("");
   const [explanation, setExplanation] = useState("");
   const [fromCache, setFromCache] = useState(false);
+  const paywall = useAiCreditsPaywall();
   const explanationDir = language === "he" || language === "ru" ? "rtl" : "ltr";
 
   const requestExplanation = async (regenerate = false) => {
@@ -39,10 +43,13 @@ export default function QuestionAiExplanation({
       );
       setExplanation(res.explanation);
       setFromCache(Boolean(res.from_cache));
+      if (!res.from_cache) notifyBillingChanged();
     } catch (e) {
       setExplanation("");
       setFromCache(false);
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      if (!paywall.openFromError(e)) {
+        setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      }
     } finally {
       setLoading(false);
     }
@@ -50,6 +57,8 @@ export default function QuestionAiExplanation({
 
   return (
     <Box dir="rtl" sx={{ mt: 2 }}>
+      {paywall.dialog}
+      <AiCreditBalance product={STUDENT_AI_PRODUCT} />
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Button
           variant="outlined"

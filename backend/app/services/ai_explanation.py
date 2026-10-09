@@ -14,6 +14,8 @@ from app.services.ai_explanation_prompt import (
     explanation_system_prompt,
 )
 from app.services.ai_client import AiError, generate_text
+from app.services.billing.constants import STUDENT_AI
+from app.services.billing.context import bill_ai
 from app.services.exam_kind import is_tirgoul
 
 
@@ -171,7 +173,8 @@ async def explain_exam_question(
     if cached:
         return cached.explanation, True
     try:
-        explanation = await _generate_explanation(question, selected, language)
+        async with bill_ai(user, STUDENT_AI):
+            explanation = await _generate_explanation(question, selected, language)
         await _upsert_cache(
             attempt_id, question_id, language, explanation, db, for_practice=for_practice
         )
@@ -193,7 +196,8 @@ async def regenerate_exam_question_explanation(
         session_id, question_id, user, db, for_practice=for_practice
     )
     try:
-        explanation = await _generate_explanation(question, selected, language)
+        async with bill_ai(user, STUDENT_AI):
+            explanation = await _generate_explanation(question, selected, language)
         await _upsert_cache(
             attempt_id, question_id, language, explanation, db, for_practice=for_practice
         )

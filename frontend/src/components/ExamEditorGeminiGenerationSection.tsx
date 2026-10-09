@@ -31,6 +31,8 @@ import { isLowTopicOverlap } from "../utils/geminiTopicOverlap";
 import type { GeminiGenerationPreview } from "../types/geminiGenerationPreview";
 import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
+import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
+import { TEACHER_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
 
 interface ExamEditorGeminiGenerationSectionProps {
@@ -68,6 +70,7 @@ export default function ExamEditorGeminiGenerationSection({
   const [previewStep, setPreviewStep] = useState(false);
   const [previewData, setPreviewData] = useState<GeminiGenerationPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const { openFromError, dialog: creditsDialog } = useAiCreditsPaywall();
 
   const editable = exam.is_editable;
   const totalQuestions = seriesList.reduce((sum, s) => sum + s.questionCount, 0);
@@ -123,6 +126,7 @@ export default function ExamEditorGeminiGenerationSection({
         } catch {
           setSession(current);
         }
+        if (openFromError(e)) return current;
         const message = resolveGeminiApiError(e);
         const timeout = isGeminiTimeoutError(e);
         setBatchError({ message, timeout });
@@ -132,7 +136,7 @@ export default function ExamEditorGeminiGenerationSection({
         setGenerating(false);
       }
     },
-    [onError],
+    [onError, openFromError],
   );
 
   const loadActiveSession = useCallback(async () => {
@@ -169,6 +173,7 @@ export default function ExamEditorGeminiGenerationSection({
       parseErrors.length > 0,
     onSessionUpdate: setSession,
     onError,
+    onCreditsRequired: openFromError,
   });
 
   useEffect(() => {
@@ -226,7 +231,7 @@ export default function ExamEditorGeminiGenerationSection({
       setPreviewData(preview);
       setPreviewStep(true);
     } catch (e) {
-      onError(resolveGeminiApiError(e));
+      if (!openFromError(e)) onError(resolveGeminiApiError(e));
     } finally {
       setLoadingPreview(false);
     }
@@ -257,9 +262,11 @@ export default function ExamEditorGeminiGenerationSection({
         await continueIncompleteSession(created);
       }
     } catch (e) {
-      const message = resolveGeminiApiError(e);
-      setBatchError({ message, timeout: isGeminiTimeoutError(e) });
-      onError(message);
+      if (!openFromError(e)) {
+        const message = resolveGeminiApiError(e);
+        setBatchError({ message, timeout: isGeminiTimeoutError(e) });
+        onError(message);
+      }
     } finally {
       setGenerating(false);
     }
@@ -315,6 +322,8 @@ export default function ExamEditorGeminiGenerationSection({
 
   return (
     <Box dir="rtl">
+      {creditsDialog}
+      <AiCreditBalance product={TEACHER_AI_PRODUCT} />
       <Typography variant="body2" color="text.secondary" paragraph sx={hebrewAlignRightSx}>
         {he.geminiGenerateIntro}
       </Typography>

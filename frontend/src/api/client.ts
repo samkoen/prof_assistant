@@ -15,14 +15,13 @@ export async function uploadQuestionImage(examId: number, file: File): Promise<s
     body: form,
   });
   if (!res.ok) {
-    let detail = "אירעה שגיאה";
+    let data: unknown = null;
     try {
-      const data = await res.json();
-      detail = data.detail ?? detail;
+      data = await res.json();
     } catch {
       /* ignore */
     }
-    throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
+    throw new ApiError(errorMessage(data, "אירעה שגיאה"), res.status, data);
   }
   const data = (await res.json()) as { url: string };
   return data.url;
@@ -31,10 +30,22 @@ export async function uploadQuestionImage(examId: number, file: File): Promise<s
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
+    public data: unknown = null,
   ) {
     super(message);
   }
+}
+
+function errorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== "object") return fallback;
+  const detail = (data as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "message" in detail) {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
 }
 
 export async function api<T>(
@@ -50,14 +61,13 @@ export async function api<T>(
     },
   });
   if (!res.ok) {
-    let detail = "אירעה שגיאה";
+    let data: unknown = null;
     try {
-      const data = await res.json();
-      detail = data.detail ?? detail;
+      data = await res.json();
     } catch {
       /* ignore */
     }
-    throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
+    throw new ApiError(errorMessage(data, "אירעה שגיאה"), res.status, data);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

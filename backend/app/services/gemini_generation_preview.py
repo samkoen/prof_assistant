@@ -11,6 +11,8 @@ from app.schemas.gemini_questions import (
     GeminiSourcePreviewItem,
 )
 from app.services.ai_client import AiError, generate_text
+from app.services.billing.constants import TEACHER_GENERATION
+from app.services.billing.context import bill_ai
 from app.services.ai_prompt_render import render_prompt
 from app.services.ai_prompt_store import get_prompt_body
 from app.services.exam_gemini_source_service import load_sources_for_generation
@@ -90,7 +92,8 @@ async def preview_generation_context(
     total = sum(s.question_count for s in series)
     prompt = _build_summary_prompt(instructions, preview_sources, total, exam.title)
     try:
-        ai_summary = (await generate_text(prompt, for_generation=True)).strip()
+        async with bill_ai(user, TEACHER_GENERATION):
+            ai_summary = (await generate_text(prompt, for_generation=True)).strip()
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not ai_summary:

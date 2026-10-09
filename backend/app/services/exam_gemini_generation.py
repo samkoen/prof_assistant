@@ -27,6 +27,8 @@ from app.services.exam_questions import (
     validate_question_body,
 )
 from app.services.ai_client import AiError, generate_chat, generate_text
+from app.services.billing.constants import TEACHER_GENERATION
+from app.services.billing.context import bill_ai
 from app.services.gemini_batch_runner import (
     batch_progress,
     init_batch_params,
@@ -163,6 +165,17 @@ async def _append_refine_exchange(
     return raw
 
 
+async def _run_billed_batch(session, exam, series, user: User, db: AsyncSession) -> None:
+    started = time.monotonic()
+    async with bill_ai(user, TEACHER_GENERATION, session.id):
+        await run_generation_batch(session, exam, series, db)
+    logger.info(
+        "gemini-sessions batch session_id=%s took %.1fs",
+        session.id,
+        time.monotonic() - started,
+    )
+
+
 async def create_generation_session(
     exam: Exam,
     user: User,
@@ -182,14 +195,7 @@ async def create_generation_session(
     )
     db.add(session)
     await db.flush()
-    started = time.monotonic()
-    await run_generation_batch(session, exam, series, db)
-    logger.info(
-        "gemini-sessions create exam_id=%s session_id=%s batch took %.1fs",
-        exam.id,
-        session.id,
-        time.monotonic() - started,
-    )
+    await _run_billed_batch(session, exam, series, user, db)
     await db.commit()
     return _session_to_response(
         await _load_owned_session(session.id, user, db),
@@ -213,13 +219,7 @@ async def run_next_generation_batch(
     if not exam:
         raise HTTPException(status_code=404, detail="מבחן לא נמצא")
     series = _series_from_session(session)
-    started = time.monotonic()
-    await run_generation_batch(session, exam, series, db)
-    logger.info(
-        "gemini-sessions next-batch session_id=%s took %.1fs",
-        session.id,
-        time.monotonic() - started,
-    )
+    await _run_billed_batch(session, exam, series, user, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))
 
@@ -237,7 +237,8 @@ async def refine_generation_session(
     if user_turns >= MAX_REFINE_TURNS:
         raise HTTPException(status_code=400, detail="הגעתם למספר המקסימלי של בקשות עדכון")
     refine_text = build_refine_user_message(message, _series_from_session(session))
-    await _append_refine_exchange(session, refine_text, db)
+    async with bill_ai(user, TEACHER_GENERATION, session.id):
+        await _append_refine_exchange(session, refine_text, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))
 

@@ -3,6 +3,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AutoDeleteIcon from "@mui/icons-material/AutoDelete";
+import PaidIcon from "@mui/icons-material/Paid";
 import DescriptionIcon from "@mui/icons-material/Description";
 import ShareIcon from "@mui/icons-material/Share";
 import QuizIcon from "@mui/icons-material/Quiz";
@@ -38,6 +39,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.allCourses, icon: <MenuBookIcon />, path: "/admin/courses" },
       { text: he.aiExplanationsAdminTitle, icon: <AutoDeleteIcon />, path: "/admin/ai-explanations" },
       { text: he.aiPromptsAdminTitle, icon: <DescriptionIcon />, path: "/admin/ai-prompts" },
+      { text: he.aiBillingAdminTitle, icon: <PaidIcon />, path: "/admin/ai-billing" },
       profileMenuItem,
     ];
   }

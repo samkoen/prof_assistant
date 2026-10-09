@@ -9,6 +9,7 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   server: {
+      allowedHosts: ['.trycloudflare.com'],
     port: 5173,
     proxy: {
       "/api": {

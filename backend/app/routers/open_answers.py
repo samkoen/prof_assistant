@@ -53,5 +53,5 @@ async def generate_open_model_answer(
     from app.routers.exams import _get_teacher_exam
 
     await _get_teacher_exam(exam_id, user, db)
-    text = await generate_model_answer_text(body.question_text, body.language)
+    text = await generate_model_answer_text(body.question_text, body.language, user=user)
     return GenerateModelAnswerResponse(model_answer=text)

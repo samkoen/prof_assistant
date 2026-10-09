@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
+import { notifyBillingChanged } from "../api/billing";
 import { api, ApiError, type ExamReviewQuestion, type OpenEvaluation } from "../api/client";
 import AiExplanationMarkdown from "./AiExplanationMarkdown";
+import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
+import { STUDENT_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
 import type { ExplanationLanguage } from "./QuestionAiExplanation";
 
@@ -38,6 +41,7 @@ export default function QuestionOpenEvaluation({
       : null,
   );
   const dir = evaluationDir(language);
+  const paywall = useAiCreditsPaywall();
 
   const requestEval = async (regenerate = false) => {
     setLoading(true);
@@ -52,8 +56,11 @@ export default function QuestionOpenEvaluation({
       );
       setResult(res);
       onAttemptScore?.(res.attempt_score ?? null, res.attempt_max_score ?? null);
+      if (!res.from_cache) notifyBillingChanged();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      if (!paywall.openFromError(e)) {
+        setError(e instanceof ApiError ? e.message : he.errorGeneric);
+      }
     } finally {
       setLoading(false);
     }
@@ -68,6 +75,8 @@ export default function QuestionOpenEvaluation({
 
   return (
     <Box dir="rtl" sx={{ mt: 2 }}>
+      {paywall.dialog}
+      <AiCreditBalance product={STUDENT_AI_PRODUCT} />
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Button variant="outlined" size="small" onClick={() => requestEval(false)} disabled={loading}>
           {loading ? <CircularProgress size={16} /> : he.openEvaluationTitle}

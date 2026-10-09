@@ -268,6 +268,73 @@ async def _generate_chat_with_opencode_fallback(
         )
 
 
+async def _run_text(
+    prompt: str,
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
+    if uses_gemini(for_generation=for_generation):
+        return await _generate_text_with_opencode_fallback(
+            prompt,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+    return await _generate_text_opencode(
+        prompt,
+        system=system,
+        timeout_seconds=timeout_seconds,
+        for_generation=for_generation,
+    )
+
+
+async def _run_chat(
+    contents: list[dict],
+    *,
+    system: str | None,
+    timeout_seconds: float | None,
+    for_generation: bool,
+) -> str:
+    if uses_gemini(for_generation=for_generation):
+        return await _generate_chat_with_opencode_fallback(
+            contents,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        )
+    return await _generate_chat_opencode(
+        contents,
+        system=system,
+        timeout_seconds=timeout_seconds,
+        for_generation=for_generation,
+    )
+
+
+async def _metered(run, *, mode: str, for_generation: bool) -> str:
+    from app.services.billing.meter import begin_hold, confirm_hold, release_hold
+
+    started = time.monotonic()
+    _log_ai_call_start(mode=mode, for_generation=for_generation)
+    try:
+        hold = await begin_hold()
+    except Exception:
+        _log_ai_call_done(mode=mode, for_generation=for_generation, started=started, ok=False)
+        raise
+    try:
+        text = await run()
+    except Exception:
+        await release_hold(hold)
+        _log_ai_call_done(mode=mode, for_generation=for_generation, started=started, ok=False)
+        raise
+    await confirm_hold(hold)
+    _log_ai_call_done(
+        mode=mode, for_generation=for_generation, started=started, ok=True, output_chars=len(text)
+    )
+    return text
+
+
 async def generate_text(
     prompt: str,
     *,
@@ -275,34 +342,16 @@ async def generate_text(
     timeout_seconds: float | None = None,
     for_generation: bool = False,
 ) -> str:
-    started = time.monotonic()
-    _log_ai_call_start(mode="text", for_generation=for_generation)
-    try:
-        if uses_gemini(for_generation=for_generation):
-            text = await _generate_text_with_opencode_fallback(
-                prompt,
-                system=system,
-                timeout_seconds=timeout_seconds,
-                for_generation=for_generation,
-            )
-        else:
-            text = await _generate_text_opencode(
-                prompt,
-                system=system,
-                timeout_seconds=timeout_seconds,
-                for_generation=for_generation,
-            )
-    except AiError:
-        _log_ai_call_done(mode="text", for_generation=for_generation, started=started, ok=False)
-        raise
-    _log_ai_call_done(
+    return await _metered(
+        lambda: _run_text(
+            prompt,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        ),
         mode="text",
         for_generation=for_generation,
-        started=started,
-        ok=True,
-        output_chars=len(text),
     )
-    return text
 
 
 async def generate_chat(
@@ -312,31 +361,13 @@ async def generate_chat(
     timeout_seconds: float | None = None,
     for_generation: bool = False,
 ) -> str:
-    started = time.monotonic()
-    _log_ai_call_start(mode="chat", for_generation=for_generation)
-    try:
-        if uses_gemini(for_generation=for_generation):
-            text = await _generate_chat_with_opencode_fallback(
-                contents,
-                system=system,
-                timeout_seconds=timeout_seconds,
-                for_generation=for_generation,
-            )
-        else:
-            text = await _generate_chat_opencode(
-                contents,
-                system=system,
-                timeout_seconds=timeout_seconds,
-                for_generation=for_generation,
-            )
-    except AiError:
-        _log_ai_call_done(mode="chat", for_generation=for_generation, started=started, ok=False)
-        raise
-    _log_ai_call_done(
+    return await _metered(
+        lambda: _run_chat(
+            contents,
+            system=system,
+            timeout_seconds=timeout_seconds,
+            for_generation=for_generation,
+        ),
         mode="chat",
         for_generation=for_generation,
-        started=started,
-        ok=True,
-        output_chars=len(text),
     )
-    return text

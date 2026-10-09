@@ -935,7 +935,7 @@ async def generate_questions_draft(
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
-    raw_text = await generate_exam_questions_text(body.series, exam.title)
+    raw_text = await generate_exam_questions_text(body.series, exam.title, user=user)
     return GeminiGenerateQuestionsResponse(raw_text=raw_text)
 
 

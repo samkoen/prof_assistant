@@ -136,6 +136,12 @@ class Settings(BaseSettings):
     question_images_dir: str = "data/question_images"
     question_image_max_bytes: int = 5 * 1024 * 1024
 
+    payme_seller_id: str = ""
+    payme_api_key: str = ""
+    payme_webhook_secret: str = ""
+    payme_sandbox: bool = True
+    payme_public_base_url: str = ""
+
     def sqlalchemy_echo(self) -> bool | str:
         """echo SQLAlchemy : True (INFO) ou 'debug' si LOG_LEVEL=DEBUG."""
         if not self.sql_echo:

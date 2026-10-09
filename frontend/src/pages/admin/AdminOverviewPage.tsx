@@ -4,6 +4,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
 import AutoDeleteIcon from "@mui/icons-material/AutoDelete";
 import DescriptionIcon from "@mui/icons-material/Description";
+import PaidIcon from "@mui/icons-material/Paid";
 import { useNavigate } from "react-router-dom";
 import DashboardNavCard from "../../components/ui/DashboardNavCard";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
@@ -45,6 +46,13 @@ const navCards = [
     path: "/admin/ai-prompts",
     icon: <DescriptionIcon />,
     accent: "primary" as const,
+  },
+  {
+    title: he.aiBillingAdminTitle,
+    desc: he.aiBillingAdminCardDesc,
+    path: "/admin/ai-billing",
+    icon: <PaidIcon />,
+    accent: "success" as const,
   },
 ];
 
