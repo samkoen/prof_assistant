@@ -1,121 +1,48 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
-import { Alert, Box, Button, CircularProgress, Grid2 as Grid } from "@mui/material";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import QuizIcon from "@mui/icons-material/Quiz";
-import SchoolIcon from "@mui/icons-material/School";
-import DisabledActionTooltip from "../../components/DisabledActionTooltip";
-import HighlightCard from "../../components/ui/HighlightCard";
-import PageHeroBanner from "../../components/ui/PageHeroBanner";
-import { api, ApiError, type StudentCoursesBoard } from "../../api/client";
+import { useNavigate } from "react-router-dom";
+import { Alert, Box, Button, Grid } from "@mui/material";
+import StudentCoursesPanel from "../../components/student/StudentCoursesPanel";
+import StudentStatGrid from "../../components/student/StudentStatGrid";
+import StudentUpNextPanel from "../../components/student/StudentUpNextPanel";
+import StudentWelcomeBanner from "../../components/student/StudentWelcomeBanner";
+import { useAuth } from "../../context/AuthContext";
+import { useRoleCredits } from "../../hooks/useRoleCredits";
+import { useStudentCourses } from "../../hooks/useStudentCourses";
+import { useStudentSessions } from "../../hooks/useStudentSessions";
 import { he } from "../../i18n/he";
+import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
+import { nextExam, studentHeadline } from "../../utils/studentExams";
+import { firstName } from "../../utils/teacherDashboard";
 
+/** Accueil élève : quoi faire maintenant, chiffres clés et accès aux cours. */
 export default function StudentOverviewPage() {
-  const [courses, setCourses] = useState(0);
-  const [activeExams, setActiveExams] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const board = await api<StudentCoursesBoard>("/api/courses/student-board");
-      setCourses(board.offerings.length);
-      setActiveExams(
-        Object.values(board.active_exam_counts).reduce((sum, count) => sum + count, 0),
-      );
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight={280}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const exams = useStudentSessions();
+  const courses = useStudentCourses();
+  const { wallet } = useRoleCredits("student");
+  const loading = exams.loading || courses.loading;
+  const failed = Boolean(exams.error || courses.error);
+  const retry = () => void Promise.all([exams.reload(), courses.reload()]);
 
   return (
-    <Box sx={{ width: "100%" }}>
-      <PageHeroBanner title={he.dashboard} />
-
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2.5 }}
-          action={
-            <Button color="inherit" size="small" onClick={load}>
-              {he.retry}
-            </Button>
-          }
-        >
-          {error}
+    <Box sx={hebrewAlignRightSx}>
+      <StudentWelcomeBanner
+        name={firstName(user?.full_name ?? "")}
+        headline={loading ? "" : studentHeadline(exams.counts)}
+        next={nextExam(exams.sessions)}
+      />
+      {failed && !loading && (
+        <Alert severity="warning" sx={{ mb: 2.5 }} action={<Button color="inherit" size="small" onClick={retry}>{he.retry}</Button>}>
+          {he.dashboardLoadPartial}
         </Alert>
       )}
-
-      <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <HighlightCard
-            accent="primary"
-            icon={<MenuBookIcon />}
-            title={he.myCourses}
-            description={`${courses} ${he.coursesCount}`}
-            footer={
-              <Button component={RouterLink} to="/student/courses" variant="contained" fullWidth>
-                {he.myCourses}
-              </Button>
-            }
-          />
+      <StudentStatGrid counts={exams.counts} courses={courses.offerings.length} wallet={wallet} loading={loading} />
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <StudentUpNextPanel pending={exams.pending} loading={exams.loading} onOpen={(id) => navigate(`/student/exams/${id}`)} />
         </Grid>
-
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <HighlightCard
-            accent="success"
-            highlighted={activeExams > 0}
-            icon={<QuizIcon />}
-            title={he.exams}
-            description={activeExams > 0 ? `${activeExams} ${he.activeExams}` : he.noActiveExamsHint}
-            footer={
-              <DisabledActionTooltip
-                disabled={activeExams === 0}
-                disabledReason={activeExams === 0 ? he.noActiveExamsToView : undefined}
-              >
-                <Button
-                  component={RouterLink}
-                  to="/student/exams"
-                  variant="contained"
-                  color="success"
-                  fullWidth
-                  disabled={activeExams === 0}
-                >
-                  {he.startExam}
-                </Button>
-              </DisabledActionTooltip>
-            }
-          />
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <HighlightCard
-            accent="secondary"
-            icon={<SchoolIcon />}
-            title={he.joinByTeacherTitle}
-            description={he.joinByTeacherSubtitle}
-            footer={
-              <Button component={RouterLink} to="/student/join-course" variant="outlined" fullWidth>
-                {he.joinByTeacherTitle}
-              </Button>
-            }
-          />
+        <Grid item xs={12} md={5}>
+          <StudentCoursesPanel offerings={courses.offerings} activeCounts={courses.active_exam_counts} loading={courses.loading} />
         </Grid>
       </Grid>
     </Box>

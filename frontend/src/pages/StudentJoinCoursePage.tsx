@@ -5,15 +5,14 @@ import {
   Box,
   Button,
   Card,
-  CardContent,
-  CircularProgress,
-  Typography,
+  CardContent,  Typography,
 } from "@mui/material";
 import { api, ApiError, semesterLabel, type JoinPreview } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { authPathWithJoin, formatJoinExpiresAt } from "../utils/joinCourse";
 import { he } from "../i18n/he";
 import { offeringTeacherNames } from "../utils/offeringTeachers";
+import Spinner from "../components/ui/Spinner";
 
 function joinPreviewPath(joinToken?: string, legacyOfferingId?: number): string | null {
   if (joinToken) {
@@ -80,7 +79,7 @@ export default function StudentJoinCoursePage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={10}>
-        <CircularProgress />
+        <Spinner />
       </Box>
     );
   }

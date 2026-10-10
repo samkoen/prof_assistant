@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Typography } from "@mui/material";
 import {
   fetchBillingBalance,
   fetchBillingPacks,
@@ -8,8 +8,10 @@ import {
   type WalletBalance,
 } from "../api/billing";
 import { he } from "../i18n/he";
+import PackLabel from "./billing/PackLabel";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { profileCreditWallets, type AiCreditPack } from "../utils/aiCredits";
+import Spinner from "./ui/Spinner";
 
 function usageLabel(product: string): string {
   if (product === "teacher_generation") return he.aiCreditsTeacherUse;
@@ -77,7 +79,7 @@ function PackBuyRow({
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
       {packs.map((pack) => (
         <Button key={pack.code} variant="outlined" disabled={paying} onClick={() => onBuy(pack.code)}>
-          <span dir="ltr">{pack.label}</span>
+          <PackLabel pack={pack} />
         </Button>
       ))}
     </Box>
@@ -107,7 +109,7 @@ export default function AiCreditsProfileCard({ role }: { role: string }) {
         </Typography>
         {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
         {payError && <Alert severity="error" sx={{ mt: 1 }}>{payError}</Alert>}
-        {wallets === null && !error && <CircularProgress size={22} sx={{ mt: 1 }} />}
+        {wallets === null && !error && <Spinner size={22} sx={{ mt: 1 }} />}
         {wallets && <WalletLines wallets={wallets} />}
         <PackBuyRow packs={packs} paying={paying} onBuy={(code) => buyPack(code, setPaying, setPayError)} />
       </CardContent>

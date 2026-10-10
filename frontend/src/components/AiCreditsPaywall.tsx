@@ -11,6 +11,7 @@ import {
 import { fetchBillingBalance, notifyBillingChanged, onBillingChanged, startCheckout, walletFor } from "../api/billing";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
+import PackLabel from "./billing/PackLabel";
 import { creditsRequiredFromError, type AiCreditPack, type CreditsRequired } from "../utils/aiCredits";
 
 export function AiCreditBalance({ product }: { product: string }) {
@@ -66,7 +67,7 @@ function PackButtons({
     <DialogActions sx={{ flexWrap: "wrap", gap: 1, px: 3, pb: 2 }}>
       {packs.map((pack) => (
         <Button key={pack.code} variant="contained" disabled={paying} onClick={() => onBuy(pack.code)}>
-          <span dir="ltr">{pack.label}</span>
+          <PackLabel pack={pack} />
         </Button>
       ))}
       <Button onClick={onClose} disabled={paying}>

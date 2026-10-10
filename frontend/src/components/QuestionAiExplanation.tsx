@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, Typography } from "@mui/material";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import { notifyBillingChanged } from "../api/billing";
 import { api, ApiError, type AiExplanation } from "../api/client";
@@ -7,6 +7,7 @@ import AiExplanationMarkdown from "./AiExplanationMarkdown";
 import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
 import { STUDENT_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 interface QuestionAiExplanationProps {
   sessionId: number;
@@ -63,7 +64,7 @@ export default function QuestionAiExplanation({
         <Button
           variant="outlined"
           size="small"
-          startIcon={loading ? <CircularProgress size={16} /> : <AutoStoriesOutlinedIcon />}
+          startIcon={loading ? <Spinner size={16} /> : <AutoStoriesOutlinedIcon />}
           onClick={() => requestExplanation(false)}
           disabled={loading}
         >

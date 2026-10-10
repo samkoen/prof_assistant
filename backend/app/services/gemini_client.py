@@ -5,6 +5,7 @@ import os
 import httpx
 
 from app.config import settings
+from app.services.ai_attachments import AiAttachment, gemini_parts
 
 logger = logging.getLogger(__name__)
 
@@ -167,14 +168,27 @@ async def _generate_across_models(
     raise last_error
 
 
+def with_attachments(contents: list[dict], attachments: list[AiAttachment] | None) -> list[dict]:
+    """Place les fichiers (avant le texte) dans le premier message utilisateur."""
+    if not attachments:
+        return contents
+    out = [dict(c) for c in contents]
+    first = next((c for c in out if c.get("role") == "user"), None)
+    if first is None:
+        return out
+    first["parts"] = [*gemini_parts(attachments), *first.get("parts", [])]
+    return out
+
+
 def _chat_body(
     contents: list[dict],
     *,
     max_output_tokens: int | None,
     system_instruction: str | None = None,
+    attachments: list[AiAttachment] | None = None,
 ) -> dict:
     body: dict = {
-        "contents": contents,
+        "contents": with_attachments(contents, attachments),
         "generationConfig": _generation_config(max_output_tokens),
     }
     if system_instruction and system_instruction.strip():
@@ -209,11 +223,13 @@ async def generate_text(
     timeout_seconds: float | None = None,
     use_generation_fallbacks: bool = False,
     system_instruction: str | None = None,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     body = _chat_body(
         [{"role": "user", "parts": [{"text": prompt}]}],
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
+        attachments=attachments,
     )
     return await _generate_with_body(
         body,
@@ -229,11 +245,13 @@ async def generate_chat(
     timeout_seconds: float | None = None,
     use_generation_fallbacks: bool = False,
     system_instruction: str | None = None,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     body = _chat_body(
         contents,
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
+        attachments=attachments,
     )
     return await _generate_with_body(
         body,

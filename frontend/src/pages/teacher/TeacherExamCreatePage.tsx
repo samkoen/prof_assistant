@@ -1,278 +1,49 @@
-import { useEffect, useState } from "react";
-import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  FormControlLabel,
-  Checkbox,
-  MenuItem,
-  Radio,
-  RadioGroup,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
+import { Alert, Box, Button } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { api, ApiError, offeringLabel, type CatalogCourse, type CourseOffering } from "../../api/client";
-import { useAuth } from "../../context/AuthContext";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
+import { AudienceSection, BasicsSection, ScopeSection, TypeSection } from "../../components/exams/ExamCreateSections";
 import ListPageToolbar from "../../components/ListPageToolbar";
+import { offeringLabel } from "../../api/client";
+import { useExamCreate } from "../../hooks/useExamCreate";
 import { he } from "../../i18n/he";
-import {
-  hebrewFormActionsRightSx,
-  hebrewFormColumnSx,
-  hebrewFormFieldRowSx,
-  hebrewFormFieldSx,
-  hebrewFormSectionSx,
-  hebrewFormControlLabelSx,
-  hebrewRadioGroupSx,
-  pageFullWidthSx,
-} from "../../styles/hebrewAlign";
 
-const emptyForm = {
-  catalog_course_id: "",
-  title: "",
-  audience: "all" as "all" | "this_group",
-  scope_teacher: "me" as "me",
-  scope_academic_year: "",
-  scope_semester: "",
-  scope_group_name: "",
-  is_tirgoul: false,
-};
-
+/** Création d'examen : sections claires, puis passage direct à l'éditeur de questions. */
 export default function TeacherExamCreatePage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [catalogs, setCatalogs] = useState<CatalogCourse[]>([]);
-  const [offering, setOffering] = useState<CourseOffering | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const returnTo = searchParams.get("return") || "/teacher/exams";
-  const backLabel = returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
-  const prefillCatalog = searchParams.get("catalog_course_id") || "";
-  const prefillOfferingId = searchParams.get("offering_id") || "";
-  const fromGroup = !!offering;
-
-  useEffect(() => {
-    Promise.all([
-      api<CatalogCourse[]>("/api/catalog-courses/mine"),
-      api<CourseOffering[]>("/api/courses/mine"),
-    ])
-      .then(([cats, offs]) => {
-        setCatalogs(cats);
-        if (prefillOfferingId) {
-          const found = offs.find((o) => o.id === Number(prefillOfferingId)) ?? null;
-          setOffering(found);
-        }
-      })
-      .catch(() => setError(he.errorGeneric));
-  }, [prefillOfferingId]);
-
-  useEffect(() => {
-    if (prefillCatalog) {
-      setForm((f) => ({
-        ...f,
-        catalog_course_id: prefillCatalog,
-        audience: prefillOfferingId ? "this_group" : f.audience,
-      }));
-    }
-  }, [prefillCatalog, prefillOfferingId]);
-
-  const resetForm = () => {
-    setForm({
-      ...emptyForm,
-      catalog_course_id: prefillCatalog || "",
-    });
-    setError("");
-  };
-
-  const submit = async () => {
-    if (!form.catalog_course_id) {
-      setError(he.selectCatalogCourse);
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      let scope_teacher_id: number | null = user?.id ?? null;
-      let scope_academic_year: number | null = form.scope_academic_year
-        ? Number(form.scope_academic_year)
-        : null;
-      let scope_semester: number | null = form.scope_semester ? Number(form.scope_semester) : null;
-      let scope_group_name: string | null = form.scope_group_name.trim() || null;
-
-      if (fromGroup && form.audience === "this_group" && offering) {
-        scope_teacher_id = user?.id ?? null;
-        scope_academic_year = offering.academic_year;
-        scope_semester = offering.semester;
-        scope_group_name = offering.group_name;
-      } else if (fromGroup && form.audience === "all") {
-        scope_teacher_id = user?.id ?? null;
-        scope_academic_year = null;
-        scope_semester = null;
-        scope_group_name = null;
-      }
-
-      const exam = await api<{ id: number }>("/api/exams", {
-        method: "POST",
-        body: JSON.stringify({
-          catalog_course_id: Number(form.catalog_course_id),
-          offering_id: fromGroup && offering ? offering.id : null,
-          title: form.title.trim() || "מבחן חדש",
-          shuffle_questions: !form.is_tirgoul,
-          shuffle_options: !form.is_tirgoul,
-          is_tirgoul: form.is_tirgoul,
-          scope_teacher_id,
-          scope_academic_year,
-          scope_semester,
-          scope_group_name,
-        }),
-      });
-      const editReturn = returnTo !== "/teacher/exams" ? `?return=${encodeURIComponent(returnTo)}` : "";
-      navigate(`/teacher/exams/${exam.id}/edit${editReturn}`);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const c = useExamCreate();
+  const backLabel = c.params.returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
+  const noCatalogs = c.catalogs.length === 0;
   return (
-    <Box sx={pageFullWidthSx}>
+    <Box dir="rtl" sx={{ maxWidth: 760, mx: "auto", width: "100%" }}>
       <ListPageToolbar
         title={he.createExam}
-        subtitle={offering ? offeringLabel(offering) : undefined}
+        subtitle={c.offering ? offeringLabel(c.offering) : he.createExamSubtitle}
         titleVariant="h5"
-        actions={
-          <Button component={RouterLink} to={returnTo} startIcon={<ArrowBackIcon />} size="small">
-            {backLabel}
-          </Button>
-        }
+        actions={<BackButton to={c.params.returnTo} label={backLabel} />}
       />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-          {error}
-        </Alert>
-      )}
-
-      <Box component="form" sx={hebrewFormColumnSx} onSubmit={(e) => e.preventDefault()}>
-        <Box sx={hebrewFormFieldRowSx}>
-          <TextField
-            select
-            size="small"
-            label={he.selectCatalogCourse}
-            value={form.catalog_course_id}
-            onChange={(e) => setForm({ ...form, catalog_course_id: e.target.value })}
-            required
-            disabled={!!prefillCatalog}
-            helperText={catalogs.length === 0 ? he.noCatalogCourses : undefined}
-            sx={hebrewFormFieldSx}
-          >
-            {catalogs.map((c) => (
-              <MenuItem key={c.id} value={String(c.id)}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Box>
-
-        <Box sx={hebrewFormFieldRowSx}>
-          <TextField
-            size="small"
-            label={he.examTitle}
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            sx={hebrewFormFieldSx}
-          />
-        </Box>
-
-        <Box sx={{ ...hebrewFormSectionSx, mb: 1 }}>
-          <FormControlLabel
-            sx={hebrewFormControlLabelSx}
-            control={
-              <Checkbox
-                checked={form.is_tirgoul}
-                onChange={(e) => setForm({ ...form, is_tirgoul: e.target.checked })}
-              />
-            }
-            label={he.examIsTirgoul}
-          />
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ textAlign: "right" }}>
-            {he.examIsTirgoulHint}
-          </Typography>
-        </Box>
-
-        {fromGroup ? (
-          <Box sx={hebrewFormSectionSx}>
-            <Typography
-              variant="subtitle2"
-              color="text.secondary"
-              sx={{ width: "100%", textAlign: "right" }}
-            >
-              {he.examAudience}
-            </Typography>
-            <RadioGroup
-              value={form.audience}
-              onChange={(e) => setForm({ ...form, audience: e.target.value as "all" | "this_group" })}
-              sx={hebrewRadioGroupSx}
-            >
-              <FormControlLabel value="all" control={<Radio />} label={he.examAudienceAllGroups} />
-              <FormControlLabel
-                value="this_group"
-                control={<Radio />}
-                label={he.examAudienceThisGroup}
-              />
-            </RadioGroup>
-          </Box>
-        ) : (
-          <Box sx={hebrewFormSectionSx}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ width: "100%", textAlign: "right" }}>
-              {he.scopeRestriction}
-            </Typography>
-            <TextField
-              fullWidth
-              label={he.academicYear}
-              value={form.scope_academic_year}
-              onChange={(e) => setForm({ ...form, scope_academic_year: e.target.value })}
-              placeholder={he.scopeAny}
-            />
-            <TextField
-              select
-              fullWidth
-              label={he.semester}
-              value={form.scope_semester}
-              onChange={(e) => setForm({ ...form, scope_semester: e.target.value })}
-            >
-              <MenuItem value="">{he.scopeAny}</MenuItem>
-              <MenuItem value="1">סמסטר א</MenuItem>
-              <MenuItem value="2">סמסטר ב</MenuItem>
-            </TextField>
-            <TextField
-              fullWidth
-              label={he.groupName}
-              value={form.scope_group_name}
-              onChange={(e) => setForm({ ...form, scope_group_name: e.target.value })}
-              placeholder={he.scopeAny}
-            />
-          </Box>
-        )}
-
-        <Box sx={{ ...hebrewFormActionsRightSx, mt: 1 }}>
-          <Button onClick={resetForm}>{he.cancel}</Button>
-          <DisabledActionTooltip
-            disabled={saving || catalogs.length === 0}
-            disabledReason={catalogs.length === 0 ? he.noCatalogCourses : undefined}
-          >
-            <Button variant="contained" onClick={submit}>
-              {saving ? he.loading : he.submit}
+      {c.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => c.setError("")}>{c.error}</Alert>}
+      <Box component="form" onSubmit={(e) => e.preventDefault()}>
+        <BasicsSection form={c.form} onChange={c.patch} catalogs={c.catalogs} lockCatalog={Boolean(c.params.catalogId)} />
+        <TypeSection form={c.form} onChange={c.patch} />
+        {c.offering ? <AudienceSection form={c.form} onChange={c.patch} /> : <ScopeSection form={c.form} onChange={c.patch} />}
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <DisabledActionTooltip disabled={c.saving || noCatalogs} disabledReason={noCatalogs ? he.noCatalogCourses : undefined}>
+            <Button variant="contained" size="large" endIcon={<ArrowForwardIcon sx={{ transform: "scaleX(-1)" }} />} onClick={c.submit}>
+              {c.saving ? he.loading : he.createExamContinue}
             </Button>
           </DisabledActionTooltip>
+          <Button size="large" onClick={c.reset}>{he.cancel}</Button>
         </Box>
       </Box>
     </Box>
+  );
+}
+
+function BackButton({ to, label }: { to: string; label: string }) {
+  return (
+    <Button component={RouterLink} to={to} startIcon={<ArrowBackIcon />} size="small">
+      {label}
+    </Button>
   );
 }

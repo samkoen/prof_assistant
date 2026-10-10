@@ -5,6 +5,7 @@ import time
 from typing import Literal
 
 from app.config import settings
+from app.services.ai_attachments import AiAttachment, text_fallback_block
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +121,31 @@ def _log_ai_call_done(
     )
 
 
+def prompt_with_attachment_text(prompt: str, attachments: list[AiAttachment] | None) -> str:
+    """Fournisseur sans lecture de fichiers : le texte extrait des fichiers précède le prompt."""
+    block = text_fallback_block(attachments or [])
+    return f"{block}{prompt}" if block else prompt
+
+
+def contents_with_attachment_text(contents: list[dict], attachments: list[AiAttachment] | None) -> list[dict]:
+    """Même principe pour une conversation : le texte est ajouté au premier message utilisateur."""
+    block = text_fallback_block(attachments or [])
+    if not block:
+        return contents
+    out = [dict(c) for c in contents]
+    first = next((c for c in out if c.get("role") == "user"), None)
+    if first is not None:
+        first["parts"] = [{"text": block}, *first.get("parts", [])]
+    return out
+
+
 async def _generate_text_gemini(
     prompt: str,
     *,
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     from app.services.gemini_client import GeminiError, generate_text as gemini_text
 
@@ -140,6 +160,7 @@ async def _generate_text_gemini(
             use_generation_fallbacks=for_generation,
             system_instruction=system
             or (_generation_system(for_generation=for_generation) if for_generation else None),
+            attachments=attachments,
         )
     except GeminiError as exc:
         raise AiError(str(exc)) from exc
@@ -151,12 +172,13 @@ async def _generate_text_opencode(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     from app.services.opencode_client import OpenCodeError, generate_text as opencode_text
 
     try:
         return await opencode_text(
-            prompt,
+            prompt_with_attachment_text(prompt, attachments),
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
@@ -171,6 +193,7 @@ async def _generate_text_with_opencode_fallback(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     try:
         return await _generate_text_gemini(
@@ -178,6 +201,7 @@ async def _generate_text_with_opencode_fallback(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         )
     except AiError as exc:
         if not _should_fallback_to_opencode(exc, for_generation=for_generation):
@@ -191,6 +215,7 @@ async def _generate_text_with_opencode_fallback(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         )
 
 
@@ -200,6 +225,7 @@ async def _generate_chat_gemini(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     from app.services.gemini_client import GeminiError, generate_chat as gemini_chat
 
@@ -214,6 +240,7 @@ async def _generate_chat_gemini(
             use_generation_fallbacks=for_generation,
             system_instruction=system
             or (_generation_system(for_generation=for_generation) if for_generation else None),
+            attachments=attachments,
         )
     except GeminiError as exc:
         raise AiError(str(exc)) from exc
@@ -225,12 +252,13 @@ async def _generate_chat_opencode(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     from app.services.opencode_client import OpenCodeError, generate_chat as opencode_chat
 
     try:
         return await opencode_chat(
-            contents,
+            contents_with_attachment_text(contents, attachments),
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
@@ -245,6 +273,7 @@ async def _generate_chat_with_opencode_fallback(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     try:
         return await _generate_chat_gemini(
@@ -252,6 +281,7 @@ async def _generate_chat_with_opencode_fallback(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         )
     except AiError as exc:
         if not _should_fallback_to_opencode(exc, for_generation=for_generation):
@@ -265,6 +295,7 @@ async def _generate_chat_with_opencode_fallback(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         )
 
 
@@ -274,19 +305,19 @@ async def _run_text(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
-    if uses_gemini(for_generation=for_generation):
-        return await _generate_text_with_opencode_fallback(
-            prompt,
-            system=system,
-            timeout_seconds=timeout_seconds,
-            for_generation=for_generation,
-        )
-    return await _generate_text_opencode(
+    runner = (
+        _generate_text_with_opencode_fallback
+        if uses_gemini(for_generation=for_generation)
+        else _generate_text_opencode
+    )
+    return await runner(
         prompt,
         system=system,
         timeout_seconds=timeout_seconds,
         for_generation=for_generation,
+        attachments=attachments,
     )
 
 
@@ -296,19 +327,19 @@ async def _run_chat(
     system: str | None,
     timeout_seconds: float | None,
     for_generation: bool,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
-    if uses_gemini(for_generation=for_generation):
-        return await _generate_chat_with_opencode_fallback(
-            contents,
-            system=system,
-            timeout_seconds=timeout_seconds,
-            for_generation=for_generation,
-        )
-    return await _generate_chat_opencode(
+    runner = (
+        _generate_chat_with_opencode_fallback
+        if uses_gemini(for_generation=for_generation)
+        else _generate_chat_opencode
+    )
+    return await runner(
         contents,
         system=system,
         timeout_seconds=timeout_seconds,
         for_generation=for_generation,
+        attachments=attachments,
     )
 
 
@@ -341,6 +372,7 @@ async def generate_text(
     system: str | None = None,
     timeout_seconds: float | None = None,
     for_generation: bool = False,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     return await _metered(
         lambda: _run_text(
@@ -348,6 +380,7 @@ async def generate_text(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         ),
         mode="text",
         for_generation=for_generation,
@@ -360,6 +393,7 @@ async def generate_chat(
     system: str | None = None,
     timeout_seconds: float | None = None,
     for_generation: bool = False,
+    attachments: list[AiAttachment] | None = None,
 ) -> str:
     return await _metered(
         lambda: _run_chat(
@@ -367,6 +401,7 @@ async def generate_chat(
             system=system,
             timeout_seconds=timeout_seconds,
             for_generation=for_generation,
+            attachments=attachments,
         ),
         mode="chat",
         for_generation=for_generation,

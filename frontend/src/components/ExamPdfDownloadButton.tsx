@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { CircularProgress, IconButton, Tooltip } from "@mui/material";
+import { IconButton, Tooltip } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import { ApiError, downloadExamPdf, type Exam } from "../api/client";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 type ExamPdfDownloadButtonProps = {
   exam: Exam;
@@ -41,7 +42,7 @@ export default function ExamPdfDownloadButton({
           disabled={busy}
           onClick={handleDownload}
         >
-          {busy ? <CircularProgress size={18} /> : <DownloadIcon fontSize="small" />}
+          {busy ? <Spinner size={18} /> : <DownloadIcon fontSize="small" />}
         </IconButton>
       </span>
     </Tooltip>

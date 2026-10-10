@@ -18,9 +18,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  Typography,
-  CircularProgress,
-} from "@mui/material";
+  Typography,} from "@mui/material";
 import DirectionalMultilineField from "./DirectionalMultilineField";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -34,6 +32,7 @@ import { hebrewActionsBarRtlSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 import { normalizeTextBlock } from "../utils/textNormalize";
 import type { QuestionType } from "../utils/qcmImportParser";
+import Spinner from "./ui/Spinner";
 
 interface OptionDraft {
   text: string;
@@ -602,7 +601,7 @@ function OpenModelAnswerFields({
         variant="outlined"
         onClick={generate}
         disabled={generating || !questionText.trim()}
-        startIcon={generating ? <CircularProgress size={16} /> : undefined}
+        startIcon={generating ? <Spinner size={16} /> : undefined}
       >
         {generating ? he.loading : he.generateModelAnswer}
       </Button>

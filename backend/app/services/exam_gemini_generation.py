@@ -32,7 +32,7 @@ from app.services.billing.context import bill_ai
 from app.services.gemini_batch_runner import (
     batch_progress,
     init_batch_params,
-    load_sources_block,
+    load_sources_package,
     mark_manual_refine,
     run_generation_batch,
 )
@@ -130,13 +130,15 @@ async def _load_owned_session(
     return session
 
 
-async def _call_opencode(session: ExamGeminiGenerationSession) -> str:
+async def _call_opencode(session: ExamGeminiGenerationSession, db: AsyncSession) -> str:
     messages = list(session.messages)
+    ids = (session.initial_params or {}).get("source_ids") or []
+    attachments = (await load_sources_package(session.exam_id, session.teacher_id, ids, db)).attachments
     try:
         if len(messages) == 1 and messages[0].role == "user":
-            return await generate_text(messages[0].content, for_generation=True)
+            return await generate_text(messages[0].content, for_generation=True, attachments=attachments)
         contents = _contents_from_messages(messages)
-        return await generate_chat(contents, for_generation=True)
+        return await generate_chat(contents, for_generation=True, attachments=attachments)
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -157,7 +159,7 @@ async def _append_refine_exchange(
     )
     await db.flush()
     await db.refresh(session, ["messages"])
-    raw = await _call_opencode(session)
+    raw = await _call_opencode(session, db)
     db.add(
         ExamGeminiGenerationMessage(session_id=session.id, role="model", content=raw)
     )
@@ -187,11 +189,10 @@ async def create_generation_session(
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     await _abandon_active_sessions(exam.id, user.id, db)
     ids = source_ids or []
-    sources_block = await load_sources_block(exam.id, user, ids, db)
     session = ExamGeminiGenerationSession(
         exam_id=exam.id,
         teacher_id=user.id,
-        initial_params=init_batch_params(series, ids, sources_block),
+        initial_params=init_batch_params(series, ids),
     )
     db.add(session)
     await db.flush()

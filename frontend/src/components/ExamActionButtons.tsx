@@ -1,9 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
-  Button,
-  CircularProgress,
-  Dialog,
+  Button,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -30,6 +28,7 @@ import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
 import { api, ApiError, downloadExamPdf, type Exam } from "../api/client";
 import { he } from "../i18n/he";
 import { isDevEnvironment } from "../utils/isDevEnvironment";
+import Spinner from "./ui/Spinner";
 
 export type ExamRowPrimaryAction = "delete" | "duplicate";
 
@@ -163,7 +162,7 @@ export function ExamActionButtons({
           onClick={duplicate}
         >
           {busy === "duplicate" ? (
-            <CircularProgress size={18} />
+            <Spinner size={18} />
           ) : (
             <ContentCopyIcon fontSize="small" />
           )}

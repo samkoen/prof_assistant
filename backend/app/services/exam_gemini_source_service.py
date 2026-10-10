@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import undefer
 
 from app.config import settings
 from app.models.exam import Exam
@@ -107,16 +108,8 @@ async def upload_source(
     raw = await file.read()
     filename = file.filename or "source.txt"
     suffix = assert_allowed_upload(filename, len(raw))
+    # Le fichier complet est envoyé à l'IA ; ce texte (tronqué) ne sert que de solution de repli.
     extracted, char_count = truncate_text(extract_text_from_bytes(raw, suffix))
-
-    total_chars = await db.scalar(
-        select(func.coalesce(func.sum(ExamGeminiSource.char_count), 0)).where(
-            ExamGeminiSource.exam_id == exam_id,
-            ExamGeminiSource.teacher_id == user.id,
-        )
-    )
-    if (total_chars or 0) + char_count > settings.gemini_source_max_total_chars:
-        raise HTTPException(status_code=400, detail="סך הטקסט מהמקורות חורג מהמגבלה")
 
     style_default, content_default = _defaults_for_type(source_type)
     safe_name = Path(filename).name.replace("..", "").strip() or "source.txt"
@@ -130,6 +123,7 @@ async def upload_source(
         original_filename=safe_name,
         storage_path=storage_path,
         extracted_text=extracted,
+        file_data=raw,
         char_count=char_count,
         use_as_style=style_default,
         use_as_content=content_default,
@@ -168,14 +162,22 @@ async def delete_source(source_id: int, user: User, db: AsyncSession) -> None:
 
 
 async def load_sources_for_generation(
-    exam_id: int, user: User, source_ids: list[int], db: AsyncSession
+    exam_id: int,
+    teacher_id: int,
+    source_ids: list[int],
+    db: AsyncSession,
+    *,
+    with_files: bool = True,
 ) -> list[ExamGeminiSource]:
     if not source_ids:
         return []
+    options = [undefer(ExamGeminiSource.file_data)] if with_files else []
     result = await db.execute(
-        select(ExamGeminiSource).where(
+        select(ExamGeminiSource)
+        .options(*options)
+        .where(
             ExamGeminiSource.exam_id == exam_id,
-            ExamGeminiSource.teacher_id == user.id,
+            ExamGeminiSource.teacher_id == teacher_id,
             ExamGeminiSource.id.in_(source_ids),
         )
     )

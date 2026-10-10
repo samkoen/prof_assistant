@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { Box, Button, CircularProgress, IconButton, Tooltip, Typography } from "@mui/material";
+import { Box, Button, IconButton, Tooltip, Typography } from "@mui/material";
 import ImageIcon from "@mui/icons-material/Image";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { ApiError, uploadQuestionImage } from "../api/client";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 const ACCEPT = "image/jpeg,image/png,image/gif,image/webp";
 
@@ -59,7 +60,7 @@ export default function QuestionImageField({
           disabled={disabled || uploading}
           aria-label={he.addQuestionImage}
         >
-          {uploading ? <CircularProgress size={16} /> : <ImageIcon fontSize="small" />}
+          {uploading ? <Spinner size={16} /> : <ImageIcon fontSize="small" />}
         </IconButton>
       </span>
     </Tooltip>
@@ -67,7 +68,7 @@ export default function QuestionImageField({
     <Button
       size="small"
       variant="outlined"
-      startIcon={uploading ? <CircularProgress size={16} /> : <ImageIcon />}
+      startIcon={uploading ? <Spinner size={16} /> : <ImageIcon />}
       onClick={pickFile}
       disabled={disabled || uploading}
     >

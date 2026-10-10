@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
-  CircularProgress,
-  Dialog,
+  Button,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -23,6 +21,7 @@ import {
   type Exam,
 } from "../api/client";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 interface AddExistingExamDialogProps {
   open: boolean;
@@ -96,7 +95,7 @@ export default function AddExistingExamDialog({
         )}
         {loading ? (
           <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress size={32} />
+            <Spinner size={32} />
           </Box>
         ) : available.length === 0 ? (
           <Typography color="text.secondary">{he.noExamsToAdd}</Typography>

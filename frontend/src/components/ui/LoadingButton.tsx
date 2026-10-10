@@ -1,4 +1,5 @@
-import { Button, CircularProgress, type ButtonProps } from "@mui/material";
+import { Button, type ButtonProps } from "@mui/material";
+import Spinner from "./Spinner";
 
 type LoadingButtonProps = ButtonProps & {
   loading?: boolean;
@@ -15,7 +16,7 @@ export default function LoadingButton({
     <Button
       disabled={disabled || loading}
       startIcon={
-        loading ? <CircularProgress size={18} color="inherit" aria-hidden /> : startIcon
+        loading ? <Spinner size={18} color="inherit" aria-hidden /> : startIcon
       }
       {...props}
     >

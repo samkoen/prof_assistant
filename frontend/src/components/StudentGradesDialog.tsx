@@ -3,9 +3,7 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
-  Dialog,
+  Chip,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -19,6 +17,7 @@ import {
 } from "@mui/material";
 import { api, ApiError, type StudentOfferingExamResults } from "../api/client";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 const statusLabel: Record<StudentOfferingExamResults["results"][0]["status"], string> = {
   not_started: he.resultNotStarted,
@@ -109,7 +108,7 @@ export default function StudentGradesDialog({
 
         {loading ? (
           <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress size={32} />
+            <Spinner size={32} />
           </Box>
         ) : !data || data.results.length === 0 ? (
           <Typography color="text.secondary">{he.noExamGradesYet}</Typography>

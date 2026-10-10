@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Divider,
   TextField,
   Typography,
@@ -15,6 +14,7 @@ import StudentGeminiConfigCard from "../components/StudentGeminiConfigCard";
 import { ApiError, updateMyProfile } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
+import Spinner from "../components/ui/Spinner";
 
 type ProfileForm = {
   full_name: string;
@@ -98,7 +98,7 @@ export default function ProfilePage() {
   if (!user || !form) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
+        <Spinner />
       </Box>
     );
   }

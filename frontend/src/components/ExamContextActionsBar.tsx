@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
-  Button,
-  CircularProgress,
-  Dialog,
+  Button,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -31,6 +29,7 @@ import {
 } from "../utils/examActivateTiming";
 import { getExamOfferingActionRules } from "../utils/examOfferingActionRules";
 import { copyStudentExamLink } from "../utils/studentExamLink";
+import Spinner from "./ui/Spinner";
 
 type ExamContextActionsBarProps = {
   exam: Exam;
@@ -80,7 +79,7 @@ function LifecycleActionButton({
           onClick={() => onDeactivateClick(session)}
         >
           {deactivatingSessionId === session.id ? (
-            <CircularProgress size={18} color="inherit" />
+            <Spinner size={18} color="inherit" />
           ) : (
             <StopIcon fontSize="small" />
           )}
@@ -99,7 +98,7 @@ function LifecycleActionButton({
           onClick={() => onReopenClick(session)}
         >
           {reopeningSessionId === session.id ? (
-            <CircularProgress size={18} color="inherit" />
+            <Spinner size={18} color="inherit" />
           ) : (
             <PlayArrowIcon fontSize="small" />
           )}
@@ -118,7 +117,7 @@ function LifecycleActionButton({
           onClick={() => onStartClick(exam)}
         >
           {activatingId === exam.id ? (
-            <CircularProgress size={18} color="inherit" />
+            <Spinner size={18} color="inherit" />
           ) : (
             <PlayArrowIcon fontSize="small" />
           )}
@@ -163,7 +162,7 @@ function SessionExtraIconButtons({
             onClick={() => onCloseClick(session)}
           >
             {closingSessionId === session.id ? (
-              <CircularProgress size={18} color="inherit" />
+              <Spinner size={18} color="inherit" />
             ) : (
               <DoneAllIcon fontSize="small" />
             )}

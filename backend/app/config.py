@@ -114,6 +114,8 @@ class Settings(BaseSettings):
     gemini_source_max_chars_per_file: int = 80_000
     gemini_source_max_total_chars: int = 120_000
     gemini_source_max_files_per_exam: int = 5
+    # Budget de fichiers envoyés tels quels (inlineData) : la requête Gemini est limitée à ~20 Mo en base64.
+    gemini_inline_max_total_bytes: int = 14 * 1024 * 1024
 
     opencode_server_url: str = ""
     opencode_server_username: str = "opencode"

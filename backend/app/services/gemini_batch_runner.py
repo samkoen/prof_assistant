@@ -29,8 +29,9 @@ from app.services.gemini_qcm_batch import (
     stems_from_accumulated,
     validate_batch_raw,
 )
-from app.services.gemini_source_prompt import build_sources_context_block
+from app.services.gemini_source_prompt import SourcesPackage, build_sources_package
 from app.services.exam_gemini_source_service import load_sources_for_generation
+from app.services.ai_attachments import AiAttachment
 from app.services.ai_client import AiError, generate_text
 
 logger = logging.getLogger(__name__)
@@ -105,9 +106,9 @@ def _apply_chunked_fallback(
     params["chunked_fallback"] = True
 
 
-async def _call_batch_model(prompt: str) -> str:
+async def _call_batch_model(prompt: str, attachments: list[AiAttachment]) -> str:
     try:
-        return await generate_text(prompt, for_generation=True)
+        return await generate_text(prompt, for_generation=True, attachments=attachments)
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except httpx.TimeoutException as exc:
@@ -119,7 +120,7 @@ async def _generate_batch_raw(
     batch: GeminiBatchSlice,
     *,
     exam_title: str | None,
-    sources_block: str,
+    sources: SourcesPackage,
     accumulated_raw: str,
     plan: list[GeminiBatchSlice],
 ) -> BatchValidationResult:
@@ -132,11 +133,11 @@ async def _generate_batch_raw(
             series,
             batch,
             exam_title=exam_title,
-            sources_block=sources_block,
+            sources_block=sources.block,
             accumulated_raw=accumulated_raw,
             retry_hint=retry_hint,
         )
-        raw = await _call_batch_model(prompt)
+        raw = await _call_batch_model(prompt, sources.attachments)
         try:
             return validate_batch_raw(
                 raw,
@@ -179,14 +180,14 @@ async def run_generation_batch(
     if completed >= len(plan):
         raise HTTPException(status_code=400, detail="כל הקבוצות כבר נוצרו")
     batch = plan[completed]
-    sources_block = params.get("sources_block") or ""
+    sources = await load_sources_package(session.exam_id, session.teacher_id, params.get("source_ids") or [], db)
     accumulated = str(params.get("accumulated_raw") or "")
     started = time.monotonic()
     prompt = build_batch_generation_prompt(
         series,
         batch,
         exam_title=exam.title,
-        sources_block=sources_block,
+        sources_block=sources.block,
         accumulated_raw=accumulated,
     )
     logger.info(
@@ -203,7 +204,7 @@ async def run_generation_batch(
             series,
             batch,
             exam_title=exam.title,
-            sources_block=sources_block,
+            sources=sources,
             accumulated_raw=accumulated,
             plan=plan,
         )
@@ -249,13 +250,11 @@ async def run_generation_batch(
 def init_batch_params(
     series: list[GeminiSeriesInput],
     source_ids: list[int],
-    sources_block: str,
 ) -> dict:
     plan = build_batch_plan(series)
     return {
         "series": [s.model_dump() for s in series],
         "source_ids": source_ids,
-        "sources_block": sources_block,
         "batch_plan": plan_to_params(plan),
         "completed_batches": 0,
         "accumulated_raw": "",
@@ -275,11 +274,12 @@ def mark_manual_refine(session: ExamGeminiGenerationSession, raw: str) -> None:
     session.last_raw_text = raw
 
 
-async def load_sources_block(
+async def load_sources_package(
     exam_id: int,
-    user,
+    teacher_id: int,
     source_ids: list[int],
     db: AsyncSession,
-) -> str:
-    sources = await load_sources_for_generation(exam_id, user, source_ids, db)
-    return build_sources_context_block(sources)
+) -> SourcesPackage:
+    """Sources choisies : fichiers complets à joindre + bloc de rôles pour le prompt."""
+    sources = await load_sources_for_generation(exam_id, teacher_id, source_ids, db)
+    return build_sources_package(sources)

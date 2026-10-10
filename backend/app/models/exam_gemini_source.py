@@ -1,8 +1,8 @@
 from datetime import datetime
 import enum
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
+from sqlalchemy.orm import Mapped, deferred, mapped_column
 
 from app.database import Base
 
@@ -22,6 +22,8 @@ class ExamGeminiSource(Base):
     original_filename: Mapped[str] = mapped_column(String(255))
     storage_path: Mapped[str] = mapped_column(String(512))
     extracted_text: Mapped[str] = mapped_column(Text, default="")
+    # Fichier d'origine, conservé en base (le disque est éphémère) ; chargé à la demande.
+    file_data: Mapped[bytes | None] = deferred(mapped_column(LargeBinary, nullable=True))
     char_count: Mapped[int] = mapped_column(Integer, default=0)
     use_as_style: Mapped[bool] = mapped_column(Boolean, default=False)
     use_as_content: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -86,7 +86,7 @@ async def preview_generation_context(
     db: AsyncSession,
 ) -> GeminiGenerationPreviewResponse:
     ids = source_ids or []
-    sources = await load_sources_for_generation(exam.id, user, ids, db)
+    sources = await load_sources_for_generation(exam.id, user.id, ids, db, with_files=False)
     instructions = _instructions_from_series(series)
     preview_sources = [_source_preview_item(s) for s in sources]
     total = sum(s.question_count for s in series)
