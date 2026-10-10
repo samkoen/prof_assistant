@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { geminiFlowStep, summarizeRequest } from "../geminiFlow";
-import { flagsFromRoles, isAcceptedSourceFile, rolesFromSource, splitDroppedFiles } from "../geminiSourceRole";
+import { flagsFromRoles, isAcceptedSourceFile, rolesFromSource, splitDroppedFiles, toggleRole } from "../geminiSourceRole";
+
+describe("toggleRole", () => {
+  it("ajoute un rôle absent (cumulable)", () => {
+    expect(toggleRole(["content"], "style")).toEqual(["content", "style"]);
+  });
+  it("retire un rôle quand un autre reste actif", () => {
+    expect(toggleRole(["content", "style"], "content")).toEqual(["style"]);
+  });
+  it("garde le dernier rôle actif", () => {
+    expect(toggleRole(["style"], "style")).toEqual(["style"]);
+  });
+});
 
 describe("geminiFlowStep", () => {
   it("démarre à la demande", () => {

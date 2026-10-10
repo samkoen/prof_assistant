@@ -18,6 +18,12 @@ export function flagsFromRoles(roles: SourceRole[]): { use_as_content: boolean; 
   return { use_as_content: roles.includes("content"), use_as_style: roles.includes("style") };
 }
 
+/** Bascule un rôle ; le dernier rôle actif ne peut pas être retiré (un fichier sert à quelque chose). */
+export function toggleRole(current: SourceRole[], role: SourceRole): SourceRole[] {
+  if (!current.includes(role)) return [...current, role];
+  return current.length > 1 ? current.filter((r) => r !== role) : current;
+}
+
 export function isAcceptedSourceFile(filename: string): boolean {
   const lower = filename.toLowerCase();
   return ACCEPTED_SOURCE_EXTENSIONS.some((ext) => lower.endsWith(ext));

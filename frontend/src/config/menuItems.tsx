@@ -9,6 +9,7 @@ import ShareIcon from "@mui/icons-material/Share";
 import QuizIcon from "@mui/icons-material/Quiz";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import PersonIcon from "@mui/icons-material/Person";
+import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import type { ReactNode } from "react";
 import type { UserRole } from "../api/client";
 import { he } from "../i18n/he";
@@ -23,11 +24,18 @@ export interface MenuItemDef {
 }
 
 export const PROFILE_PATH = "/profile";
+export const CONTACT_PATH = "/contact";
 
 const profileMenuItem: MenuItemDef = {
   text: he.myProfile,
   icon: <PersonIcon />,
   path: PROFILE_PATH,
+};
+
+const contactMenuItem: MenuItemDef = {
+  text: he.contactTitle,
+  icon: <SupportAgentIcon />,
+  path: CONTACT_PATH,
 };
 
 export function getMenuItems(role: UserRole): MenuItemDef[] {
@@ -41,6 +49,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.aiPromptsAdminTitle, icon: <DescriptionIcon />, path: "/admin/ai-prompts" },
       { text: he.aiBillingAdminTitle, icon: <PaidIcon />, path: "/admin/ai-billing" },
       profileMenuItem,
+      contactMenuItem,
     ];
   }
   if (role === "teacher") {
@@ -58,6 +67,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       },
       { text: he.teacherShares, icon: <ShareIcon />, path: "/teacher/shares" },
       profileMenuItem,
+      contactMenuItem,
     ];
   }
   return [
@@ -77,6 +87,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
     },
     { text: he.notifications, icon: <NotificationsIcon />, path: "/student/notifications" },
     profileMenuItem,
+    contactMenuItem,
   ];
 }
 

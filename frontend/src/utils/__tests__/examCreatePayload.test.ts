@@ -36,18 +36,25 @@ describe("resolveScope", () => {
   });
 });
 
+describe("EMPTY_EXAM_FORM", () => {
+  it("par défaut : exercice (תרגול) pour tous les groupes", () => {
+    expect(EMPTY_EXAM_FORM.is_tirgoul).toBe(true);
+    expect(EMPTY_EXAM_FORM.audience).toBe("all");
+  });
+});
+
 describe("buildCreatePayload", () => {
   it("applique un titre par défaut et mélange les questions pour un vrai examen", () => {
-    const payload = buildCreatePayload(form({ title: "  " }), null, 1);
+    const payload = buildCreatePayload(form({ title: "  ", is_tirgoul: false }), null, 1);
     expect(payload.title).toBe(he.newExamDefaultTitle);
     expect(payload.shuffle_questions).toBe(true);
     expect(payload.offering_id).toBeNull();
     expect(payload.catalog_course_id).toBe(3);
   });
 
-  it("désactive le mélange pour un exercice d'entraînement", () => {
+  it("garde l'ordre des questions d'un exercice mais mélange toujours les options", () => {
     const payload = buildCreatePayload(form({ is_tirgoul: true, title: "תרגיל" }), offering, 1);
-    expect(payload).toMatchObject({ shuffle_questions: false, shuffle_options: false, is_tirgoul: true, offering_id: 7 });
+    expect(payload).toMatchObject({ shuffle_questions: false, shuffle_options: true, is_tirgoul: true, offering_id: 7 });
   });
 });
 

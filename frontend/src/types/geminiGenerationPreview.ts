@@ -12,4 +12,7 @@ export interface GeminiGenerationPreview {
   total_questions: number;
   sources: GeminiSourcePreviewItem[];
   ai_summary: string;
+  estimated_credits: number;
+  max_credits: number;
+  calls_per_credit: number;
 }

@@ -26,6 +26,7 @@ from app.services.exam_questions import (
     persist_question,
     validate_question_body,
 )
+from app.services.option_shuffle import shuffle_generated_questions
 from app.services.ai_client import AiError, generate_chat, generate_text
 from app.services.billing.constants import TEACHER_GENERATION
 from app.services.billing.context import bill_ai
@@ -321,6 +322,8 @@ async def accept_generation_session(
     start_idx = await next_question_order_index(exam.id, db)
     for i, q in enumerate(import_body.questions):
         validate_question_body(q, i)
+    shuffle_generated_questions(import_body.questions)
+    for i, q in enumerate(import_body.questions):
         await persist_question(exam.id, q, start_idx + i, db)
     session.status = ExamGeminiSessionStatus.ACCEPTED
     await db.commit()

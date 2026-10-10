@@ -1,4 +1,5 @@
-import { Box, IconButton, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
+import { Box, IconButton, Tooltip, Typography } from "@mui/material";
+import SourceRoleChips from "./SourceRoleChips";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import { he } from "../../../i18n/he";
@@ -28,21 +29,11 @@ export default function SourceFileRow({ source, disabled, onRolesChange, onDelet
           {source.char_count.toLocaleString("he-IL")} {he.geminiSourceChars}
         </Typography>
       </Box>
-      <ToggleButtonGroup
-        size="small"
-        color="primary"
-        value={rolesFromSource(source)}
+      <SourceRoleChips
+        roles={rolesFromSource(source)}
         disabled={disabled}
-        aria-label={he.geminiSourceRoleLabel}
-        onChange={(_, roles: SourceRole[]) => onRolesChange(source, roles)}
-      >
-        <Tooltip title={he.geminiSourceUseContent}>
-          <ToggleButton value="content">{he.geminiSourceRoleContent}</ToggleButton>
-        </Tooltip>
-        <Tooltip title={he.geminiSourceUseStyle}>
-          <ToggleButton value="style">{he.geminiSourceRoleStyle}</ToggleButton>
-        </Tooltip>
-      </ToggleButtonGroup>
+        onChange={(roles) => onRolesChange(source, roles)}
+      />
       <Tooltip title={he.geminiSourceDelete}>
         <span>
           <IconButton size="small" color="error" disabled={disabled} aria-label={he.geminiSourceDelete} onClick={() => onDelete(source)}>

@@ -12,6 +12,8 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const StudentJoinCoursePage = lazy(() => import("./pages/StudentJoinCoursePage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const PublicContactPage = lazy(() => import("./pages/PublicContactPage"));
 const BillingReturnPage = lazy(() => import("./pages/BillingReturnPage"));
 
 const AdminOverviewPage = lazy(() => import("./pages/admin/AdminOverviewPage"));
@@ -63,6 +65,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/contact-us" element={<PublicContactPage />} />
         <Route path="/join/t/:joinToken" element={<StudentJoinCoursePage />} />
         <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 
@@ -75,6 +78,7 @@ export default function App() {
         >
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/billing/return" element={<BillingReturnPage />} />
 
           <Route element={<ProtectedRoute roles={["admin"]} />}>

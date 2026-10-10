@@ -26,6 +26,7 @@ def deliver_html_email(
     html_content: str,
     kind: str,
     skip_sandbox: bool = False,
+    reply_to: str | None = None,
 ) -> bool:
     orig_to, recipient, sandbox = (
         (to_email.strip(), to_email.strip(), False)
@@ -44,7 +45,7 @@ def deliver_html_email(
         return False
 
     if brevo_credentials_ok():
-        return _send_via_brevo(orig_to, recipient, sandbox, subject, html_content, kind)
+        return _send_via_brevo(orig_to, recipient, sandbox, subject, html_content, kind, reply_to)
 
     return _log_simulation(orig_to, recipient, sandbox, subject, html_content, kind)
 
@@ -56,12 +57,14 @@ def _send_via_brevo(
     subject: str,
     html_content: str,
     kind: str,
+    reply_to: str | None = None,
 ) -> bool:
     try:
         resp = send_transactional_html_email(
             to_email=recipient,
             subject=subject,
             html_content=html_content,
+            reply_to=reply_to,
         )
         mid = resp.get("messageId") or resp.get("message_id") if isinstance(resp, dict) else None
         mode = "Brevo sandbox" if sandbox else "Brevo"

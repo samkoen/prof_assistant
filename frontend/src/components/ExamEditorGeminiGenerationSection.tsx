@@ -33,6 +33,7 @@ import { geminiFlowStep, summarizeRequest } from "../utils/geminiFlow";
 import { remainingPasteAfterImport } from "../utils/qcmPartialImport";
 import { isLowTopicOverlap } from "../utils/geminiTopicOverlap";
 import type { GeminiGenerationPreview } from "../types/geminiGenerationPreview";
+import GeminiCostEstimate from "./exams/ai/GeminiCostEstimate";
 import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
@@ -420,6 +421,7 @@ export default function ExamEditorGeminiGenerationSection({
               {previewData.ai_summary}
             </Typography>
           </Alert>
+          <GeminiCostEstimate preview={previewData} />
           <Box sx={{ ...hebrewActionsBarRtlSx }}>
             <Button variant="outlined" onClick={cancelPreview} disabled={generating}>
               {he.geminiPreviewCorrect}

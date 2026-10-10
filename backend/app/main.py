@@ -19,6 +19,7 @@ from app.routers import (
     auth,
     billing,
     catalog_courses,
+    contact,
     courses,
     exam_gemini_generation,
     exam_gemini_sources,
@@ -57,6 +58,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(billing.router, prefix="/api")
+app.include_router(contact.router, prefix="/api")
 app.include_router(ai_billing_admin.router, prefix="/api")
 app.include_router(catalog_courses.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")

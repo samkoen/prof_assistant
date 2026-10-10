@@ -33,7 +33,7 @@ export const EMPTY_EXAM_FORM: ExamCreateForm = {
   scope_academic_year: "",
   scope_semester: "",
   scope_group_name: "",
-  is_tirgoul: false,
+  is_tirgoul: true,
 };
 
 function numberOrNull(value: string): number | null {
@@ -67,7 +67,7 @@ export function buildCreatePayload(form: ExamCreateForm, offering: OfferingScope
     offering_id: offering ? offering.id : null,
     title: form.title.trim() || he.newExamDefaultTitle,
     shuffle_questions: !form.is_tirgoul,
-    shuffle_options: !form.is_tirgoul,
+    shuffle_options: true,
     is_tirgoul: form.is_tirgoul,
     ...resolveScope(form, offering, userId),
   };

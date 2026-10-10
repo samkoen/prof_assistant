@@ -40,7 +40,7 @@ export function useExamCreate() {
   const initial: ExamCreateForm = {
     ...EMPTY_EXAM_FORM,
     catalog_course_id: params.catalogId,
-    audience: params.offeringId ? "this_group" : "all",
+    audience: "all",
   };
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
