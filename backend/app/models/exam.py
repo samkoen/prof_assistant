@@ -62,9 +62,7 @@ class ExamSession(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"), index=True)
     offering_id: Mapped[int] = mapped_column(ForeignKey("course_offerings.id"), index=True)
-    status: Mapped[ExamStatus] = mapped_column(
-        String(20), default=ExamStatus.DRAFT, insert_default=ExamStatus.DRAFT, index=True
-    )
+    status: Mapped[ExamStatus] = mapped_column(String(20), default=ExamStatus.DRAFT, index=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     results_published: Mapped[bool] = mapped_column(Boolean, default=False)

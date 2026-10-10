@@ -21,3 +21,10 @@ def test_failed_migration_blocks_the_server():
 def test_server_still_binds_to_render_port():
     cmd = _cmd_line()
     assert "--host 0.0.0.0" in cmd and "${PORT}" in cmd
+
+
+def test_models_import_like_alembic_env():
+    """Alembic charge tous les modèles avant d'appliquer une migration (échec Render)."""
+    from app.models import ExamSession  # noqa: F401
+
+    assert ExamSession.__table__.c.status.default is not None
