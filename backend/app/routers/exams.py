@@ -63,11 +63,13 @@ from app.services.exam_lifecycle import (
     open_tirgoul_sessions_if_ready,
     session_allows_student_work,
 )
+from app.services.option_shuffle import shuffled_options
 from app.services.exam_kind import (
     apply_exam_kind,
     integrity_on_activate,
     is_tirgoul,
-    should_shuffle,
+    should_shuffle_options,
+    should_shuffle_questions,
     student_sees_official_results,
 )
 from app.services.exam_questions import (
@@ -343,62 +345,38 @@ def _exam_token_header(
     return x_exam_session_token
 
 
-def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
-    rng = random.Random(attempt_id)
+def _student_question(q: Question, index: int, rng: random.Random, shuffle_opts: bool) -> StudentQuestionResponse:
+    opts = list(q.options)
+    if shuffle_opts:
+        opts = shuffled_options(opts, rng, lambda o: o.text)
+    return StudentQuestionResponse(
+        id=q.id,
+        text=q.text,
+        image_url=q.image_url,
+        question_type=q.question_type,
+        order_index=index,
+        points=q.points,
+        options=[
+            StudentQuestionOptionResponse(id=o.id, text=o.text, image_url=o.image_url, order_index=oi)
+            for oi, o in enumerate(opts)
+        ],
+    )
+
+
+def _build_paper(exam: Exam, questions: list[Question], rng: random.Random) -> list[StudentQuestionResponse]:
     ordered = list(questions)
-    if should_shuffle(exam):
+    if should_shuffle_questions(exam):
         rng.shuffle(ordered)
-    out: list[StudentQuestionResponse] = []
-    for qi, q in enumerate(ordered):
-        opts = list(q.options)
-        if should_shuffle(exam):
-            rng.shuffle(opts)
-        out.append(
-            StudentQuestionResponse(
-                id=q.id,
-                text=q.text,
-                image_url=q.image_url,
-                question_type=q.question_type,
-                order_index=qi,
-                points=q.points,
-                options=[
-                    StudentQuestionOptionResponse(
-                        id=o.id, text=o.text, image_url=o.image_url, order_index=oi
-                    )
-                    for oi, o in enumerate(opts)
-                ],
-            )
-        )
-    return out
+    shuffle_opts = should_shuffle_options(exam)
+    return [_student_question(q, qi, rng, shuffle_opts) for qi, q in enumerate(ordered)]
+
+
+def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
+    return _build_paper(exam, questions, random.Random(attempt_id))
 
 
 def _practice_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
-    rng = random.Random(attempt_id ^ 0x5A5A5A5A)
-    ordered = list(questions)
-    if should_shuffle(exam):
-        rng.shuffle(ordered)
-    out: list[StudentQuestionResponse] = []
-    for qi, q in enumerate(ordered):
-        opts = list(q.options)
-        if should_shuffle(exam):
-            rng.shuffle(opts)
-        out.append(
-            StudentQuestionResponse(
-                id=q.id,
-                text=q.text,
-                image_url=q.image_url,
-                question_type=q.question_type,
-                order_index=qi,
-                points=q.points,
-                options=[
-                    StudentQuestionOptionResponse(
-                        id=o.id, text=o.text, image_url=o.image_url, order_index=oi
-                    )
-                    for oi, o in enumerate(opts)
-                ],
-            )
-        )
-    return out
+    return _build_paper(exam, questions, random.Random(attempt_id ^ 0x5A5A5A5A))
 
 
 def _build_review_rows(
@@ -935,7 +913,7 @@ async def generate_questions_draft(
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
-    raw_text = await generate_exam_questions_text(body.series, exam.title)
+    raw_text = await generate_exam_questions_text(body.series, exam.title, user=user)
     return GeminiGenerateQuestionsResponse(raw_text=raw_text)
 
 

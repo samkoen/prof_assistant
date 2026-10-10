@@ -18,9 +18,9 @@ from app.schemas.auth import (
     UserProfileUpdateResponse,
     UserResponse,
 )
-from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_NOT_VERIFIED
+from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_DELIVERY_FAILED, EMAIL_NOT_VERIFIED
 from app.services.auth_register import resolve_self_register_role, student_id_for_register
-from app.services.auth_verification import resend_verification_for_email
+from app.services.auth_verification import ResendOutcome, resend_verification_for_email
 from app.services.user_profile_service import update_user_profile
 from app.security import (
     COOKIE_NAME,
@@ -59,7 +59,7 @@ def _set_auth_cookie(response: Response, token: str, role: UserRole | str) -> No
 @router.post("/register", response_model=UserResponse)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     role = resolve_self_register_role(body.role)
-    existing = await db.execute(select(User).where(User.email == body.email))
+    existing = await db.execute(select(User).where(User.email == body.email.strip().lower()))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail=EMAIL_ALREADY_EXISTS)
     user = User(
@@ -83,7 +83,9 @@ async def resend_verification(
     body: ResendVerificationRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    await resend_verification_for_email(db, body.email)
+    outcome = await resend_verification_for_email(db, body.email)
+    if outcome == ResendOutcome.DELIVERY_FAILED:
+        raise HTTPException(status_code=502, detail=EMAIL_DELIVERY_FAILED)
     return ResendVerificationResponse()
 
 

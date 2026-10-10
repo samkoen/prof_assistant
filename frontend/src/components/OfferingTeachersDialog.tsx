@@ -3,9 +3,7 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
-  Dialog,
+  Chip,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -16,6 +14,7 @@ import {
 import { api, ApiError, type OfferingTeachersPayload } from "../api/client";
 import { he } from "../i18n/he";
 import { isOfferingOwner, type OfferingTeacherRef } from "../utils/offeringTeachers";
+import Spinner from "./ui/Spinner";
 
 interface OfferingTeachersDialogProps {
   open: boolean;
@@ -76,7 +75,7 @@ export default function OfferingTeachersDialog({
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {loading || !data ? (
           <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
+            <Spinner />
           </Box>
         ) : (
           <TeachersLists

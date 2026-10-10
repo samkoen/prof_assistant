@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Button, CircularProgress, LinearProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, LinearProgress, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -26,12 +26,21 @@ import {
   resolveGeminiApiError,
 } from "../utils/geminiBatchGeneration";
 import { seriesListToApiPayload } from "../utils/geminiSeriesApi";
+import type { GeminiSource } from "../types/geminiSource";
+import GeminiFlowStepper from "./exams/ai/GeminiFlowStepper";
+import GeminiRequestSummary from "./exams/ai/GeminiRequestSummary";
+import { geminiFlowStep, summarizeRequest } from "../utils/geminiFlow";
 import { remainingPasteAfterImport } from "../utils/qcmPartialImport";
 import { isLowTopicOverlap } from "../utils/geminiTopicOverlap";
 import type { GeminiGenerationPreview } from "../types/geminiGenerationPreview";
+import GeminiCostEstimate from "./exams/ai/GeminiCostEstimate";
 import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
+import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
+import { TEACHER_AI_PRODUCT } from "../utils/aiCredits";
+import { useRefreshBalanceAfterGeneration } from "../hooks/useRefreshBalanceAfterGeneration";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 interface ExamEditorGeminiGenerationSectionProps {
   examId: number;
@@ -61,16 +70,18 @@ export default function ExamEditorGeminiGenerationSection({
   const [loadingSession, setLoadingSession] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [accepting, setAccepting] = useState(false);
-  const [sourceIds, setSourceIds] = useState<number[]>([]);
+  const [sources, setSources] = useState<GeminiSource[]>([]);
   const [batchError, setBatchError] = useState<{ message: string; timeout: boolean } | null>(
     null,
   );
   const [previewStep, setPreviewStep] = useState(false);
   const [previewData, setPreviewData] = useState<GeminiGenerationPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const { openFromError, dialog: creditsDialog } = useAiCreditsPaywall();
+
+  useRefreshBalanceAfterGeneration(generating);
 
   const editable = exam.is_editable;
-  const totalQuestions = seriesList.reduce((sum, s) => sum + s.questionCount, 0);
   const allSeriesValid = seriesList.every(
     (s) => s.instructions.trim().length > 0 && s.questionCount >= 1 && s.questionTypes.length > 0,
   );
@@ -123,6 +134,7 @@ export default function ExamEditorGeminiGenerationSection({
         } catch {
           setSession(current);
         }
+        if (openFromError(e)) return current;
         const message = resolveGeminiApiError(e);
         const timeout = isGeminiTimeoutError(e);
         setBatchError({ message, timeout });
@@ -132,7 +144,7 @@ export default function ExamEditorGeminiGenerationSection({
         setGenerating(false);
       }
     },
-    [onError],
+    [onError, openFromError],
   );
 
   const loadActiveSession = useCallback(async () => {
@@ -169,6 +181,7 @@ export default function ExamEditorGeminiGenerationSection({
       parseErrors.length > 0,
     onSessionUpdate: setSession,
     onError,
+    onCreditsRequired: openFromError,
   });
 
   useEffect(() => {
@@ -219,14 +232,14 @@ export default function ExamEditorGeminiGenerationSection({
           method: "POST",
           body: JSON.stringify({
             series: seriesListToApiPayload(seriesList),
-            source_ids: sourceIds,
+            source_ids: sources.map((s) => s.id),
           }),
         },
       );
       setPreviewData(preview);
       setPreviewStep(true);
     } catch (e) {
-      onError(resolveGeminiApiError(e));
+      if (!openFromError(e)) onError(resolveGeminiApiError(e));
     } finally {
       setLoadingPreview(false);
     }
@@ -249,7 +262,7 @@ export default function ExamEditorGeminiGenerationSection({
         method: "POST",
         body: JSON.stringify({
           series: seriesListToApiPayload(seriesList),
-          source_ids: sourceIds,
+          source_ids: sources.map((s) => s.id),
         }),
       });
       setSession(created);
@@ -257,9 +270,11 @@ export default function ExamEditorGeminiGenerationSection({
         await continueIncompleteSession(created);
       }
     } catch (e) {
-      const message = resolveGeminiApiError(e);
-      setBatchError({ message, timeout: isGeminiTimeoutError(e) });
-      onError(message);
+      if (!openFromError(e)) {
+        const message = resolveGeminiApiError(e);
+        setBatchError({ message, timeout: isGeminiTimeoutError(e) });
+        onError(message);
+      }
     } finally {
       setGenerating(false);
     }
@@ -315,9 +330,12 @@ export default function ExamEditorGeminiGenerationSection({
 
   return (
     <Box dir="rtl">
+      {creditsDialog}
+      <AiCreditBalance product={TEACHER_AI_PRODUCT} />
       <Typography variant="body2" color="text.secondary" paragraph sx={hebrewAlignRightSx}>
         {he.geminiGenerateIntro}
       </Typography>
+      <GeminiFlowStepper step={geminiFlowStep({ previewStep, generationStarted, generationComplete })} />
       {loadingPreview && <GeminiAiWorkingBanner />}
       {!editable && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -328,9 +346,14 @@ export default function ExamEditorGeminiGenerationSection({
         <ExamGeminiSourcesPanel
           examId={examId}
           disabled={!editable || generating || autoFixing}
-          onSelectedIdsChange={setSourceIds}
+          onSourcesChange={setSources}
           onError={onError}
         />
+      )}
+      {!generationStarted && !previewStep && (
+        <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5, ...hebrewAlignRightSx }}>
+          {he.geminiBriefRequestTitle}
+        </Typography>
       )}
       {!generationStarted && !previewStep &&
         seriesList.map((series, index) => (
@@ -370,7 +393,7 @@ export default function ExamEditorGeminiGenerationSection({
                 variant="contained"
                 startIcon={
                   loadingPreview ? (
-                    <CircularProgress size={18} color="inherit" />
+                    <Spinner size={18} color="inherit" />
                   ) : (
                     <AutoAwesomeIcon />
                   )
@@ -382,9 +405,7 @@ export default function ExamEditorGeminiGenerationSection({
               </Button>
             </DisabledActionTooltip>
           </Box>
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2, ...hebrewAlignRightSx }}>
-            {he.geminiSeriesTotalQuestions}: {totalQuestions}
-          </Typography>
+          <GeminiRequestSummary summary={summarizeRequest(seriesList, sources)} />
         </>
       )}
 
@@ -403,6 +424,7 @@ export default function ExamEditorGeminiGenerationSection({
               {previewData.ai_summary}
             </Typography>
           </Alert>
+          <GeminiCostEstimate preview={previewData} />
           <Box sx={{ ...hebrewActionsBarRtlSx }}>
             <Button variant="outlined" onClick={cancelPreview} disabled={generating}>
               {he.geminiPreviewCorrect}
@@ -410,7 +432,7 @@ export default function ExamEditorGeminiGenerationSection({
             <Button
               variant="contained"
               startIcon={
-                generating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesomeIcon />
+                generating ? <Spinner size={18} color="inherit" /> : <AutoAwesomeIcon />
               }
               onClick={() => {
                 setPreviewStep(false);

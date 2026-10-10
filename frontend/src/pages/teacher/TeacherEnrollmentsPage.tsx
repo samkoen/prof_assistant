@@ -1,119 +1,69 @@
-import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
+import { useMemo, useState } from "react";
+import { Alert, Box, Button, InputAdornment, Skeleton, TextField } from "@mui/material";
 import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
+import SearchIcon from "@mui/icons-material/Search";
 import ListPageToolbar from "../../components/ListPageToolbar";
-import PendingEnrollmentActions, {
-  type ReviewAction,
-} from "../../components/PendingEnrollmentActions";
+import BulkApproveDialog from "../../components/teacher/BulkApproveDialog";
+import EnrollmentGroupPanel from "../../components/teacher/EnrollmentGroupPanel";
 import EmptyState from "../../components/ui/EmptyState";
-import HebrewCardRow from "../../components/ui/HebrewCardRow";
-import { useFeedback } from "../../context/FeedbackContext";
-import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
-import { api, ApiError, enrollmentOfferingLabel, type Enrollment } from "../../api/client";
+import { useBulkApproval } from "../../hooks/useBulkApproval";
+import { useEnrollmentReview } from "../../hooks/useEnrollmentReview";
+import { usePendingEnrollments } from "../../hooks/usePendingEnrollments";
 import { he } from "../../i18n/he";
+import { groupEnrollments, type EnrollmentGroup } from "../../utils/enrollmentGroups";
 
+function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <TextField
+      size="small"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={he.enrollmentsSearchPlaceholder}
+      inputProps={{ "aria-label": he.enrollmentsSearchPlaceholder }}
+      sx={{ mb: 2.5, width: { xs: "100%", sm: 360 } }}
+      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+    />
+  );
+}
+
+/** Demandes d'inscription : regroupées par cours, recherche, approbation groupée. */
 export default function TeacherEnrollmentsPage() {
-  const { showSuccess, showError } = useFeedback();
-  const [pending, setPending] = useState<Enrollment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [reviewing, setReviewing] = useState<ReviewAction | null>(null);
+  const pending = usePendingEnrollments();
+  const { reviewing, review } = useEnrollmentReview((id) => pending.remove([id]));
+  const bulk = useBulkApproval(pending.remove);
+  const [query, setQuery] = useState("");
+  const [confirmGroup, setConfirmGroup] = useState<EnrollmentGroup | null>(null);
+  const groups = useMemo(() => groupEnrollments(pending.rows, query), [pending.rows, query]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setPending(await api<Enrollment[]>("/api/enrollments/pending"));
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const review = async (enrollmentId: number, status: "approved" | "rejected") => {
-    setReviewing({ id: enrollmentId, status });
-    try {
-      await api(`/api/enrollments/${enrollmentId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      });
-      setPending((rows) => rows.filter((r) => r.id !== enrollmentId));
-      showSuccess(status === "approved" ? he.approvedSuccess : he.rejectedSuccess);
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : he.errorGeneric;
-      setError(msg);
-      showError(msg);
-    } finally {
-      setReviewing(null);
-    }
+  const confirmBulk = async () => {
+    if (confirmGroup) await bulk.approveAll(confirmGroup.rows.map((r) => r.id));
+    setConfirmGroup(null);
   };
 
   return (
-    <Box sx={hebrewAlignRightSx}>
-      <ListPageToolbar title={he.pendingApprovals} subtitle={he.enrollmentsSubtitle} />
-
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setError("")}
-          action={
-            <Button color="inherit" size="small" onClick={load}>
-              {he.retry}
-            </Button>
-          }
-        >
-          {error}
+    <Box dir="rtl">
+      <ListPageToolbar
+        title={he.pendingApprovals}
+        subtitle={pending.rows.length > 0 ? he.enrollmentsCountTitle(pending.rows.length) : he.enrollmentsSubtitle}
+      />
+      {pending.error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => pending.setError("")} action={<Button color="inherit" size="small" onClick={pending.reload}>{he.retry}</Button>}>
+          {pending.error}
         </Alert>
       )}
-
-      {loading ? (
-        <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
-        </Box>
-      ) : pending.length === 0 ? (
-        <EmptyState
-          title={he.noPendingRequests}
-          description={he.noPendingRequestsHint}
-          icon={<HowToRegOutlinedIcon />}
-        />
+      {pending.rows.length > 0 && <SearchBox value={query} onChange={setQuery} />}
+      {pending.loading ? (
+        <Skeleton variant="rounded" height={200} />
+      ) : pending.rows.length === 0 ? (
+        <EmptyState title={he.noPendingRequests} description={he.noPendingRequestsHint} icon={<HowToRegOutlinedIcon />} />
+      ) : groups.length === 0 ? (
+        <EmptyState title={he.enrollmentsNoMatch} />
       ) : (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-          {pending.map((p) => {
-            const courseLabel = enrollmentOfferingLabel(p);
-            return (
-              <HebrewCardRow
-                key={p.id}
-                text={
-                  <>
-                    <Typography fontWeight={600}>{p.student_name}</Typography>
-                    <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "left" }}>
-                      {p.student_email}
-                    </Typography>
-                    {courseLabel && (
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        {courseLabel}
-                      </Typography>
-                    )}
-                  </>
-                }
-                actions={
-                  <PendingEnrollmentActions
-                    enrollmentId={p.id}
-                    reviewing={reviewing}
-                    onReview={review}
-                  />
-                }
-              />
-            );
-          })}
-        </Box>
+        groups.map((g) => (
+          <EnrollmentGroupPanel key={g.offeringId} group={g} reviewing={reviewing} bulkBusy={bulk.busy} onReview={review} onApproveAll={setConfirmGroup} />
+        ))
       )}
+      <BulkApproveDialog group={confirmGroup} busy={bulk.busy} onClose={() => setConfirmGroup(null)} onConfirm={confirmBulk} />
     </Box>
   );
 }

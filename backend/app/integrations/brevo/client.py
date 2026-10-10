@@ -7,13 +7,14 @@ import json
 import logging
 from typing import Any
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from app.integrations.brevo.config import (
     brevo_api_key,
     brevo_sender_email,
     brevo_sender_name,
 )
+from app.integrations.brevo.ipv4 import build_ipv4_opener
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,17 @@ class BrevoApiError(Exception):
     """Erreur HTTP ou réponse inattendue de l'API Brevo."""
 
 
+def _open(req: Request, timeout: float = 60):
+    """Appel HTTP en IPv4 uniquement : Brevo filtre les IP autorisées (IPv6 non déclarée)."""
+    return build_ipv4_opener().open(req, timeout=timeout)
+
+
 def send_transactional_html_email(
     *,
     to_email: str,
     subject: str,
     html_content: str,
+    reply_to: str | None = None,
 ) -> dict[str, Any]:
     """Envoie un e-mail HTML. Nécessite BREVO_API_KEY et BREVO_SENDER_EMAIL."""
     key = brevo_api_key()
@@ -46,6 +53,8 @@ def send_transactional_html_email(
         "subject": (subject or "").strip() or "(sans objet)",
         "htmlContent": html_content or "<p></p>",
     }
+    if (reply_to or "").strip():
+        payload["replyTo"] = {"email": reply_to.strip()}
 
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = Request(BREVO_SMTP_API_URL, data=body, method="POST")
@@ -54,7 +63,7 @@ def send_transactional_html_email(
     req.add_header("api-key", key)
 
     try:
-        with urlopen(req, timeout=60) as resp:
+        with _open(req) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
             if resp.status not in (200, 201, 202):
                 raise BrevoApiError(f"Brevo HTTP {resp.status}: {raw[:500]}")
@@ -69,6 +78,9 @@ def send_transactional_html_email(
             pass
         logger.warning("Brevo HTTP %s: %s", e.code, msg)
         raise BrevoApiError(f"Brevo HTTP {e.code}: {msg}") from e
+    except OSError as e:  # URLError, timeout, DNS : ne doit jamais devenir un 500
+        logger.warning("Brevo injoignable: %s", e)
+        raise BrevoApiError(f"Brevo injoignable: {e}") from e
 
     try:
         return json.loads(raw) if raw.strip() else {}

@@ -11,6 +11,9 @@ from app.schemas.gemini_questions import (
     GeminiSourcePreviewItem,
 )
 from app.services.ai_client import AiError, generate_text
+from app.services.billing.context import role_name
+from app.services.billing.estimate import estimate_generation
+from app.services.billing.settings_store import get_billing_config
 from app.services.ai_prompt_render import render_prompt
 from app.services.ai_prompt_store import get_prompt_body
 from app.services.exam_gemini_source_service import load_sources_for_generation
@@ -84,20 +87,27 @@ async def preview_generation_context(
     db: AsyncSession,
 ) -> GeminiGenerationPreviewResponse:
     ids = source_ids or []
-    sources = await load_sources_for_generation(exam.id, user, ids, db)
+    sources = await load_sources_for_generation(exam.id, user.id, ids, db, with_files=False)
     instructions = _instructions_from_series(series)
     preview_sources = [_source_preview_item(s) for s in sources]
     total = sum(s.question_count for s in series)
     prompt = _build_summary_prompt(instructions, preview_sources, total, exam.title)
     try:
+        # Le résumé est gratuit : le prof voit le coût estimé avant de confirmer la génération.
         ai_summary = (await generate_text(prompt, for_generation=True)).strip()
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not ai_summary:
         ai_summary = f"נושא מובן: {instructions[0][:80]}… · מקורות: {'ללא' if not preview_sources else str(len(preview_sources))} · {total} שאלות"
+    config = await get_billing_config(db)
+    free = role_name(user) == "admin" or not config.payment_enabled
+    estimate = estimate_generation(series, config.calls_per_teacher_credit, free=free)
     return GeminiGenerationPreviewResponse(
         instructions=instructions,
         total_questions=total,
         sources=preview_sources,
         ai_summary=ai_summary,
+        estimated_credits=estimate.credits,
+        max_credits=estimate.max_credits,
+        calls_per_credit=estimate.calls_per_credit,
     )

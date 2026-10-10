@@ -1,4 +1,4 @@
-import { Chip } from "@mui/material";
+import StatusChip from "../components/ui/StatusChip";
 import type { DataListColumnDef } from "../components/DataListTable/types";
 import type { StudentAccount } from "../api/client";
 import { he } from "../i18n/he";
@@ -40,11 +40,7 @@ export function getStudentTableColumns(): DataListColumnDef<StudentAccount>[] {
       minWidth: 100,
       getValue: (s) => (s.email_verified ? he.verified : he.pending),
       renderCell: (s) => (
-        <Chip
-          size="small"
-          label={s.email_verified ? he.verified : he.pending}
-          color={s.email_verified ? "success" : "warning"}
-        />
+        <StatusChip label={s.email_verified ? he.verified : he.pending} tone={s.email_verified ? "success" : "warning"} />
       ),
     },
   ];

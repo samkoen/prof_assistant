@@ -1,4 +1,5 @@
 from app.models.ai_prompt import AiPromptTemplate
+from app.models.billing import AiBillingSettings, AiUsage, AiWallet, PaymentOrder
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import (
     Answer,
@@ -23,6 +24,10 @@ from app.models.user import User
 
 __all__ = [
     "AiPromptTemplate",
+    "AiBillingSettings",
+    "AiWallet",
+    "AiUsage",
+    "PaymentOrder",
     "User",
     "CourseCatalog",
     "CourseOffering",

@@ -41,6 +41,42 @@ function PromptUsageBlock({ promptKey }: { promptKey: string }) {
   );
 }
 
+const promptBodyFieldSx = {
+  mt: 2,
+  "& .MuiInputBase-input, & textarea": {
+    direction: "ltr",
+    textAlign: "left",
+  },
+} as const;
+
+const promptBodyInputStyle = {
+  fontFamily: "ui-monospace, monospace",
+  fontSize: 13,
+  direction: "ltr" as const,
+  textAlign: "left" as const,
+};
+
+function PromptBodyField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TextField
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      multiline
+      minRows={12}
+      fullWidth
+      dir="ltr"
+      sx={promptBodyFieldSx}
+      slotProps={{ htmlInput: { dir: "ltr", style: promptBodyInputStyle } }}
+    />
+  );
+}
+
 function PromptChips({ items, wrap }: { items: string[]; wrap?: boolean }) {
   if (items.length === 0) {
     return (
@@ -88,15 +124,7 @@ export default function AiPromptEditDialog({
           {he.aiPromptRequired}
         </Typography>
         <PromptChips items={template.required} />
-        <TextField
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          multiline
-          minRows={12}
-          fullWidth
-          sx={{ mt: 2 }}
-          inputProps={{ dir: "ltr", style: { fontFamily: "ui-monospace, monospace", fontSize: 13 } }}
-        />
+        <PromptBodyField value={body} onChange={setBody} />
       </DialogContent>
       <DialogActions sx={{ ...hebrewAlignRightSx, gap: 1, flexWrap: "wrap" }}>
         <Button onClick={onClose} disabled={saving}>

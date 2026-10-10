@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
-  CircularProgress,
-  Dialog,
+  Button,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -16,6 +14,7 @@ import { api, ApiError, type ExamDetail } from "../api/client";
 import { buildExamPortableExport } from "../utils/examPortableExport";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
+import Spinner from "./ui/Spinner";
 
 interface ExamPortableExportDialogProps {
   open: boolean;
@@ -108,7 +107,7 @@ export default function ExamPortableExportDialog({
           )}
           {loading && (
             <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress size={28} />
+              <Spinner size={28} />
             </Box>
           )}
           {!loading && exportData && <ExportSections exportData={exportData} onCopy={handleCopy} />}

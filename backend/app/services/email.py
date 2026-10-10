@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from starlette.concurrency import run_in_threadpool
+
 from app.config import settings
 from app.security import create_email_verification_token
 from app.services.email_delivery import deliver_html_email
@@ -26,7 +28,11 @@ async def send_verification_email(email: str, user_id: int, full_name: str) -> b
         full_name=full_name,
         verify_url=verify_url,
     )
-    ok = deliver_html_email(to_email=email, subject=subject, html_content=html, kind="register_verify")
+    ok = await run_in_threadpool(
+        lambda: deliver_html_email(
+            to_email=email, subject=subject, html_content=html, kind="register_verify"
+        )
+    )
     if not ok:
         logger.warning("Échec envoi e-mail vérification pour user_id=%s", user_id)
     return ok

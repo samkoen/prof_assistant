@@ -1,0 +1,27 @@
+"""Conserve le fichier d'origine des sources IA en base.
+
+Revision ID: 024
+Revises: 023
+"""
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+
+from app.migration_utils import has_column
+
+revision: str = "024"
+down_revision: Union[str, None] = "023"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    if has_column("exam_gemini_sources", "file_data"):
+        return
+    op.add_column("exam_gemini_sources", sa.Column("file_data", sa.LargeBinary(), nullable=True))
+
+
+def downgrade() -> None:
+    if has_column("exam_gemini_sources", "file_data"):
+        op.drop_column("exam_gemini_sources", "file_data")

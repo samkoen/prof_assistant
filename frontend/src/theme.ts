@@ -33,10 +33,11 @@ export const theme = createTheme({
       paper: brand.white,
     },
     text: { primary: brand.slate900, secondary: brand.slate600 },
-    divider: alpha(brand.violet700, 0.1),
+    divider: alpha(brand.violet700, 0.12),
     success: { main: "#059669" },
     warning: { main: "#d97706" },
     error: { main: "#dc2626" },
+    info: { main: "#0284c7" },
   },
   shape: { borderRadius: 14 },
   components: {
@@ -55,14 +56,26 @@ export const theme = createTheme({
         "*::-webkit-scrollbar-track": { backgroundColor: "transparent" },
       },
     },
+    MuiButtonBase: {
+      styleOverrides: {
+        root: {
+          "&.Mui-focusVisible": {
+            outline: `3px solid ${alpha(brand.violet600, 0.45)}`,
+            outlineOffset: 2,
+          },
+        },
+      },
+    },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
         root: {
           borderRadius: 12,
           paddingInline: 22,
-          paddingBlock: 10,
+          paddingBlock: 9,
           gap: 10,
+          transition: "background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease",
+          "&:active": { transform: "translateY(1px)" },
         },
         startIcon: {
           margin: 0,
@@ -81,21 +94,60 @@ export const theme = createTheme({
           fontSize: "1rem",
         },
         containedPrimary: {
-          background: `linear-gradient(135deg, ${brand.violet700} 0%, ${brand.violet500} 100%)`,
-          boxShadow: `0 8px 22px ${alpha(brand.violet600, 0.28)}`,
+          background: `linear-gradient(135deg, ${brand.violet700} 0%, ${brand.violet600} 100%)`,
+          boxShadow: `0 6px 18px ${alpha(brand.violet600, 0.32)}`,
           "&:hover": {
-            background: `linear-gradient(135deg, ${brand.violet800} 0%, ${brand.violet600} 100%)`,
-            boxShadow: `0 10px 28px ${alpha(brand.violet600, 0.34)}`,
+            background: `linear-gradient(135deg, ${brand.violet800} 0%, ${brand.violet700} 100%)`,
+            boxShadow: `0 10px 26px ${alpha(brand.violet600, 0.4)}`,
           },
+          "&.Mui-disabled": { background: alpha(brand.slate400, 0.35), boxShadow: "none" },
         },
         outlined: {
-          borderColor: alpha(brand.violet600, 0.22),
+          borderColor: alpha(brand.violet600, 0.3),
           bgcolor: brand.white,
           "&:hover": {
-            borderColor: brand.violet500,
-            bgcolor: alpha(brand.violet100, 0.5),
+            borderColor: brand.violet600,
+            bgcolor: alpha(brand.violet100, 0.6),
           },
         },
+      },
+    },
+    MuiTabs: {
+      styleOverrides: {
+        indicator: { height: 3, borderRadius: "3px 3px 0 0", backgroundColor: brand.violet600 },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: { fontWeight: 700, minHeight: 46, "&.Mui-selected": { color: brand.violet700 } },
+      },
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          "& .MuiTableCell-head": {
+            backgroundColor: brand.violet50,
+            color: brand.slate700,
+            fontWeight: 700,
+            borderBottom: `1px solid ${alpha(brand.violet700, 0.14)}`,
+          },
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: { "&.MuiTableRow-hover:hover": { backgroundColor: alpha(brand.violet100, 0.45) } },
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: brand.slate900,
+          borderRadius: 8,
+          fontSize: "0.78rem",
+          padding: "6px 10px",
+        },
+        arrow: { color: brand.slate900 },
       },
     },
     MuiCard: {

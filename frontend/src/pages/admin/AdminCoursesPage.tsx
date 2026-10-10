@@ -3,9 +3,7 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
-  Dialog,
+  Chip,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -18,6 +16,7 @@ import type { DataListColumnDef } from "../../components/DataListTable/types";
 import { api, ApiError, offeringLabel, type CourseOffering } from "../../api/client";
 import { he } from "../../i18n/he";
 import { offeringTeacherNames } from "../../utils/offeringTeachers";
+import Spinner from "../../components/ui/Spinner";
 
 interface TeacherOption {
   id: number;
@@ -165,7 +164,7 @@ export default function AdminCoursesPage() {
 
       {loading && offerings.length === 0 ? (
         <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
+          <Spinner />
         </Box>
       ) : (
         <DataListTable

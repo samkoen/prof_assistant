@@ -93,6 +93,11 @@ export default function LoginPage() {
           {he.register}
         </Link>
       </Typography>
+      <Typography variant="body2" sx={{ mt: 1.5, textAlign: "center" }}>
+        <Link component={RouterLink} to="/contact-us" color="text.secondary">
+          {he.contactTitle}
+        </Link>
+      </Typography>
     </AuthLayout>
   );
 }

@@ -24,4 +24,6 @@ ENV PORT=10000
 EXPOSE 10000
 
 WORKDIR /app/backend
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Migrations au démarrage de chaque déploiement : si `alembic upgrade head` échoue,
+# le conteneur s'arrête, le déploiement échoue et Render garde l'ancienne version en ligne.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

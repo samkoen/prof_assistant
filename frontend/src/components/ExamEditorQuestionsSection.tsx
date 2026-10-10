@@ -37,7 +37,7 @@ export default function ExamEditorQuestionsSection({
     exam.is_editable && onAdd ? (
       <Box dir="rtl" sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
         <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={onAdd}>
-          {he.addQuestion}
+          {he.addQuestionsSection}
         </Button>
       </Box>
     ) : null;

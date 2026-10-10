@@ -5,8 +5,8 @@ import {
   Card,
   CardActionArea,
   CardContent,
-  Tab,
-  Tabs,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -38,6 +38,12 @@ type ExamEditorAddQuestionsSectionProps = {
   onReload: () => void | Promise<void>;
   onSuccess: (message: string) => void;
   onError: (message: string) => void;
+};
+
+const METHOD_ICONS: Record<QuestionAddMethod, JSX.Element> = {
+  manual: <EditOutlinedIcon fontSize="small" />,
+  gemini: <AutoAwesomeIcon fontSize="small" />,
+  paste: <ContentPasteIcon fontSize="small" />,
 };
 
 function methodLabel(method: QuestionAddMethod): string {
@@ -117,17 +123,22 @@ function AddMethodTabs({
   onMethodChange: (method: QuestionAddMethod) => void;
 }) {
   return (
-    <Tabs
+    <ToggleButtonGroup
+      exclusive
+      fullWidth
+      color="primary"
       value={method}
-      onChange={(_, value) => onMethodChange(value as QuestionAddMethod)}
-      variant="fullWidth"
       dir="rtl"
-      sx={{ mb: 2, borderBottom: 1, borderColor: "divider", direction: "rtl" }}
+      onChange={(_, value: QuestionAddMethod | null) => value && onMethodChange(value)}
+      sx={{ mb: 3, direction: "rtl" }}
     >
       {ADD_METHODS.map((m) => (
-        <Tab key={m} value={m} label={methodLabel(m)} />
+        <ToggleButton key={m} value={m} sx={{ py: 1.25, gap: 1, fontWeight: 700 }}>
+          {METHOD_ICONS[m]}
+          {methodLabel(m)}
+        </ToggleButton>
       ))}
-    </Tabs>
+    </ToggleButtonGroup>
   );
 }
 

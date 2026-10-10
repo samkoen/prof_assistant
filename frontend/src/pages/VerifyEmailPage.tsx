@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { Alert, Button, CircularProgress } from "@mui/material";
+import { Alert, Button } from "@mui/material";
 import AuthLayout from "../components/ui/AuthLayout";
 import ResendVerificationForm from "../components/ResendVerificationForm";
 import { api, ApiError } from "../api/client";
 import { he } from "../i18n/he";
+import Spinner from "../components/ui/Spinner";
 
 type VerifyState = "loading" | "success" | "already" | "error";
 
@@ -38,7 +39,7 @@ export default function VerifyEmailPage() {
   if (state === "loading") {
     return (
       <AuthLayout title={he.verifyEmailTitle}>
-        <CircularProgress sx={{ alignSelf: "center" }} />
+        <Spinner sx={{ alignSelf: "center" }} />
       </AuthLayout>
     );
   }

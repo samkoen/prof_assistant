@@ -12,6 +12,9 @@ const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
 const StudentJoinCoursePage = lazy(() => import("./pages/StudentJoinCoursePage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const PublicContactPage = lazy(() => import("./pages/PublicContactPage"));
+const BillingReturnPage = lazy(() => import("./pages/BillingReturnPage"));
 
 const AdminOverviewPage = lazy(() => import("./pages/admin/AdminOverviewPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
@@ -19,6 +22,7 @@ const AdminCoursesPage = lazy(() => import("./pages/admin/AdminCoursesPage"));
 const AdminStudentsPage = lazy(() => import("./pages/admin/AdminStudentsPage"));
 const AdminAiExplanationsPage = lazy(() => import("./pages/admin/AdminAiExplanationsPage"));
 const AdminAiPromptsPage = lazy(() => import("./pages/admin/AdminAiPromptsPage"));
+const AdminAiBillingPage = lazy(() => import("./pages/admin/AdminAiBillingPage"));
 
 const TeacherOverviewPage = lazy(() => import("./pages/teacher/TeacherOverviewPage"));
 const TeacherStudentsPage = lazy(() => import("./pages/teacher/TeacherStudentsPage"));
@@ -61,6 +65,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/contact-us" element={<PublicContactPage />} />
         <Route path="/join/t/:joinToken" element={<StudentJoinCoursePage />} />
         <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 
@@ -73,6 +78,8 @@ export default function App() {
         >
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/billing/return" element={<BillingReturnPage />} />
 
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route path="/admin" element={<AdminOverviewPage />} />
@@ -81,6 +88,7 @@ export default function App() {
             <Route path="/admin/courses" element={<AdminCoursesPage />} />
             <Route path="/admin/ai-explanations" element={<AdminAiExplanationsPage />} />
             <Route path="/admin/ai-prompts" element={<AdminAiPromptsPage />} />
+            <Route path="/admin/ai-billing" element={<AdminAiBillingPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={["teacher"]} />}>

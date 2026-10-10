@@ -77,6 +77,9 @@ function SourceBlock({ source }: { source: GeminiSourcePreviewItem }) {
           <Chip key={role} size="small" variant="outlined" label={role} />
         ))}
       </Box>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ ...hebrewAlignRightSx, mb: 0.5 }}>
+        {he.geminiSourceFullFileSent}
+      </Typography>
       <Typography
         variant="caption"
         component="pre"

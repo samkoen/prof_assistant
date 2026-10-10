@@ -64,6 +64,9 @@ class GeminiGenerationPreviewResponse(BaseModel):
     total_questions: int
     sources: list[GeminiSourcePreviewItem]
     ai_summary: str
+    estimated_credits: int = 0
+    max_credits: int = 0
+    calls_per_credit: int = 1
 
 
 class GeminiSessionRefineRequest(BaseModel):

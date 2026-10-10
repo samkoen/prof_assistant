@@ -1,39 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Tooltip,
-  Typography,
-} from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import MarkEmailReadIcon from "@mui/icons-material/MarkEmailRead";
+import { useMemo, useState } from "react";
+import { Alert, Box, Skeleton } from "@mui/material";
 import ListPageToolbar from "../components/ListPageToolbar";
 import DataListTable from "../components/DataListTable/DataListTable";
-import StudentFormDialog, { type StudentFormValues } from "../components/StudentFormDialog";
+import StudentFormDialog from "../components/StudentFormDialog";
+import StudentRowActions from "../components/StudentRowActions";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
+import ListSearchField from "../components/ui/ListSearchField";
 import { getStudentTableColumns } from "../config/studentTableColumns";
-import {
-  api,
-  ApiError,
-  deleteStudent,
-  verifyStudentEmailBypass,
-  type StudentAccount,
-} from "../api/client";
+import type { StudentAccount } from "../api/client";
+import { emptyStudentForm, useStudentsAdmin } from "../hooks/useStudentsAdmin";
 import { he } from "../i18n/he";
-
-const emptyForm = (): StudentFormValues => ({
-  email: "",
-  password: "",
-  full_name: "",
-  phone: "",
-  student_id: "",
-});
+import { matchesQuery } from "../utils/examFilters";
 
 interface StudentsListPageProps {
   /** Clé localStorage pour colonnes/largeurs du tableau */
@@ -42,188 +19,66 @@ interface StudentsListPageProps {
   allowEmailVerifyBypass?: boolean;
 }
 
-export default function StudentsListPage({
-  tableViewKey,
-  allowEmailVerifyBypass = false,
-}: StudentsListPageProps) {
-  const [students, setStudents] = useState<StudentAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+/** Liste des étudiants : recherche, création, vérification e-mail et suppression confirmée. */
+export default function StudentsListPage({ tableViewKey, allowEmailVerifyBypass = false }: StudentsListPageProps) {
+  const data = useStudentsAdmin();
   const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [verifyingId, setVerifyingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [studentToDelete, setStudentToDelete] = useState<StudentAccount | null>(null);
-  const [form, setForm] = useState(emptyForm);
-
+  const [form, setForm] = useState(emptyStudentForm);
+  const [query, setQuery] = useState("");
+  const [toDelete, setToDelete] = useState<StudentAccount | null>(null);
   const columns = useMemo(() => getStudentTableColumns(), []);
+  const rows = useMemo(
+    () => data.students.filter((s) => matchesQuery([s.full_name, s.email, s.student_id ?? ""], query)),
+    [data.students, query],
+  );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setStudents(await api<StudentAccount[]>("/api/students"));
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const createStudent = async () => {
-    setSubmitting(true);
-    setError("");
-    setSuccess("");
-    try {
-      await api("/api/students", {
-        method: "POST",
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          full_name: form.full_name,
-          phone: form.phone || null,
-          student_id: form.student_id || null,
-        }),
-      });
-      setOpen(false);
-      setForm(emptyForm());
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setSubmitting(false);
-    }
+  const submitCreate = async () => {
+    if (!(await data.create(form))) return;
+    setOpen(false);
+    setForm(emptyStudentForm());
   };
-
-  const verifyEmail = async (student: StudentAccount) => {
-    setVerifyingId(student.id);
-    setError("");
-    setSuccess("");
-    try {
-      await verifyStudentEmailBypass(student.id);
-      setSuccess(he.verifyStudentEmailSuccess);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setVerifyingId(null);
-    }
-  };
-
   const confirmDelete = async () => {
-    if (!studentToDelete) return;
-    setDeletingId(studentToDelete.id);
-    setError("");
-    setSuccess("");
-    try {
-      await deleteStudent(studentToDelete.id);
-      setStudentToDelete(null);
-      setSuccess(he.studentDeleted);
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setDeletingId(null);
-    }
+    if (toDelete) await data.remove(toDelete);
+    setToDelete(null);
   };
 
   return (
-    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
-      <ListPageToolbar
-        title={he.students}
-        subtitle={he.studentsSubtitle}
-        addLabel={he.newStudent}
-        onAdd={() => setOpen(true)}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>
-          {success}
-        </Alert>
-      )}
-
-      {loading && students.length === 0 ? (
-        <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
-        </Box>
+    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }} dir="rtl">
+      <ListPageToolbar title={he.students} subtitle={he.studentsSubtitle} titleVariant="h5" addLabel={he.newStudent} onAdd={() => setOpen(true)} />
+      {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
+      {data.success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => data.setSuccess("")}>{data.success}</Alert>}
+      {data.loading ? (
+        <Skeleton variant="rounded" height={240} />
       ) : (
-        <DataListTable
-          viewKey={tableViewKey}
-          rows={students}
-          columns={columns}
-          loading={loading}
-          emptyMessage={he.noStudents}
-          getRowId={(s) => s.id}
-          renderActions={(s) => (
-            <>
-              {allowEmailVerifyBypass && !s.email_verified && (
-                <Tooltip title={he.verifyStudentEmail}>
-                  <span>
-                    <IconButton
-                      size="small"
-                      color="success"
-                      disabled={verifyingId === s.id}
-                      onClick={() => verifyEmail(s)}
-                    >
-                      <MarkEmailReadIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              )}
-              <Tooltip title={he.deleteStudent}>
-                <span>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    disabled={deletingId === s.id}
-                    onClick={() => setStudentToDelete(s)}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </>
-          )}
-        />
+        <>
+          <Box sx={{ mb: 2 }}>
+            <ListSearchField value={query} placeholder={he.studentsSearch} onChange={setQuery} />
+          </Box>
+          <DataListTable
+            viewKey={tableViewKey}
+            rows={rows}
+            columns={columns}
+            loading={false}
+            emptyMessage={he.noStudents}
+            getRowId={(s) => s.id}
+            renderActions={(s) => (
+              <StudentRowActions student={s} busy={data.busyId === s.id} allowVerify={allowEmailVerifyBypass} onVerify={data.verify} onDelete={setToDelete} />
+            )}
+          />
+        </>
       )}
-
-      <StudentFormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        form={form}
-        onChange={setForm}
-        onSubmit={createStudent}
-        submitting={submitting}
+      <StudentFormDialog open={open} onClose={() => setOpen(false)} form={form} onChange={setForm} onSubmit={submitCreate} />
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title={he.confirmDeleteStudentTitle}
+        message={he.deleteStudentConfirm}
+        detail={toDelete ? `${toDelete.full_name} (${toDelete.email})` : undefined}
+        confirmLabel={he.deleteStudent}
+        color="error"
+        busy={data.busyId !== null && data.busyId === toDelete?.id}
+        onClose={() => setToDelete(null)}
+        onConfirm={confirmDelete}
       />
-
-      <Dialog open={!!studentToDelete} onClose={() => setStudentToDelete(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{he.deleteStudent}</DialogTitle>
-        <DialogContent>
-          <Typography>{he.deleteStudentConfirm}</Typography>
-          {studentToDelete && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {studentToDelete.full_name} ({studentToDelete.email})
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setStudentToDelete(null)}>{he.cancel}</Button>
-          <Button variant="contained" color="error" onClick={confirmDelete} disabled={!!deletingId}>
-            {he.deleteStudent}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -3,9 +3,7 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  CircularProgress,
-  Dialog,
+  Chip,  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -24,6 +22,7 @@ import DataListTable from "../../components/DataListTable/DataListTable";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
 import { api, ApiError, type User } from "../../api/client";
 import { he } from "../../i18n/he";
+import Spinner from "../../components/ui/Spinner";
 
 const roleLabels: Record<User["role"], string> = {
   admin: he.roleAdmin,
@@ -181,7 +180,7 @@ export default function AdminUsersPage() {
 
       {loading && users.length === 0 ? (
         <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
+          <Spinner />
         </Box>
       ) : (
         <DataListTable

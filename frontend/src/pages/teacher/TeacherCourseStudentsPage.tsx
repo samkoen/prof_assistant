@@ -1,254 +1,96 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  MenuItem,
-  TextField,
-  Tooltip,
-} from "@mui/material";
+import { Alert, Box, Button, Skeleton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DeleteIcon from "@mui/icons-material/Delete";
-import GradingIcon from "@mui/icons-material/Grading";
-import OfferingEnrollmentSettings from "../../components/OfferingEnrollmentSettings";
-import ListPageToolbar from "../../components/ListPageToolbar";
+import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
+import AddStudentDialog from "../../components/courses/AddStudentDialog";
+import CourseStudentRowActions from "../../components/courses/CourseStudentRowActions";
+import CourseStudentsStats from "../../components/courses/CourseStudentsStats";
 import DataListTable from "../../components/DataListTable/DataListTable";
+import ListPageToolbar from "../../components/ListPageToolbar";
+import OfferingEnrollmentSettings from "../../components/OfferingEnrollmentSettings";
 import StudentGradesDialog from "../../components/StudentGradesDialog";
-import type { DataListColumnDef } from "../../components/DataListTable/types";
-import {
-  api,
-  ApiError,
-  offeringLabel,
-  type CourseOffering,
-  type Enrollment,
-  type StudentAccount,
-} from "../../api/client";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import EmptyState from "../../components/ui/EmptyState";
+import ListSearchField from "../../components/ui/ListSearchField";
+import { getCourseStudentColumns } from "../../config/courseStudentColumns";
+import { offeringLabel, type Enrollment } from "../../api/client";
+import { useCourseStudents } from "../../hooks/useCourseStudents";
+import { useEnrollmentReview } from "../../hooks/useEnrollmentReview";
 import { he } from "../../i18n/he";
+import { countByStatus } from "../../utils/enrollmentStatus";
+import { matchesQuery } from "../../utils/examFilters";
 
+/** Étudiants d'un groupe : chiffres, ajout, approbation des demandes, notes et retrait confirmé. */
 export default function TeacherCourseStudentsPage() {
-  const { courseId } = useParams<{ courseId: string }>();
-  const id = Number(courseId);
-  const [course, setCourse] = useState<CourseOffering | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [allStudents, setAllStudents] = useState<StudentAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [open, setOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [gradesStudent, setGradesStudent] = useState<Enrollment | null>(null);
-
-  const load = useCallback(async () => {
-    if (!id || Number.isNaN(id)) return;
-    setLoading(true);
-    setError("");
-    try {
-      const [courses, enr, students] = await Promise.all([
-        api<CourseOffering[]>("/api/courses/mine"),
-        api<Enrollment[]>(`/api/courses/${id}/enrollments`),
-        api<StudentAccount[]>("/api/students"),
-      ]);
-      setCourse(courses.find((c) => c.id === id) ?? null);
-      setEnrollments(enr);
-      setAllStudents(students);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const approvedIds = useMemo(
-    () => new Set(enrollments.filter((e) => e.status === "approved").map((e) => e.student_id)),
-    [enrollments]
+  const id = Number(useParams<{ courseId: string }>().courseId);
+  const data = useCourseStudents(id);
+  const { reviewing, review } = useEnrollmentReview(() => void data.reload());
+  const [addOpen, setAddOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [gradesFor, setGradesFor] = useState<Enrollment | null>(null);
+  const [toRemove, setToRemove] = useState<Enrollment | null>(null);
+  const columns = useMemo(() => getCourseStudentColumns(), []);
+  const counts = useMemo(() => countByStatus(data.enrollments), [data.enrollments]);
+  const rows = useMemo(
+    () => data.enrollments.filter((e) => matchesQuery([e.student_name, e.student_email], query)),
+    [data.enrollments, query],
   );
-
-  const availableStudents = useMemo(
-    () => allStudents.filter((s) => !approvedIds.has(s.id)),
-    [allStudents, approvedIds]
-  );
-
-  const addToCourse = async () => {
-    if (!selectedStudentId) {
-      setError(he.selectStudent);
-      return;
-    }
-    try {
-      await api(`/api/courses/${id}/enrollments`, {
-        method: "POST",
-        body: JSON.stringify({ student_id: Number(selectedStudentId) }),
-      });
-      setOpen(false);
-      setSelectedStudentId("");
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    }
+  const confirmRemove = async () => {
+    if (toRemove) await data.removeEnrollment(toRemove.id);
+    setToRemove(null);
   };
-
-  const removeFromCourse = async (enrollmentId: number) => {
-    try {
-      await api(`/api/enrollments/${enrollmentId}`, { method: "DELETE" });
-      await load();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : he.errorGeneric);
-    }
-  };
-
-  const statusLabel = (status: Enrollment["status"]) => {
-    if (status === "approved") return he.approve;
-    if (status === "pending") return he.pending;
-    return he.reject;
-  };
-
-  const columns = useMemo<DataListColumnDef<Enrollment>[]>(
-    () => [
-      {
-        key: "student_name",
-        label: he.fullName,
-        minWidth: 140,
-        getValue: (e) => e.student_name,
-        renderCell: (e) => e.student_name,
-      },
-      {
-        key: "student_email",
-        label: he.email,
-        minWidth: 180,
-        cellDir: "ltr",
-        getValue: (e) => e.student_email,
-        renderCell: (e) => e.student_email,
-      },
-      {
-        key: "status",
-        label: he.status,
-        minWidth: 100,
-        getValue: (e) => statusLabel(e.status),
-        renderCell: (e) => (
-          <Chip
-            size="small"
-            label={statusLabel(e.status)}
-            color={
-              e.status === "approved" ? "success" : e.status === "pending" ? "warning" : "error"
-            }
-          />
-        ),
-      },
-    ],
-    []
-  );
-
-  const title = course
-    ? `${he.courseStudents}: ${offeringLabel(course)}`
-    : he.courseStudents;
 
   return (
-    <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }}>
-      <Box sx={{ mb: 1 }}>
-        <Button component={RouterLink} to="/teacher/courses" startIcon={<ArrowBackIcon />} size="small">
-          {he.backToCourses}
-        </Button>
-      </Box>
-
+    <Box dir="rtl" sx={{ width: "100%", minWidth: 0 }}>
+      <Button component={RouterLink} to="/teacher/courses" startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1 }}>
+        {he.backToCourses}
+      </Button>
       <ListPageToolbar
-        title={title}
-        subtitle={he.manageCourseStudents}
+        title={he.courseStudents}
+        subtitle={data.course ? offeringLabel(data.course) : he.manageCourseStudents}
+        titleVariant="h5"
         addLabel={he.addStudentToCourse}
-        onAdd={() => setOpen(true)}
+        onAdd={() => setAddOpen(true)}
       />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
-          {error}
-        </Alert>
-      )}
-
-      {course && (
-        <OfferingEnrollmentSettings
-          offering={course}
-          onUpdated={setCourse}
-          onError={setError}
-        />
-      )}
-
-      {loading && enrollments.length === 0 ? (
-        <Box display="flex" justifyContent="center" py={8}>
-          <CircularProgress />
-        </Box>
+      {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
+      {data.course && <OfferingEnrollmentSettings offering={data.course} onUpdated={data.setCourse} onError={data.setError} />}
+      <CourseStudentsStats counts={counts} />
+      {data.loading ? (
+        <Skeleton variant="rounded" height={200} />
+      ) : data.enrollments.length === 0 ? (
+        <EmptyState title={he.courseStudentsEmptyTitle} description={he.courseStudentsEmptyHint} icon={<PeopleOutlineIcon />} />
       ) : (
-        <DataListTable
-          viewKey={`teacher-course-students-${id}`}
-          rows={enrollments}
-          columns={columns}
-          loading={loading}
-          emptyMessage={he.noStudents}
-          getRowId={(e) => e.id}
-          renderActions={(e) =>
-            e.status === "approved" ? (
-              <>
-                <Tooltip title={he.viewStudentGrades}>
-                  <IconButton size="small" color="primary" onClick={() => setGradesStudent(e)}>
-                    <GradingIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={he.removeFromCourse}>
-                  <IconButton size="small" color="error" onClick={() => removeFromCourse(e.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : null
-          }
-        />
+        <>
+          <Box sx={{ mb: 2 }}>
+            <ListSearchField value={query} placeholder={he.courseStudentsSearch} onChange={setQuery} />
+          </Box>
+          <DataListTable
+            viewKey={`teacher-course-students-${id}`}
+            rows={rows}
+            columns={columns}
+            loading={false}
+            emptyMessage={he.noStudents}
+            getRowId={(e) => e.id}
+            renderActions={(e) => (
+              <CourseStudentRowActions enrollment={e} reviewing={reviewing} onReview={review} onShowGrades={setGradesFor} onRemove={setToRemove} />
+            )}
+          />
+        </>
       )}
-
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{he.addStudentToCourse}</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          {availableStudents.length === 0 ? (
-            <Box color="text.secondary">{he.noStudents}</Box>
-          ) : (
-            <TextField
-              select
-              fullWidth
-              label={he.selectStudent}
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-            >
-              {availableStudents.map((s) => (
-                <MenuItem key={s.id} value={String(s.id)}>
-                  {s.full_name} ({s.email})
-                </MenuItem>
-              ))}
-            </TextField>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>{he.cancel}</Button>
-          <Button variant="contained" onClick={addToCourse} disabled={!selectedStudentId}>
-            {he.submit}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {gradesStudent && (
-        <StudentGradesDialog
-          open={!!gradesStudent}
-          offeringId={id}
-          studentId={gradesStudent.student_id}
-          studentName={gradesStudent.student_name}
-          onClose={() => setGradesStudent(null)}
-        />
+      <AddStudentDialog open={addOpen} candidates={data.candidates} onClose={() => setAddOpen(false)} onAdd={data.addStudent} />
+      <ConfirmDialog
+        open={Boolean(toRemove)}
+        title={he.courseStudentsRemoveTitle}
+        message={he.courseStudentsRemoveConfirm}
+        detail={toRemove?.student_name}
+        confirmLabel={he.removeFromCourse}
+        color="error"
+        onClose={() => setToRemove(null)}
+        onConfirm={confirmRemove}
+      />
+      {gradesFor && (
+        <StudentGradesDialog open offeringId={id} studentId={gradesFor.student_id} studentName={gradesFor.student_name} onClose={() => setGradesFor(null)} />
       )}
     </Box>
   );

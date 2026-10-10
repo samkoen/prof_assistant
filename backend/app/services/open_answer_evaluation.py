@@ -21,6 +21,8 @@ from app.models.exam import (
 from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.ai_client import AiError, generate_text
+from app.services.billing.constants import STUDENT_AI, TEACHER_GENERATION
+from app.services.billing.context import bill_ai, unbilled
 from app.services.exam_kind import is_tirgoul
 from app.services.open_answer_parse import parse_open_evaluation_json
 from app.services.open_answer_prompt import (
@@ -143,12 +145,13 @@ async def _sync_latest_practice_result(
 
 
 async def generate_model_answer_text(
-    question_text: str, language: GeminiSeriesLanguage
+    question_text: str, language: GeminiSeriesLanguage, *, user: User
 ) -> str:
     prompt = build_model_answer_prompt(question_text, language)
     system = model_answer_system_prompt(language)
     try:
-        text = (await generate_text(prompt, system=system)).strip()
+        async with bill_ai(user, TEACHER_GENERATION):
+            text = (await generate_text(prompt, system=system)).strip()
     except AiError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     cleaned = sanitize_eval_text(text, language) or text
@@ -300,7 +303,8 @@ async def _run_ai_evaluation(
     appreciation, score, model = await _eval_once(question, student_text, language)
     if language == "he" and looks_latin_transliteration(appreciation):
         try:
-            return await _eval_once(question, student_text, language, strict=True)
+            async with unbilled():  # relance automatique : une seule action = un seul crédit
+                return await _eval_once(question, student_text, language, strict=True)
         except (ValueError, AiError):
             return appreciation, score, model
     return appreciation, score, model
@@ -323,9 +327,10 @@ async def evaluate_open_answer(
     cached = await _load_cached_eval(attempt.id, question_id, db, for_practice=for_practice)
     if cached and not regenerate:
         return _to_eval_response(cached, question, attempt, from_cache=True, for_practice=for_practice)
-    return await _generate_and_store(
-        attempt, question, db, language=language, for_practice=for_practice
-    )
+    async with bill_ai(user, STUDENT_AI):
+        return await _generate_and_store(
+            attempt, question, db, language=language, for_practice=for_practice
+        )
 
 
 def _attempt_totals(attempt: StudentExamAttempt, *, for_practice: bool) -> tuple[float | None, float | None]:

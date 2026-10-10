@@ -5,14 +5,20 @@ def is_tirgoul(exam: Exam | None) -> bool:
     return bool(exam and exam.is_tirgoul)
 
 
-def should_shuffle(exam: Exam | None) -> bool:
+def should_shuffle_questions(exam: Exam | None) -> bool:
+    """L'ordre des questions d'un תרגול reste celui du professeur."""
     return not is_tirgoul(exam)
+
+
+def should_shuffle_options(exam: Exam | None) -> bool:
+    """Options toujours mélangées par tentative (examen comme תרגול), pour éviter les positions fixes."""
+    return True
 
 
 def apply_exam_kind(exam: Exam, tirgoul: bool) -> None:
     exam.is_tirgoul = tirgoul
     exam.shuffle_questions = not tirgoul
-    exam.shuffle_options = not tirgoul
+    exam.shuffle_options = True
     if tirgoul:
         exam.auto_submit_on_timeout = False
 

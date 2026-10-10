@@ -114,6 +114,8 @@ class Settings(BaseSettings):
     gemini_source_max_chars_per_file: int = 80_000
     gemini_source_max_total_chars: int = 120_000
     gemini_source_max_files_per_exam: int = 5
+    # Budget de fichiers envoyés tels quels (inlineData) : la requête Gemini est limitée à ~20 Mo en base64.
+    gemini_inline_max_total_bytes: int = 14 * 1024 * 1024
 
     opencode_server_url: str = ""
     opencode_server_username: str = "opencode"
@@ -135,6 +137,12 @@ class Settings(BaseSettings):
 
     question_images_dir: str = "data/question_images"
     question_image_max_bytes: int = 5 * 1024 * 1024
+
+    payme_seller_id: str = ""
+    payme_api_key: str = ""
+    payme_webhook_secret: str = ""
+    payme_sandbox: bool = True
+    payme_public_base_url: str = ""
 
     def sqlalchemy_echo(self) -> bool | str:
         """echo SQLAlchemy : True (INFO) ou 'debug' si LOG_LEVEL=DEBUG."""
