@@ -20,9 +20,14 @@ _PINNED_LAST = re.compile(
 )
 
 # « A ו-B », « A+C », « B, C » : une option qui cite d'autres options par leur lettre.
-_LETTER_REFERENCE = re.compile(
+_LATIN_REFERENCE = (
     r"(?<![A-Za-z])[A-Da-d](?![A-Za-z])\s*(?:\+|,|&|and\b|or\b|ו-?|או)\s*[A-Da-d](?![A-Za-z])"
 )
+# Lettres hébraïques d'option (א-ד) : « א ו-ב », « א+ג », « ב, ד ».
+_HEBREW_REFERENCE = (
+    r"(?<![\u0590-\u05FF])[אבגד](?![\u0590-\u05FF])\s*(?:\+|,|&|ו-?|או)\s*[אבגד](?![\u0590-\u05FF])"
+)
+_LETTER_REFERENCE = re.compile(f"{_LATIN_REFERENCE}|{_HEBREW_REFERENCE}")
 
 
 def is_pinned_last(text: str) -> bool:

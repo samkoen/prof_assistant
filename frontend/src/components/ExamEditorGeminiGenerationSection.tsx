@@ -38,6 +38,7 @@ import { useGeminiAutoStructureFix } from "../hooks/useGeminiAutoStructureFix";
 import { hebrewActionsBarRtlSx, hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
 import { TEACHER_AI_PRODUCT } from "../utils/aiCredits";
+import { useRefreshBalanceAfterGeneration } from "../hooks/useRefreshBalanceAfterGeneration";
 import { he } from "../i18n/he";
 import Spinner from "./ui/Spinner";
 
@@ -77,6 +78,8 @@ export default function ExamEditorGeminiGenerationSection({
   const [previewData, setPreviewData] = useState<GeminiGenerationPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const { openFromError, dialog: creditsDialog } = useAiCreditsPaywall();
+
+  useRefreshBalanceAfterGeneration(generating);
 
   const editable = exam.is_editable;
   const allSeriesValid = seriesList.every(

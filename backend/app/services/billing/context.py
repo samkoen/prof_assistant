@@ -26,6 +26,16 @@ def role_name(user) -> str:
 
 
 @asynccontextmanager
+async def unbilled():
+    """Appels IA internes (relances automatiques) : aucun crédit n'est débité."""
+    token = _current.set(None)
+    try:
+        yield
+    finally:
+        _current.reset(token)
+
+
+@asynccontextmanager
 async def bill_ai(user, product: str, generation_session_id: int | None = None):
     token = _current.set(
         AiBilling(user.id, role_name(user), product, generation_session_id)

@@ -48,6 +48,17 @@ def test_letter_references_keep_original_order():
     assert shuffled_options(texts, random.Random(1), str) == texts
 
 
+def test_hebrew_letter_references_keep_original_order():
+    for composite in ("א ו-ב", "א+ג", "ב, ד", "ג וד"):
+        texts = ["רק א", composite, "אף אחת"]
+        assert shuffled_options(texts, random.Random(2), str) == texts, composite
+
+
+def test_hebrew_words_are_not_mistaken_for_references():
+    assert not references_letters("אבא ואמא")
+    assert not references_letters("ביום א של השבוע")
+
+
 def test_true_false_and_open_untouched():
     tf = _question(["נכון", "לא נכון"], qtype=QuestionType.TRUE_FALSE)
     open_q = QuestionCreate(text="?", question_type=QuestionType.OPEN)

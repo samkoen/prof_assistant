@@ -22,7 +22,7 @@ from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.ai_client import AiError, generate_text
 from app.services.billing.constants import STUDENT_AI, TEACHER_GENERATION
-from app.services.billing.context import bill_ai
+from app.services.billing.context import bill_ai, unbilled
 from app.services.exam_kind import is_tirgoul
 from app.services.open_answer_parse import parse_open_evaluation_json
 from app.services.open_answer_prompt import (
@@ -303,7 +303,8 @@ async def _run_ai_evaluation(
     appreciation, score, model = await _eval_once(question, student_text, language)
     if language == "he" and looks_latin_transliteration(appreciation):
         try:
-            return await _eval_once(question, student_text, language, strict=True)
+            async with unbilled():  # relance automatique : une seule action = un seul crédit
+                return await _eval_once(question, student_text, language, strict=True)
         except (ValueError, AiError):
             return appreciation, score, model
     return appreciation, score, model
