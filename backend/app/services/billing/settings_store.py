@@ -29,6 +29,8 @@ class BillingConfig:
     teacher_free_credits: int
     calls_per_teacher_credit: int
     packs: tuple[CreditPack, ...]
+    # Désactivé par défaut : les appels IA ne débitent alors aucun crédit (profs comme élèves).
+    payment_enabled: bool = False
 
     def free_for(self, product: str) -> int:
         if product == STUDENT_AI:
@@ -91,11 +93,13 @@ def settings_from_payload(data: dict) -> BillingConfig:
         _bounded(data["teacher_free_credits"], 0, 1000),
         _bounded(data["calls_per_teacher_credit"], 1, 100),
         parse_packs(list(data["packs"])),
+        bool(data.get("payment_enabled", False)),
     )
 
 
 def config_payload(config: BillingConfig) -> dict:
     return {
+        "payment_enabled": config.payment_enabled,
         "student_free_credits": config.student_free_credits,
         "teacher_free_credits": config.teacher_free_credits,
         "calls_per_teacher_credit": config.calls_per_teacher_credit,
@@ -109,6 +113,7 @@ def _config_from_row(row: AiBillingSettings) -> BillingConfig:
         row.teacher_free_credits,
         row.calls_per_teacher_credit,
         parse_packs(list(row.packs or [])),
+        bool(row.payment_enabled),
     )
 
 
@@ -126,6 +131,7 @@ def _apply_row(row: AiBillingSettings, config: BillingConfig) -> None:
     row.student_free_credits = config.student_free_credits
     row.teacher_free_credits = config.teacher_free_credits
     row.calls_per_teacher_credit = config.calls_per_teacher_credit
+    row.payment_enabled = config.payment_enabled
     row.packs = [
         {
             "code": pack.code,

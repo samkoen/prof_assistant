@@ -56,9 +56,15 @@ async def _free(maker, user_id: int, product: str) -> int:
         return wallet.free_remaining
 
 
-async def _bind(monkeypatch):
+async def _bind(monkeypatch, *, payment_enabled: bool = True):
+    """Base SQLite de test ; le débit est actif par défaut ici (il est désactivé en production)."""
     _engine, maker = await open_sqlite_maker()
     monkeypatch.setattr("app.database.async_session_maker", maker)
+    if payment_enabled:
+        data = config_payload(default_config())
+        data["payment_enabled"] = True
+        async with maker() as db:
+            await save_billing_settings(db, data)
     return maker
 
 
@@ -390,6 +396,7 @@ async def test_calls_per_credit_comes_from_settings(monkeypatch):
 
     monkeypatch.setattr("app.services.ai_client._run_text", _ok)
     data = config_payload(default_config())
+    data["payment_enabled"] = True
     data["calls_per_teacher_credit"] = 2
     async with maker() as db:
         await save_billing_settings(db, data)

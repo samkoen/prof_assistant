@@ -10,6 +10,8 @@ export interface BillingSettingsApi {
   student_free_credits: number;
   teacher_free_credits: number;
   calls_per_teacher_credit: number;
+  /** Faux (défaut) : les appels IA ne débitent aucun crédit. */
+  payment_enabled: boolean;
   packs: BillingPackApi[];
 }
 
@@ -24,6 +26,7 @@ export interface BillingSettingsDraft {
   studentFree: string;
   teacherFree: string;
   callsPerCredit: string;
+  paymentEnabled: boolean;
   packs: BillingPackDraft[];
 }
 
@@ -38,6 +41,7 @@ export function draftFromApi(data: BillingSettingsApi): BillingSettingsDraft {
     studentFree: String(data.student_free_credits),
     teacherFree: String(data.teacher_free_credits),
     callsPerCredit: String(data.calls_per_teacher_credit),
+    paymentEnabled: Boolean(data.payment_enabled),
     packs: data.packs.map((pack) => ({
       code: pack.code,
       product: pack.product,
@@ -63,6 +67,7 @@ export function payloadFromDraft(draft: BillingSettingsDraft): BillingSettingsAp
     student_free_credits: studentFree,
     teacher_free_credits: teacherFree,
     calls_per_teacher_credit: calls,
+    payment_enabled: draft.paymentEnabled,
     packs: packs as BillingPackApi[],
   };
 }

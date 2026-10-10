@@ -100,7 +100,8 @@ async def preview_generation_context(
     if not ai_summary:
         ai_summary = f"נושא מובן: {instructions[0][:80]}… · מקורות: {'ללא' if not preview_sources else str(len(preview_sources))} · {total} שאלות"
     config = await get_billing_config(db)
-    estimate = estimate_generation(series, config.calls_per_teacher_credit, free=role_name(user) == "admin")
+    free = role_name(user) == "admin" or not config.payment_enabled
+    estimate = estimate_generation(series, config.calls_per_teacher_credit, free=free)
     return GeminiGenerationPreviewResponse(
         instructions=instructions,
         total_questions=total,

@@ -54,3 +54,4 @@ class BillingSettingsBody(BaseModel):
     teacher_free_credits: int
     calls_per_teacher_credit: int
     packs: list[BillingPackUpdate]
+    payment_enabled: bool = False

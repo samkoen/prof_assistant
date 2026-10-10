@@ -2,9 +2,10 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import expression
 
 from app.database import Base
 
@@ -62,6 +63,7 @@ class AiBillingSettings(Base):
     teacher_free_credits: Mapped[int] = mapped_column(Integer, default=3)
     calls_per_teacher_credit: Mapped[int] = mapped_column(Integer, default=5)
     packs: Mapped[list] = mapped_column(JSONB, default=list)
+    payment_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=expression.false())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

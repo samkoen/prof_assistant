@@ -76,8 +76,7 @@ async def _open_credit(db: AsyncSession, billing: AiBilling, config: BillingConf
     return usage
 
 
-async def _reserve(db: AsyncSession, billing: AiBilling) -> CreditHold:
-    config = await get_billing_config(db)
+async def _reserve(db: AsyncSession, billing: AiBilling, config: BillingConfig) -> CreditHold:
     if billing.product == TEACHER_GENERATION:
         opened = await _open_tranche(db, billing)
         if opened:
@@ -93,7 +92,10 @@ async def begin_hold() -> CreditHold | None:
     if billing is None or billing.role == "admin":
         return None
     async with _maker()() as db:
-        hold = await _reserve(db, billing)
+        config = await get_billing_config(db)
+        if not config.payment_enabled:
+            return None  # paiement désactivé : aucun crédit n'est débité
+        hold = await _reserve(db, billing, config)
         await db.commit()
         return hold
 

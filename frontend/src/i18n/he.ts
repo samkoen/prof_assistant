@@ -961,4 +961,6 @@ export const he = {
   aiBillingSave: "שמירה",
   aiBillingSaved: "ההגדרות נשמרו",
   aiBillingInvalid: "יש למלא מספרים תקינים",
+  aiBillingPaymentEnabled: "הפעלת תשלום (חיוב קרדיטים)",
+  aiBillingPaymentHint: "כשהאפשרות כבויה, שימוש ב-AI אינו מוריד קרדיטים — לא למורים ולא לתלמידים.",
 };

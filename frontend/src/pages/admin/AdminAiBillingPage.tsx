@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Box, Button, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Checkbox, FormControlLabel, TextField, Typography } from "@mui/material";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { api } from "../../api/client";
 import { he } from "../../i18n/he";
@@ -27,6 +27,32 @@ function QuotaFields({
       <TextField label={he.aiBillingStudentFree} value={draft.studentFree} onChange={(e) => set("studentFree", e.target.value)} slotProps={numberField} />
       <TextField label={he.aiBillingTeacherFree} value={draft.teacherFree} onChange={(e) => set("teacherFree", e.target.value)} slotProps={numberField} />
       <TextField label={he.aiBillingCallsPerCredit} value={draft.callsPerCredit} onChange={(e) => set("callsPerCredit", e.target.value)} slotProps={numberField} />
+    </Box>
+  );
+}
+
+function PaymentToggle({
+  draft,
+  onChange,
+}: {
+  draft: BillingSettingsDraft;
+  onChange: (next: BillingSettingsDraft) => void;
+}) {
+  return (
+    <Box dir="rtl" sx={{ mb: 3 }}>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={draft.paymentEnabled}
+            onChange={(e) => onChange({ ...draft, paymentEnabled: e.target.checked })}
+          />
+        }
+        label={he.aiBillingPaymentEnabled}
+        sx={{ marginInlineStart: 0 }}
+      />
+      <Typography variant="caption" color="text.secondary" display="block" sx={hebrewAlignRightSx}>
+        {he.aiBillingPaymentHint}
+      </Typography>
     </Box>
   );
 }
@@ -83,6 +109,7 @@ function BillingEditor({
 }) {
   return (
     <>
+      <PaymentToggle draft={draft} onChange={onChange} />
       <QuotaFields draft={draft} onChange={onChange} />
       {draft.packs.map((pack, index) => (
         <PackRow
