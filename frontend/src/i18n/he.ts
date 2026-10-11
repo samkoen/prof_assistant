@@ -242,7 +242,7 @@ export const he = {
     "קובץ קורס — בסיס למה שהתלמיד למד (תוכן השאלות). קובץ תרגילים — דוגמאות לשאלות (סגנון, מבנה ורמה). ניתן לסמן את שני השימושים לכל קובץ.",
   geminiSourcesPrivacy: "תוכן הקבצים נשלח ל-AI לעיבוד בלבד.",
   geminiSourcesEmpty: "לא הועלו מקורות — אפשר ליצור שאלות גם בלי קבצים.",
-  geminiSourcesAcceptedFormats: "סוגי קבצים נתמכים: PDF, TXT, MD",
+  geminiSourcesAcceptedFormats: "כל סוגי הקבצים — PDF, תמונות, Excel ועוד. הקובץ נשלח כמו שהוא.",
   geminiUploadExercises: "העלאת קובץ תרגילים",
   geminiUploadCourse: "העלאת קובץ קורס",
   geminiSourceExercises: "תרגילים לדוגמה",

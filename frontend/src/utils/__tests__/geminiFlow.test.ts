@@ -48,11 +48,14 @@ describe("rôles des sources", () => {
   it("refuse une sélection vide", () => {
     expect(flagsFromRoles([])).toBeNull();
   });
-  it("filtre les extensions acceptées", () => {
+  it("accepte tous les formats, y compris image et Excel", () => {
     expect(isAcceptedSourceFile("Cours.PDF")).toBe(true);
-    expect(isAcceptedSourceFile("image.png")).toBe(false);
-    const { accepted, rejected } = splitDroppedFiles([new File([""], "a.txt"), new File([""], "b.exe")]);
-    expect(accepted.map((f) => f.name)).toEqual(["a.txt"]);
-    expect(rejected.map((f) => f.name)).toEqual(["b.exe"]);
+    expect(isAcceptedSourceFile("image.png")).toBe(true);
+    expect(isAcceptedSourceFile("mix.xlsx")).toBe(true);
+    expect(isAcceptedSourceFile("  ")).toBe(false);
+    const files = [new File([""], "a.txt"), new File([""], "b.png"), new File([""], "c.xlsx")];
+    const { accepted, rejected } = splitDroppedFiles(files);
+    expect(accepted.map((f) => f.name)).toEqual(["a.txt", "b.png", "c.xlsx"]);
+    expect(rejected).toEqual([]);
   });
 });

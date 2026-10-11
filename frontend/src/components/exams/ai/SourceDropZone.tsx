@@ -3,7 +3,6 @@ import { alpha, Box, Typography } from "@mui/material";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import { he } from "../../../i18n/he";
 import { brand } from "../../../theme/brand";
-import { ACCEPTED_SOURCE_EXTENSIONS } from "../../../utils/geminiSourceRole";
 import Spinner from "../../ui/Spinner";
 
 type SourceDropZoneProps = {
@@ -57,7 +56,6 @@ export default function SourceDropZone({ disabled, uploading, onFiles }: SourceD
         type="file"
         multiple
         hidden
-        accept={ACCEPTED_SOURCE_EXTENSIONS.join(",")}
         onChange={(e) => {
           onFiles(Array.from(e.target.files ?? []));
           e.target.value = "";

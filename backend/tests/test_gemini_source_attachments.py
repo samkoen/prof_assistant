@@ -82,3 +82,29 @@ def test_other_providers_receive_the_extracted_text():
 
 def test_text_fallback_block_skips_empty_text():
     assert text_fallback_block([AiAttachment("a.pdf", "application/pdf", b"x", fallback_text="  ")]) == ""
+
+
+def test_excel_is_sent_as_a_row_grid_and_image_as_bytes():
+    from tests.test_spreadsheet_text import mini_xlsx
+
+    png = b"\x89PNG\r\n"
+    package = build_sources_package([
+        _src(1, mini_xlsx(), name="mix.xlsx", text=""),
+        _src(2, png, name="board.png", text=""),
+    ])
+    by_name = {a.filename: a for a in package.attachments}
+    grid = by_name["mix.xlsx"].data.decode()
+    assert by_name["mix.xlsx"].mime_type == "text/plain"
+    assert grid.startswith("# Mix") and "data |  | 12" in grid and "question" in grid
+    assert "\n\n" in grid
+    assert by_name["board.png"].data == png
+    assert by_name["board.png"].mime_type == "image/png"
+    assert "one line per row" in package.block
+    assert "attached to this message" in package.block
+
+
+def test_binary_over_budget_is_not_replaced_by_a_conversion(monkeypatch):
+    monkeypatch.setattr(settings, "gemini_inline_max_total_bytes", 4)
+    package = build_sources_package([_src(1, b"12345678", name="big.xlsx", text="")])
+    assert package.attachments == []
+    assert "not attached" in package.block
