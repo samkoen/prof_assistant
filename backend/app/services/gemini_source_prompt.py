@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.config import settings
 from app.models.exam_gemini_source import ExamGeminiSource, ExamGeminiSourceType
-from app.services.ai_attachments import AiAttachment, mime_type_for_suffix
+from app.services.ai_attachments import AiAttachment, gemini_inline_payload
 from app.services.ai_prompt_render import render_prompt
 from app.services.ai_prompt_store import get_prompt_body
 from app.services.gemini_text_cleanup import clean_gemini_source_text
@@ -28,6 +28,15 @@ _ROLE_EXERCISES_CONTENT = (
     "Topics from the sample exercises — use the topics/skills in the exercises as the content base"
 )
 _FILE_ATTACHED_NOTE = "The complete original file is attached to this message — read it in full."
+_SHEET_ATTACHED_NOTE = (
+    "The spreadsheet is attached as plain text: one line per row, cells separated by ' | '. "
+    "Blank lines are real empty rows. Read every row in order — data rows and question rows "
+    "may follow each other on the same sheet."
+)
+_SHEET_SUFFIXES = {".xlsx", ".xlsm"}
+_FILE_NOT_INLINED_NOTE = (
+    "The original file is not attached (size budget) and no text extract is available."
+)
 
 
 @dataclass(frozen=True)
@@ -58,14 +67,29 @@ def _file_bytes(src: ExamGeminiSource) -> bytes | None:
     return path.read_bytes()
 
 
-def _attachment_for(src: ExamGeminiSource, data: bytes) -> AiAttachment:
+def _fallback_text(src: ExamGeminiSource, payload: bytes, mime: str) -> str:
+    text = clean_gemini_source_text(src.extracted_text)
+    if text or mime != "text/plain":
+        return text
+    return payload.decode("utf-8", errors="replace")
+
+
+def _attachment_for(src: ExamGeminiSource, data: bytes) -> AiAttachment | None:
     suffix = Path(src.original_filename).suffix
+    payload = gemini_inline_payload(data, suffix)
+    if payload is None:
+        return None
+    raw, mime = payload
     return AiAttachment(
         filename=src.original_filename,
-        mime_type=mime_type_for_suffix(suffix),
-        data=data,
-        fallback_text=clean_gemini_source_text(src.extracted_text),
+        mime_type=mime,
+        data=raw,
+        fallback_text=_fallback_text(src, raw, mime),
     )
+
+
+def _within_budget(used: int, size: int) -> bool:
+    return used + size <= settings.gemini_inline_max_total_bytes
 
 
 def select_attachments(sources: list[ExamGeminiSource]) -> dict[int, AiAttachment]:
@@ -74,11 +98,25 @@ def select_attachments(sources: list[ExamGeminiSource]) -> dict[int, AiAttachmen
     used = 0
     for src in sources:
         data = _file_bytes(src) if _roles_for_source(src) else None
-        if not data or used + len(data) > settings.gemini_inline_max_total_bytes:
+        attachment = _attachment_for(src, data) if data else None
+        if attachment is None or not _within_budget(used, len(attachment.data)):
             continue
-        chosen[src.id] = _attachment_for(src, data)
-        used += len(data)
+        chosen[src.id] = attachment
+        used += len(attachment.data)
     return chosen
+
+
+def _attached_note(src: ExamGeminiSource) -> str:
+    if Path(src.original_filename).suffix.lower() in _SHEET_SUFFIXES:
+        return _SHEET_ATTACHED_NOTE
+    return _FILE_ATTACHED_NOTE
+
+
+def _body_for_source(src: ExamGeminiSource, *, attached: bool) -> str:
+    if attached:
+        return _attached_note(src)
+    text = clean_gemini_source_text(src.extracted_text)
+    return text or _FILE_NOT_INLINED_NOTE
 
 
 def _section_for_source(src: ExamGeminiSource, *, attached: bool) -> str | None:
@@ -87,11 +125,10 @@ def _section_for_source(src: ExamGeminiSource, *, attached: bool) -> str | None:
         return None
     label = _TYPE_LABELS.get(src.source_type, src.source_type)
     role_lines = "\n".join(f"- {r}" for r in roles)
-    content = _FILE_ATTACHED_NOTE if attached else clean_gemini_source_text(src.extracted_text)
     return (
         f"### Source: {src.original_filename} ({label})\n"
         f"Role of this source:\n{role_lines}\n\n"
-        f"{content}"
+        f"{_body_for_source(src, attached=attached)}"
     )
 
 

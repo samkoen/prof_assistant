@@ -3,8 +3,6 @@ import type { GeminiSource } from "../types/geminiSource";
 /** Rôle d'un fichier source : base de contenu (ce qui a été enseigné) et/ou exemple de style. */
 export type SourceRole = "content" | "style";
 
-export const ACCEPTED_SOURCE_EXTENSIONS = [".pdf", ".txt", ".md"] as const;
-
 export function rolesFromSource(src: Pick<GeminiSource, "use_as_style" | "use_as_content">): SourceRole[] {
   const roles: SourceRole[] = [];
   if (src.use_as_content) roles.push("content");
@@ -24,9 +22,9 @@ export function toggleRole(current: SourceRole[], role: SourceRole): SourceRole[
   return current.length > 1 ? current.filter((r) => r !== role) : current;
 }
 
+/** Tout fichier nommé est accepté : il est envoyé tel quel (Excel, image, PDF, …). */
 export function isAcceptedSourceFile(filename: string): boolean {
-  const lower = filename.toLowerCase();
-  return ACCEPTED_SOURCE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  return filename.trim().length > 0;
 }
 
 /** Sépare les fichiers déposés en acceptés / refusés selon leur extension. */
