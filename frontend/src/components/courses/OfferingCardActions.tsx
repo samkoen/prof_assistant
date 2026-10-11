@@ -1,5 +1,7 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Button, IconButton, Tooltip } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import GroupIcon from "@mui/icons-material/Group";
 import PeopleIcon from "@mui/icons-material/People";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -14,12 +16,33 @@ type HeaderActionsProps = {
   userId: number | undefined;
   onManageTeachers: (offering: CourseOffering) => void;
   onInvite: (offering: CourseOffering) => void;
+  onEdit: (offering: CourseOffering) => void;
+  onDelete: (offering: CourseOffering) => void;
 };
 
-/** Icônes de l'en-tête : gestion des enseignants et invitation (propriétaire seulement). */
-export function OfferingHeaderActions({ offering, userId, onManageTeachers, onInvite }: HeaderActionsProps) {
+function OwnerCourseButtons({ offering, onEdit, onDelete }: Pick<HeaderActionsProps, "offering" | "onEdit" | "onDelete">) {
   return (
     <>
+      <Tooltip title={he.editOffering}>
+        <IconButton size="small" aria-label={he.editOffering} sx={{ color: "text.secondary" }} onClick={() => onEdit(offering)}>
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title={he.deleteOffering}>
+        <IconButton size="small" color="error" aria-label={he.deleteOffering} onClick={() => onDelete(offering)}>
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </>
+  );
+}
+
+/** Icônes de l'en-tête : édition, suppression (propriétaire), enseignants et invitation. */
+export function OfferingHeaderActions({ offering, userId, onManageTeachers, onInvite, onEdit, onDelete }: HeaderActionsProps) {
+  const owner = isOfferingOwner(offering.teachers, userId);
+  return (
+    <>
+      {owner && <OwnerCourseButtons offering={offering} onEdit={onEdit} onDelete={onDelete} />}
       <Tooltip title={he.manageOfferingTeachers}>
         <IconButton size="small" aria-label={he.manageOfferingTeachers} sx={{ color: "text.secondary" }} onClick={() => onManageTeachers(offering)}>
           <PeopleIcon fontSize="small" />
