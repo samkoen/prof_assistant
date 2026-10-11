@@ -75,6 +75,7 @@ from app.services.exam_kind import (
 from app.services.exam_questions import (
     delete_question,
     exam_has_active_sessions,
+    load_question_with_options,
     next_question_order_index,
     persist_question,
     reorder_questions,
@@ -966,12 +967,7 @@ async def edit_question(
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     await update_question(exam_id, question_id, body, db)
     await db.commit()
-    result = await db.execute(
-        select(Question)
-        .options(selectinload(Question.options))
-        .where(Question.id == question_id)
-    )
-    q = result.scalar_one()
+    q = await load_question_with_options(db, question_id)
     return QuestionResponse.model_validate(q)
 
 

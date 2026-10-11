@@ -193,6 +193,12 @@ async def update_question(
         options=body.options,
     )
     validate_question_body(create_body, 0)
+    _apply_question_fields(question, body)
+    await _replace_options(question, body, db)
+    return question
+
+
+def _apply_question_fields(question: Question, body: QuestionUpdate) -> None:
     model_text = _normalized_model_answer(body.model_answer)
     question.text = normalize_question_text(body.text)
     question.image_url = body.image_url or None
@@ -204,22 +210,36 @@ async def update_question(
     )
     question.model_answer = model_text
 
+
+def _option_row(question_id: int, index: int, opt) -> QuestionOption:
+    return QuestionOption(
+        question_id=question_id,
+        text=normalize_question_text(opt.text),
+        image_url=opt.image_url or None,
+        is_correct=opt.is_correct,
+        order_index=index,
+    )
+
+
+async def _replace_options(question: Question, body: QuestionUpdate, db: AsyncSession) -> None:
     for opt in list(question.options):
         await db.delete(opt)
     await db.flush()
     if body.question_type == QuestionType.OPEN:
-        return question
-    for i, opt in enumerate(body.options):
-        db.add(
-            QuestionOption(
-                question_id=question.id,
-                text=normalize_question_text(opt.text),
-                image_url=(opt.image_url or None),
-                is_correct=opt.is_correct,
-                order_index=opt.order_index if opt.order_index else i,
-            )
-        )
-    return question
+        return
+    for index, opt in enumerate(body.options):
+        db.add(_option_row(question.id, index, opt))
+
+
+async def load_question_with_options(db: AsyncSession, question_id: int) -> Question:
+    """Recharge la question et ses options, même si la session les a déjà en cache."""
+    result = await db.execute(
+        select(Question)
+        .options(selectinload(Question.options))
+        .execution_options(populate_existing=True)
+        .where(Question.id == question_id)
+    )
+    return result.scalar_one()
 
 
 async def reorder_questions(exam_id: int, question_ids: list[int], db: AsyncSession) -> None:

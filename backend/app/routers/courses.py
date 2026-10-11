@@ -16,6 +16,7 @@ from app.schemas.course import (
     CourseOfferingCreate,
     CourseOfferingEnrollmentSettingsUpdate,
     CourseOfferingResponse,
+    CourseOfferingUpdate,
     EnrollmentRequest,
     EnrollmentResponse,
     EnrollmentReview,
@@ -37,6 +38,15 @@ from app.services.offering_access import (
     ensure_owner_membership,
     offering_managed_by_clause,
     require_teacher_manages_offering,
+    require_teacher_owns_offering,
+)
+from app.services.offering_lifecycle import (
+    apply_offering_fields,
+    commit_offering_change,
+    delete_offering_dependents,
+    normalized_offering_fields,
+    offering_exam_session_count,
+    refuse_if_offering_has_exams,
 )
 from app.services.exam_board_service import active_exam_counts_for_student
 from app.services.enrollment_service import (
@@ -113,6 +123,46 @@ async def create_offering(
         raise HTTPException(status_code=403, detail="אין הרשאה לקורס קטלוג זה")
     offering = await _persist_new_offering(db, _new_offering(body, user.id))
     return offering_to_response(offering, include_join_link=True)
+
+
+async def _offering_for_owner(offering_id: int, user: User, db: AsyncSession) -> CourseOffering:
+    if user.role == UserRole.ADMIN:
+        offering = await db.get(CourseOffering, offering_id)
+        if not offering:
+            raise HTTPException(status_code=404, detail="קורס לא נמצא")
+        return offering
+    return await require_teacher_owns_offering(db, offering_id, user.id)
+
+
+@router.patch("/courses/{offering_id}", response_model=CourseOfferingResponse)
+async def update_offering(
+    offering_id: int,
+    body: CourseOfferingUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    offering = await _offering_for_owner(offering_id, user, db)
+    catalog = await db.get(CourseCatalog, offering.catalog_course_id)
+    if not catalog:
+        raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+    apply_offering_fields(offering, catalog, normalized_offering_fields(body))
+    await commit_offering_change(db)
+    result = await db.execute(_offering_query().where(CourseOffering.id == offering.id))
+    return offering_to_response(result.scalar_one(), include_join_link=True)
+
+
+@router.delete("/courses/{offering_id}", status_code=204)
+async def delete_offering(
+    offering_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    offering = await _offering_for_owner(offering_id, user, db)
+    count = await offering_exam_session_count(db, offering.id)
+    refuse_if_offering_has_exams(count)
+    await delete_offering_dependents(db, offering.id)
+    await db.delete(offering)
+    await db.commit()
 
 
 async def _join_preview_response(
