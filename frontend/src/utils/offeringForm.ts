@@ -58,3 +58,45 @@ export function buildOfferingPayload(form: OfferingForm, catalogCourseId: number
 export function buildCatalogPayload(catalog: NewCatalogForm) {
   return { name: catalog.name.trim(), description: catalog.description.trim() || null };
 }
+
+export interface OfferingEditForm {
+  catalog_name: string;
+  group_name: string;
+  academic_year: string;
+  semester: string;
+  description: string;
+}
+
+type OfferingEditSource = {
+  catalog_name: string;
+  group_name: string;
+  academic_year: number;
+  semester: number;
+  description: string | null;
+};
+
+export function offeringToEditForm(offering: OfferingEditSource): OfferingEditForm {
+  return {
+    catalog_name: offering.catalog_name,
+    group_name: offering.group_name,
+    academic_year: String(offering.academic_year),
+    semester: String(offering.semester),
+    description: offering.description ?? "",
+  };
+}
+
+export function offeringEditMissing(form: OfferingEditForm): string | null {
+  if (!form.catalog_name.trim()) return he.subject;
+  if (!form.group_name.trim()) return he.groupName;
+  return null;
+}
+
+export function buildOfferingUpdatePayload(form: OfferingEditForm) {
+  return {
+    catalog_name: form.catalog_name.trim(),
+    group_name: form.group_name.trim(),
+    academic_year: Number(form.academic_year),
+    semester: Number(form.semester),
+    description: form.description.trim() || null,
+  };
+}

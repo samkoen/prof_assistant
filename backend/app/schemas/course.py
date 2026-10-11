@@ -16,6 +16,14 @@ class CourseOfferingCreate(BaseModel):
     auto_approve_enrollment: bool = False
 
 
+class CourseOfferingUpdate(BaseModel):
+    catalog_name: str = Field(min_length=1, max_length=255)
+    group_name: str = Field(min_length=1, max_length=255)
+    academic_year: int = Field(ge=2000, le=2100)
+    semester: int = Field(ge=1, le=3)
+    description: str | None = None
+
+
 class CourseOfferingEnrollmentSettingsUpdate(BaseModel):
     is_open_enrollment: bool | None = None
     auto_approve_enrollment: bool | None = None
