@@ -1,5 +1,5 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Button, IconButton, Tooltip } from "@mui/material";
+import { Box, Button, IconButton, Tooltip } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import GroupIcon from "@mui/icons-material/Group";
@@ -20,9 +20,11 @@ type HeaderActionsProps = {
   onDelete: (offering: CourseOffering) => void;
 };
 
+const iconRowSx = { display: "flex", gap: 0.25, justifyContent: "center" };
+
 function OwnerCourseButtons({ offering, onEdit, onDelete }: Pick<HeaderActionsProps, "offering" | "onEdit" | "onDelete">) {
   return (
-    <>
+    <Box sx={iconRowSx}>
       <Tooltip title={he.editOffering}>
         <IconButton size="small" aria-label={he.editOffering} sx={{ color: "text.secondary" }} onClick={() => onEdit(offering)}>
           <EditOutlinedIcon fontSize="small" />
@@ -33,29 +35,37 @@ function OwnerCourseButtons({ offering, onEdit, onDelete }: Pick<HeaderActionsPr
           <DeleteOutlineIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-    </>
+    </Box>
   );
 }
 
-/** Icônes de l'en-tête : édition, suppression (propriétaire), enseignants et invitation. */
-export function OfferingHeaderActions({ offering, userId, onManageTeachers, onInvite, onEdit, onDelete }: HeaderActionsProps) {
-  const owner = isOfferingOwner(offering.teachers, userId);
+function StaffCourseButtons({ offering, owner, onManageTeachers, onInvite }: Pick<HeaderActionsProps, "offering" | "onManageTeachers" | "onInvite"> & { owner: boolean }) {
   return (
-    <>
-      {owner && <OwnerCourseButtons offering={offering} onEdit={onEdit} onDelete={onDelete} />}
+    <Box sx={iconRowSx}>
       <Tooltip title={he.manageOfferingTeachers}>
         <IconButton size="small" aria-label={he.manageOfferingTeachers} sx={{ color: "text.secondary" }} onClick={() => onManageTeachers(offering)}>
           <PeopleIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      {isOfferingOwner(offering.teachers, userId) && (
+      {owner && (
         <Tooltip title={he.inviteOfferingTeacher}>
           <IconButton size="small" aria-label={he.inviteOfferingTeacher} sx={{ color: "secondary.main" }} onClick={() => onInvite(offering)}>
             <PersonAddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       )}
-    </>
+    </Box>
+  );
+}
+
+/** En-tête : enseignants et invitation, puis édition et suppression dessous (propriétaire). */
+export function OfferingHeaderActions({ offering, userId, onManageTeachers, onInvite, onEdit, onDelete }: HeaderActionsProps) {
+  const owner = isOfferingOwner(offering.teachers, userId);
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <StaffCourseButtons offering={offering} owner={owner} onManageTeachers={onManageTeachers} onInvite={onInvite} />
+      {owner && <OwnerCourseButtons offering={offering} onEdit={onEdit} onDelete={onDelete} />}
+    </Box>
   );
 }
 

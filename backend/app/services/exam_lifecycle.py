@@ -117,16 +117,41 @@ async def open_tirgoul_sessions_if_ready(exam: Exam | None, db: AsyncSession) ->
     await _activate_draft_tirgoul_sessions(exam, db)
 
 
-async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[int, bool]:
-    if not exam_ids:
-        return {}
+def can_delete_exam(is_tirgoul_exam: bool, activated: bool) -> bool:
+    """Un תרגול s'ouvre seul : l'activation ne bloque pas sa suppression."""
+    return is_tirgoul_exam or not activated
+
+
+async def _activated_exam_ids(exam_ids: list[int], db: AsyncSession) -> set[int]:
     rows = await db.execute(
         select(ExamSession.exam_id)
         .where(ExamSession.exam_id.in_(exam_ids), ExamSession.status != ExamStatus.DRAFT)
         .distinct()
     )
-    blocked = set(rows.scalars().all())
-    return {exam_id: exam_id not in blocked for exam_id in exam_ids}
+    return set(rows.scalars().all())
+
+
+async def _tirgoul_exam_ids(exam_ids: list[int], db: AsyncSession) -> set[int]:
+    rows = await db.execute(
+        select(Exam.id).where(Exam.id.in_(exam_ids), Exam.is_tirgoul.is_(True))
+    )
+    return set(rows.scalars().all())
+
+
+async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[int, bool]:
+    if not exam_ids:
+        return {}
+    activated = await _activated_exam_ids(exam_ids, db)
+    tirgoul = await _tirgoul_exam_ids(exam_ids, db)
+    return {
+        exam_id: can_delete_exam(exam_id in tirgoul, exam_id in activated)
+        for exam_id in exam_ids
+    }
+
+
+async def exam_delete_allowed(exam: Exam, db: AsyncSession) -> bool:
+    activated = await exam_has_non_draft_sessions(exam.id, db)
+    return can_delete_exam(is_tirgoul(exam), activated)
 
 
 async def exam_has_non_draft_sessions(exam_id: int, db: AsyncSession) -> bool:

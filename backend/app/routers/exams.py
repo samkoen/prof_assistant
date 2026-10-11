@@ -57,7 +57,7 @@ from app.services.exam_lifecycle import (
     student_visible_sessions_clause,
     duplicate_exam,
     ensure_draft_session,
-    exam_has_non_draft_sessions,
+    exam_delete_allowed,
     exams_can_delete_map,
     notify_exam_available_to_pending_students,
     open_tirgoul_sessions_if_ready,
@@ -743,7 +743,7 @@ async def update_exam(
         select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
     )
     names = await load_scope_teacher_names(db, [exam])
-    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    can_delete = await exam_delete_allowed(exam, db)
     return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
 
 
@@ -798,7 +798,7 @@ async def attach_exam_to_offering(
         select(func.count()).select_from(Question).where(Question.exam_id == exam_id)
     )
     names = await load_scope_teacher_names(db, [exam])
-    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    can_delete = await exam_delete_allowed(exam, db)
     return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
 
 
@@ -808,8 +808,8 @@ async def delete_exam(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
-    await _get_teacher_exam(exam_id, user, db)
-    if await exam_has_non_draft_sessions(exam_id, db):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    if not await exam_delete_allowed(exam, db):
         raise HTTPException(status_code=400, detail="לא ניתן למחוק — המבחן הופעל בעבר")
     await delete_exam_cascade(exam_id, db)
     await db.commit()
@@ -831,7 +831,7 @@ async def get_exam_detail(
     questions = q_result.scalars().all()
     names = await load_scope_teacher_names(db, [exam])
     editable = not await exam_has_active_sessions(exam_id, db)
-    can_delete = not await exam_has_non_draft_sessions(exam_id, db)
+    can_delete = await exam_delete_allowed(exam, db)
     catalog = await db.get(CourseCatalog, exam.catalog_course_id)
     return ExamDetailResponse(
         **_exam_response(exam, len(questions), names, can_delete=can_delete).model_dump(),
