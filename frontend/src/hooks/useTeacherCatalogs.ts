@@ -37,5 +37,5 @@ export function useTeacherCatalogs() {
     }
   };
 
-  return { catalogs, loading, error, setError, create };
+  return { catalogs, loading, error, setError, create, reload: load };
 }

@@ -74,6 +74,17 @@ class ExamSession(Base):
     attempts = relationship("StudentExamAttempt", back_populates="exam_session")
 
 
+class ExamOfferingExclusion(Base):
+    """L'examen catalogue reste, mais il n'apparaît plus sur ce groupe."""
+
+    __tablename__ = "exam_offering_exclusions"
+    __table_args__ = (UniqueConstraint("exam_id", "offering_id", name="uq_exam_offering_exclusion"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"), index=True)
+    offering_id: Mapped[int] = mapped_column(ForeignKey("course_offerings.id", ondelete="CASCADE"), index=True)
+
+
 class Question(Base):
     __tablename__ = "questions"
 

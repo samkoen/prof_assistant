@@ -4,6 +4,7 @@ from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import (
     Answer,
     Exam,
+    ExamOfferingExclusion,
     ExamSession,
     Question,
     OpenAnswerEvaluation,
@@ -34,6 +35,7 @@ __all__ = [
     "CourseEnrollment",
     "Exercise",
     "Exam",
+    "ExamOfferingExclusion",
     "ExamSession",
     "Question",
     "QuestionOption",

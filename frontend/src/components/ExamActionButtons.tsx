@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
-  Button,  Dialog,
+  Button,
+  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -53,6 +54,8 @@ interface ExamActionButtonsProps {
   courseRowLayout?: boolean;
   primaryAction?: ExamRowPrimaryAction;
   menuExtras?: ExamRowMenuExtra[];
+  /** Depuis un groupe : retire l'examen de ce groupe seulement s'il est partagé. */
+  offeringId?: number;
 }
 
 export function ExamActionButtons({
@@ -66,14 +69,16 @@ export function ExamActionButtons({
   courseRowLayout = false,
   primaryAction = "delete",
   menuExtras = [],
+  offeringId,
 }: ExamActionButtonsProps) {
   const navigate = useNavigate();
+  const fromGroup = offeringId != null;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [busy, setBusy] = useState<"duplicate" | "delete" | "pdf" | null>(null);
-  const canDelete = exam.can_delete !== false;
+  const canDelete = fromGroup || exam.can_delete !== false;
 
   const closeMenu = () => setMenuAnchor(null);
 
@@ -108,7 +113,8 @@ export function ExamActionButtons({
   const remove = async () => {
     setBusy("delete");
     try {
-      await api(`/api/exams/${exam.id}`, { method: "DELETE" });
+      const path = fromGroup ? `/api/exams/${exam.id}/offerings/${offeringId}` : `/api/exams/${exam.id}`;
+      await api(path, { method: "DELETE" });
       setConfirmDelete(false);
       if (onDeleted) onDeleted();
       else onChanged();
@@ -123,12 +129,12 @@ export function ExamActionButtons({
     <DisabledActionTooltip
       disabled={busy != null || !canDelete}
       disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
-      title={busy === "delete" ? he.loading : he.deleteExam}
+      title={busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
     >
       <IconButton
         size="small"
         color="error"
-        aria-label={he.deleteExam}
+        aria-label={fromGroup ? he.removeExamFromGroup : he.deleteExam}
         onClick={() => setConfirmDelete(true)}
       >
         <DeleteIcon fontSize="small" />
@@ -138,7 +144,7 @@ export function ExamActionButtons({
     <DisabledActionTooltip
       disabled={busy != null || !canDelete}
       disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
-      title={busy === "delete" ? he.loading : he.deleteExam}
+      title={busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
     >
       <Button
         size={size}
@@ -147,7 +153,7 @@ export function ExamActionButtons({
         startIcon={<DeleteIcon />}
         onClick={() => setConfirmDelete(true)}
       >
-        {he.deleteExam}
+        {fromGroup ? he.removeExamFromGroup : he.deleteExam}
       </Button>
     </DisabledActionTooltip>
   );
@@ -227,10 +233,10 @@ export function ExamActionButtons({
         onSent={onChanged}
       />
 
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs">
-        <DialogTitle>{he.deleteExam}</DialogTitle>
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs" dir="rtl">
+        <DialogTitle>{fromGroup ? he.removeExamFromGroup : he.deleteExam}</DialogTitle>
         <DialogContent>
-          <Typography>{he.deleteExamConfirm}</Typography>
+          <Typography>{fromGroup ? he.removeExamFromGroupConfirm : he.deleteExamConfirm}</Typography>
           <Typography fontWeight={600} sx={{ mt: 1 }}>
             {exam.title}
           </Typography>
@@ -238,7 +244,7 @@ export function ExamActionButtons({
         <DialogActions>
           <Button onClick={() => setConfirmDelete(false)}>{he.cancel}</Button>
           <Button variant="contained" color="error" onClick={remove} disabled={busy === "delete"}>
-            {busy === "delete" ? he.loading : he.deleteExam}
+            {busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
           </Button>
         </DialogActions>
       </Dialog>

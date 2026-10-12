@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -10,6 +10,7 @@ from app.models.exam import (
     Answer,
     AttemptIntegrityEvent,
     Exam,
+    ExamOfferingExclusion,
     ExamPracticeResult,
     ExamSession,
     PracticeAnswer,
@@ -83,10 +84,13 @@ async def ensure_draft_session(
 
 
 async def _matching_tirgoul_offerings(exam: Exam, db: AsyncSession) -> list[CourseOffering]:
+    from app.services.exam_group_removal import offering_ids_excluding_exam
+
     rows = await db.execute(
         select(CourseOffering).where(CourseOffering.catalog_course_id == exam.catalog_course_id)
     )
-    return [o for o in rows.scalars().all() if catalog_item_matches_offering(exam, o)]
+    hidden = await offering_ids_excluding_exam(db, exam.id)
+    return [o for o in rows.scalars().all() if o.id not in hidden and catalog_item_matches_offering(exam, o)]
 
 
 async def _ensure_tirgoul_offering_sessions(exam: Exam, db: AsyncSession) -> None:
@@ -272,10 +276,15 @@ async def _clear_exam_notifications(exam_id: int, db: AsyncSession) -> None:
         notif.related_exam_id = None
 
 
-async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
+async def _delete_exam_side_rows(exam_id: int, db: AsyncSession) -> None:
     await _delete_gemini_generation_for_exam(exam_id, db)
     await _delete_gemini_sources_for_exam(exam_id, db)
     await _clear_exam_notifications(exam_id, db)
+    await db.execute(delete(ExamOfferingExclusion).where(ExamOfferingExclusion.exam_id == exam_id))
+
+
+async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
+    await _delete_exam_side_rows(exam_id, db)
     sessions = (
         await db.execute(select(ExamSession).where(ExamSession.exam_id == exam_id))
     ).scalars().all()
