@@ -52,6 +52,12 @@ from app.schemas.exam import (
     StudentQuestionOptionResponse,
     StudentQuestionResponse,
 )
+from app.services.exam_group_removal import (
+    assert_not_excluded,
+    excluded_exam_ids,
+    remove_exam_from_group,
+    without_excluded,
+)
 from app.services.exam_lifecycle import (
     delete_exam_cascade,
     student_visible_sessions_clause,
@@ -531,6 +537,7 @@ async def list_catalog_exams(
         offering = await db.get(CourseOffering, offering_id)
         if offering and offering.catalog_course_id == catalog_course_id:
             exams = [e for e in exams if catalog_item_matches_offering(e, offering)]
+            exams = without_excluded(exams, await excluded_exam_ids(db, offering.id))
 
     names = await load_scope_teacher_names(db, exams)
     delete_map = await exams_can_delete_map([e.id for e in exams], db)
@@ -593,6 +600,7 @@ async def _catalog_exams_for_offering(
     result = await db.execute(q)
     exams = list(result.scalars().all())
     exams = [e for e in exams if catalog_item_matches_offering(e, offering)]
+    exams = without_excluded(exams, await excluded_exam_ids(db, offering.id))
     names = await load_scope_teacher_names(db, exams)
     delete_map = await exams_can_delete_map([e.id for e in exams], db)
     counts = await question_counts_by_exam_id([e.id for e in exams], db)
@@ -788,6 +796,7 @@ async def attach_exam_to_offering(
         raise HTTPException(status_code=403, detail="אין הרשאה למבחן זה")
     if not catalog_item_matches_offering(exam, offering):
         widen_scope_for_offering(exam, offering)
+    await assert_not_excluded(db, exam_id, offering.id)
     if not catalog_item_matches_offering(exam, offering):
         raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
     await ensure_draft_session(exam_id, body.offering_id, db)
@@ -800,6 +809,23 @@ async def attach_exam_to_offering(
     names = await load_scope_teacher_names(db, [exam])
     can_delete = await exam_delete_allowed(exam, db)
     return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
+
+
+@router.delete("/{exam_id}/offerings/{offering_id}", status_code=204)
+async def remove_exam_from_offering(
+    exam_id: int,
+    offering_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    offering = await db.get(CourseOffering, offering_id)
+    if not offering:
+        raise HTTPException(status_code=404, detail="קורס לא נמצא")
+    if user.role == UserRole.TEACHER and not await is_offering_member(db, offering_id, user.id):
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    await remove_exam_from_group(exam, offering, db)
+    await db.commit()
 
 
 @router.delete("/{exam_id}", status_code=204)
@@ -1028,6 +1054,7 @@ async def activate_exam(
         raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
     if not catalog_item_matches_offering(exam, offering_obj):
         raise HTTPException(status_code=400, detail="המבחן לא מיועד להרצה זו (היקף/הרשאות)")
+    await assert_not_excluded(db, exam_id, offering_obj.id)
 
     result = await db.execute(
         select(ExamSession).where(

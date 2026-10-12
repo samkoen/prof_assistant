@@ -371,7 +371,8 @@ export default function ExamContextActionsBar({
           onError={onError}
           iconOnly
           courseRowLayout={compactMenu}
-          primaryAction={rules.canDelete ? "delete" : "duplicate"}
+          offeringId={hasOfferingContext ? courseId : undefined}
+          primaryAction={hasOfferingContext || rules.canDelete ? "delete" : "duplicate"}
           menuExtras={compactMenu ? menuExtras : []}
         />
       </Box>
