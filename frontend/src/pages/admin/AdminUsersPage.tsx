@@ -3,7 +3,8 @@ import {
   Alert,
   Box,
   Button,
-  Chip,  Dialog,
+  Chip,
+  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -20,9 +21,13 @@ import BidiTextField from "../../components/BidiTextField";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
+import PaidIcon from "@mui/icons-material/Paid";
+import SetCreditsDialog from "../../components/admin/SetCreditsDialog";
 import { api, ApiError, type User } from "../../api/client";
 import { he } from "../../i18n/he";
 import Spinner from "../../components/ui/Spinner";
+import type { AdminUser } from "../../types/adminUser";
+import { adminCreditsLabel, canEditAdminCredits } from "../../utils/adminUserCredits";
 
 const roleLabels: Record<User["role"], string> = {
   admin: he.roleAdmin,
@@ -37,12 +42,14 @@ const roleColors: Record<User["role"], "default" | "primary" | "error" | "succes
 };
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
-  const [resetUser, setResetUser] = useState<User | null>(null);
+  const [resetUser, setResetUser] = useState<AdminUser | null>(null);
+  const [creditsUser, setCreditsUser] = useState<AdminUser | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [savingCredits, setSavingCredits] = useState(false);
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState({
     email: "",
@@ -55,7 +62,7 @@ export default function AdminUsersPage() {
     setLoading(true);
     setError("");
     try {
-      setUsers(await api<User[]>("/api/admin/users"));
+      setUsers(await api<AdminUser[]>("/api/admin/users"));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : he.errorGeneric);
     } finally {
@@ -105,7 +112,26 @@ export default function AdminUsersPage() {
     }
   };
 
-  const columns = useMemo<DataListColumnDef<User>[]>(
+  const saveCredits = async (credits: number) => {
+    if (!creditsUser) return;
+    setSavingCredits(true);
+    setError("");
+    try {
+      await api(`/api/admin/users/${creditsUser.id}/credits`, {
+        method: "PATCH",
+        body: JSON.stringify({ credits }),
+      });
+      setCreditsUser(null);
+      setSuccess(he.adminCreditsUpdated);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setSavingCredits(false);
+    }
+  };
+
+  const columns = useMemo<DataListColumnDef<AdminUser>[]>(
     () => [
       {
         key: "full_name",
@@ -127,6 +153,21 @@ export default function AdminUsersPage() {
         minWidth: 110,
         getValue: (u) => u.phone ?? "",
         renderCell: (u) => u.phone || "—",
+      },
+      {
+        key: "credits",
+        label: he.adminUserCredits,
+        minWidth: 120,
+        getValue: (u) => adminCreditsLabel(u.ai_credits),
+        renderCell: (u) => (
+          <Chip
+            size="small"
+            color={u.ai_credits.unlimited ? "default" : "secondary"}
+            label={adminCreditsLabel(u.ai_credits)}
+            onClick={canEditAdminCredits(u.ai_credits) ? () => setCreditsUser(u) : undefined}
+            clickable={canEditAdminCredits(u.ai_credits)}
+          />
+        ),
       },
       {
         key: "role",
@@ -194,6 +235,7 @@ export default function AdminUsersPage() {
             <UserRowActions
               user={u}
               onReset={() => setResetUser(u)}
+              onCredits={() => setCreditsUser(u)}
               onToggleBlock={() => toggleBlock(u, !u.is_blocked)}
             />
           )}
@@ -257,6 +299,12 @@ export default function AdminUsersPage() {
         onClose={() => setResetUser(null)}
         onSubmit={(password) => void resetPassword(password)}
       />
+      <SetCreditsDialog
+        user={creditsUser}
+        saving={savingCredits}
+        onClose={() => setCreditsUser(null)}
+        onSave={(credits) => void saveCredits(credits)}
+      />
     </Box>
   );
 }
@@ -264,14 +312,23 @@ export default function AdminUsersPage() {
 function UserRowActions({
   user,
   onReset,
+  onCredits,
   onToggleBlock,
 }: {
-  user: User;
+  user: AdminUser;
   onReset: () => void;
+  onCredits: () => void;
   onToggleBlock: () => void;
 }) {
   return (
     <>
+      {canEditAdminCredits(user.ai_credits) && (
+        <Tooltip title={he.adminSetCredits}>
+          <IconButton size="small" color="primary" onClick={onCredits} aria-label={he.adminSetCredits}>
+            <PaidIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <Tooltip title={he.resetPassword}>
         <IconButton size="small" color="primary" onClick={onReset} aria-label={he.resetPassword}>
           <LockResetIcon fontSize="small" />

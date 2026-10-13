@@ -12,7 +12,14 @@ from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import QuestionAiExplanation, StudentExamAttempt
 from app.models.enums import UserRole
 from app.models.user import User
+from app.schemas.admin_user import (
+    AdminSetCreditsBody,
+    AdminSetCreditsResponse,
+    AdminUserCredits,
+    AdminUserResponse,
+)
 from app.schemas.auth import UserResponse
+from app.services.billing.admin_credits import set_user_credits, views_for_users
 from app.schemas.course import CourseOfferingCreate, CourseOfferingResponse
 from app.security import hash_password
 from app.services.course_helpers import offering_eager_options, offering_to_response
@@ -63,13 +70,35 @@ class AiExplanationCleanupResponse(BaseModel):
     deleted_rows: int
 
 
-@router.get("/users", response_model=list[UserResponse])
+def _admin_row(user: User, credits: dict) -> AdminUserResponse:
+    row = UserResponse.model_validate(user).model_dump()
+    return AdminUserResponse(**row, ai_credits=AdminUserCredits(**credits))
+
+
+@router.get("/users", response_model=list[AdminUserResponse])
 async def list_users(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.ADMIN)),
 ):
-    result = await db.execute(select(User).order_by(User.id))
-    return result.scalars().all()
+    users = (await db.execute(select(User).order_by(User.id))).scalars().all()
+    credits = await views_for_users(db, list(users))
+    return [_admin_row(user, credits[user.id]) for user in users]
+
+
+@router.patch("/users/{user_id}/credits", response_model=AdminSetCreditsResponse)
+async def patch_user_credits(
+    user_id: int,
+    body: AdminSetCreditsBody,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    """ADMIN uniquement : un prof/élève qui rejoue cette requête reçoit 403."""
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    result = await set_user_credits(db, actor, target, body.credits)
+    await db.commit()
+    return result
 
 
 @router.post("/users", response_model=UserResponse)
