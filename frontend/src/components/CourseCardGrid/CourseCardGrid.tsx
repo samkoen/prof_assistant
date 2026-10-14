@@ -181,27 +181,38 @@ export interface CatalogCardGridProps {
   catalogs: CatalogCourse[];
   emptyMessage?: string;
   getCardLink?: (catalog: CatalogCourse) => string | undefined;
+  /** Icônes d'action dans l'en-tête de la carte. */
+  renderActions?: (catalog: CatalogCourse) => ReactNode;
   /** Pied de carte (ex. bouton de partage). */
   renderFooter?: (catalog: CatalogCourse) => ReactNode;
 }
 
-type CatalogCardProps = { catalog: CatalogCourse; index: number; link?: string; footer?: ReactNode };
+type CatalogCardProps = {
+  catalog: CatalogCourse;
+  index: number;
+  link?: string;
+  footer?: ReactNode;
+  actions?: ReactNode;
+};
 
-function CatalogCard({ catalog, index, link, footer }: CatalogCardProps) {
+function CatalogHeader({ catalog, accent, actions }: { catalog: CatalogCourse; accent: string; actions?: ReactNode }) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+      <CourseAvatar name={catalog.name} accent={accent} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="subtitle1" fontWeight={800}>{catalog.name}</Typography>
+        <Typography variant="caption" color="text.secondary">{formatDate(catalog.created_at)}</Typography>
+      </Box>
+      {actions}
+    </Box>
+  );
+}
+
+function CatalogCard({ catalog, index, link, footer, actions }: CatalogCardProps) {
   const { accent } = courseCardColor(index);
   return (
     <CardShell accent={accent} link={link} minHeight={130} footer={footer}>
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-        <CourseAvatar name={catalog.name} accent={accent} />
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle1" fontWeight={800}>
-            {catalog.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatDate(catalog.created_at)}
-          </Typography>
-        </Box>
-      </Box>
+      <CatalogHeader catalog={catalog} accent={accent} actions={actions} />
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Chip size="small" label={`${he.exams}: ${catalog.exam_count}`} />
         <Chip size="small" label={`תרגילים: ${catalog.exercise_count}`} variant="outlined" />
@@ -211,13 +222,19 @@ function CatalogCard({ catalog, index, link, footer }: CatalogCardProps) {
   );
 }
 
-export function CatalogCardGrid({ catalogs, emptyMessage = he.noCatalogCourses, getCardLink, renderFooter }: CatalogCardGridProps) {
+export function CatalogCardGrid({ catalogs, emptyMessage = he.noCatalogCourses, getCardLink, renderActions, renderFooter }: CatalogCardGridProps) {
   if (catalogs.length === 0) return <EmptyGrid message={emptyMessage} />;
   return (
     <Grid container spacing={2.5}>
       {catalogs.map((catalog, index) => (
         <Grid key={catalog.id} size={{ xs: 12, sm: 6, lg: 4 }}>
-          <CatalogCard catalog={catalog} index={index} link={getCardLink?.(catalog)} footer={renderFooter?.(catalog)} />
+          <CatalogCard
+            catalog={catalog}
+            index={index}
+            link={getCardLink?.(catalog)}
+            actions={renderActions?.(catalog)}
+            footer={renderFooter?.(catalog)}
+          />
         </Grid>
       ))}
     </Grid>

@@ -29,6 +29,13 @@ from app.services.catalog_teacher import (
     enforce_teacher_scope_id,
     resolve_catalog_teacher_id,
 )
+from app.services.catalog_lifecycle import (
+    apply_catalog_fields,
+    catalog_linked_counts,
+    delete_catalog_shares,
+    normalized_catalog_update,
+    refuse_if_catalog_in_use,
+)
 from app.services.course_helpers import catalog_to_response, catalogs_to_responses
 
 router = APIRouter(prefix="/catalog-courses", tags=["catalog-courses"])
@@ -111,10 +118,7 @@ async def update_catalog_course(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
 ):
     catalog = await _get_owned_catalog(catalog_id, user, db)
-    if body.name is not None:
-        catalog.name = body.name
-    if body.description is not None:
-        catalog.description = body.description
+    apply_catalog_fields(catalog, normalized_catalog_update(body))
     try:
         await db.commit()
     except IntegrityError:
@@ -122,6 +126,20 @@ async def update_catalog_course(
         raise HTTPException(status_code=400, detail="קורס קטלוג בשם זה כבר קיים אצל המורה")
     result = await db.execute(_catalog_query().where(CourseCatalog.id == catalog.id))
     return await catalog_to_response(result.scalar_one(), db)
+
+
+@router.delete("/{catalog_id}", status_code=204)
+async def delete_catalog_course(
+    catalog_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    catalog = await _get_owned_catalog(catalog_id, user, db)
+    exams, exercises, offerings = await catalog_linked_counts(db, catalog.id)
+    refuse_if_catalog_in_use(exams, exercises, offerings)
+    await delete_catalog_shares(db, catalog.id)
+    await db.delete(catalog)
+    await db.commit()
 
 
 @router.get("/{catalog_id}/exercises", response_model=list[ExerciseResponse])
