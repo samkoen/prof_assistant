@@ -50,6 +50,8 @@ def widen_scope_for_offering(item, offering: CourseOffering) -> None:
 
 
 def teacher_can_edit_catalog_item(item, user: User, catalog_teacher_id: int) -> bool:
+    if getattr(item, "private_student_id", None):
+        return False
     if user.role == UserRole.ADMIN:
         return True
     if item.created_by_id == user.id:

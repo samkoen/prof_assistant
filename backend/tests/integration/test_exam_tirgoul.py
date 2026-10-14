@@ -5,7 +5,6 @@ from tests.integration.exam_flow import (
     add_single_question,
     create_draft_exam,
     enroll_student,
-    exam_token_headers,
     prepared_qcm_session,
     student_start_exam,
     student_submit_qcm,
@@ -72,13 +71,13 @@ async def test_tirgoul_opens_without_activate_and_shows_score(it_env: ItEnv):
         it_env.client, ctx["session_id"], ctx["question_id"], ctx["correct_option_id"]
     )
     assert submitted["score"] == 1
-    assert submitted["can_resubmit"] is True
+    assert submitted["can_resubmit"] is False
     review = await json_ok(await it_env.client.get(f"/api/exams/sessions/{ctx['session_id']}/review"))
     assert review["show_correction"] is True
 
 
 @pytest.mark.integration
-async def test_tirgoul_retry_replaces_score(it_env: ItEnv):
+async def test_tirgoul_retry_keeps_the_grade_the_teacher_sees(it_env: ItEnv):
     ctx = await _prepared_tirgoul(it_env.client, it_env.users.student_id)
     await login(it_env.client, STUDENT_EMAIL)
     await student_start_exam(it_env.client, ctx["session_id"])
@@ -86,27 +85,26 @@ async def test_tirgoul_retry_replaces_score(it_env: ItEnv):
         it_env.client, ctx["session_id"], ctx["question_id"], ctx["correct_option_id"]
     )
     assert first["score"] == 1
-    await json_ok(
+    await json_ok(await it_env.client.post(f"/api/exams/sessions/{ctx['session_id']}/practice/start"))
+    take = await json_ok(await it_env.client.get(f"/api/exams/sessions/{ctx['session_id']}/practice/take"))
+    wrong = next(opt["id"] for opt in take["questions"][0]["options"] if opt["id"] != ctx["correct_option_id"])
+    second = await json_ok(
         await it_env.client.post(
-            f"/api/exams/sessions/{ctx['session_id']}/open",
-            headers=exam_token_headers(ctx["session_id"]),
+            f"/api/exams/sessions/{ctx['session_id']}/practice/submit",
+            json={"answers": [{"question_id": ctx["question_id"], "selected_option_ids": [wrong], "text_answer": None}]},
         )
     )
-    take = await json_ok(
+    assert second["score"] == 1
+    assert second["practice_score"] == 0
+    await logout(it_env.client)
+    await login(it_env.client, TEACHER_EMAIL)
+    grades = await json_ok(
         await it_env.client.get(
-            f"/api/exams/sessions/{ctx['session_id']}/take",
-            headers=exam_token_headers(ctx["session_id"]),
+            f"/api/courses/{ctx['offering_id']}/students/{it_env.users.student_id}/exam-results"
         )
     )
-    assert take["attempt"]["submitted_at"] is None
-    assert take["attempt"]["score"] is None
-    wrong = next(
-        opt["id"]
-        for opt in take["questions"][0]["options"]
-        if opt["id"] != ctx["correct_option_id"]
-    )
-    second = await student_submit_qcm(it_env.client, ctx["session_id"], ctx["question_id"], wrong)
-    assert second["score"] == 0
+    row = next(item for item in grades["results"] if item["exam_id"] == ctx["exam_id"])
+    assert row["score"] == 1
 
 
 @pytest.mark.integration

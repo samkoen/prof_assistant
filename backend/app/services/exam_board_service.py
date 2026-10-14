@@ -153,6 +153,7 @@ async def build_student_session_rows(
         rows.append(
             StudentExamSessionRow(
                 **base.model_dump(),
+                owned_by_me=session.exam.private_student_id == student_id,
                 attempt=(
                     attempt_response(
                         attempt, session.exam_id, hide_official_score=hide_score

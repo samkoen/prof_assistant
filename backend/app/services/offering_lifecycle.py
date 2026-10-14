@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
-from app.models.exam import ExamSession
+from app.models.exam import Exam, ExamSession
 from app.models.notification import Notification
 from app.models.offering_teacher import OfferingTeacher, OfferingTeacherInvite
 from app.schemas.course import CourseOfferingUpdate
@@ -54,7 +54,10 @@ async def commit_offering_change(db: AsyncSession) -> None:
 
 async def offering_exam_session_count(db: AsyncSession, offering_id: int) -> int:
     count = await db.scalar(
-        select(func.count()).select_from(ExamSession).where(ExamSession.offering_id == offering_id)
+        select(func.count())
+        .select_from(ExamSession)
+        .join(Exam, Exam.id == ExamSession.exam_id)
+        .where(ExamSession.offering_id == offering_id, Exam.private_student_id.is_(None))
     )
     return int(count or 0)
 

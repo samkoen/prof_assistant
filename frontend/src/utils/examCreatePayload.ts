@@ -73,6 +73,12 @@ export function buildCreatePayload(form: ExamCreateForm, offering: OfferingScope
   };
 }
 
+/** Ajoute le cours verrouillé par l'URL quand il n'est pas dans la liste de l'élève. */
+export function ensureCatalogOption<T extends { id: number }>(catalogs: T[], catalogId: string, extra: T | null): T[] {
+  if (!catalogId || catalogs.some((row) => String(row.id) === catalogId)) return catalogs;
+  return extra ? [...catalogs, extra] : catalogs;
+}
+
 /** Tirgoul personnel : type forcé, sans restriction de groupe. */
 export function forceTirgoulForm(form: ExamCreateForm): ExamCreateForm {
   return { ...form, is_tirgoul: true, audience: "all" };

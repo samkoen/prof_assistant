@@ -183,7 +183,12 @@ async def _copy_exam_into_catalog(
 async def _copy_catalog_exams(
     share: TeacherContentShare, target: CourseCatalog, recipient: User, db: AsyncSession
 ) -> int:
-    result = await db.execute(select(Exam).where(Exam.catalog_course_id == share.source_catalog_id))
+    result = await db.execute(
+        select(Exam).where(
+            Exam.catalog_course_id == share.source_catalog_id,
+            Exam.private_student_id.is_(None),
+        )
+    )
     exams = list(result.scalars().all())
     for exam in exams:
         await _store_shared_exam(exam, target, recipient, exam.title, db)
@@ -264,7 +269,10 @@ async def share_to_response(share: TeacherContentShare, db: AsyncSession, viewer
         catalog = await db.get(CourseCatalog, share.source_catalog_id)
         catalog_name = catalog.name if catalog else None
         exam_count = await db.scalar(
-            select(func.count()).select_from(Exam).where(Exam.catalog_course_id == share.source_catalog_id)
+            select(func.count()).select_from(Exam).where(
+                Exam.catalog_course_id == share.source_catalog_id,
+                Exam.private_student_id.is_(None),
+            )
         )
     target_name = None
     if share.target_catalog_id:
