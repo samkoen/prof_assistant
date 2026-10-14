@@ -1,11 +1,9 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import BrandPageLoader from "./components/ui/BrandPageLoader";
 
 import DashboardLayout from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { getHomePath } from "./config/menuItems";
-import { useAuth } from "./context/AuthContext";
 
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
@@ -15,6 +13,8 @@ const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const PublicContactPage = lazy(() => import("./pages/PublicContactPage"));
 const BillingReturnPage = lazy(() => import("./pages/BillingReturnPage"));
+const PublicEntry = lazy(() => import("./pages/PublicEntry"));
+const PublicLegalPage = lazy(() => import("./pages/PublicLegalPage"));
 
 const AdminOverviewPage = lazy(() => import("./pages/admin/AdminOverviewPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
@@ -48,20 +48,13 @@ function PageLoader() {
   return <BrandPageLoader fullScreen />;
 }
 
-function HomeRedirect() {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  if (!user) return <Navigate to="/login" replace />;
-
-  return <Navigate to={getHomePath(user.role)} replace />;
-}
-
 export default function App() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        <Route path="/" element={<PublicEntry />} />
+        <Route path="/terms" element={<PublicLegalPage kind="terms" />} />
+        <Route path="/privacy" element={<PublicLegalPage kind="privacy" />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -76,7 +69,6 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<HomeRedirect />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/billing/return" element={<BillingReturnPage />} />
@@ -115,6 +107,9 @@ export default function App() {
             <Route path="/student/courses/:offeringId" element={<StudentCourseExamsPage />} />
             <Route path="/student/exams" element={<StudentAllExamsPage />} />
             <Route path="/student/exams/:sessionId" element={<StudentExamTakePage />} />
+            <Route path="/student/shares" element={<TeacherSharesPage audience="student" />} />
+            <Route path="/student/tirgoulim/new" element={<TeacherExamCreatePage forceTirgoul />} />
+            <Route path="/student/tirgoulim/:examId/edit" element={<TeacherExamEditorPage />} />
             <Route path="/student/join-course" element={<StudentJoinByTeacherPage />} />
             <Route path="/student/open-courses" element={<StudentJoinByTeacherPage />} />
           </Route>

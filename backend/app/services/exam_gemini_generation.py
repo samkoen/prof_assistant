@@ -28,7 +28,9 @@ from app.services.exam_questions import (
 )
 from app.services.option_shuffle import shuffle_generated_questions
 from app.services.ai_client import AiError, generate_chat, generate_text
+from app.services.billing.balance import product_for_role
 from app.services.billing.constants import TEACHER_GENERATION
+from app.services.billing.context import role_name
 from app.services.billing.context import bill_ai
 from app.services.gemini_batch_runner import (
     batch_progress,
@@ -168,9 +170,13 @@ async def _append_refine_exchange(
     return raw
 
 
+def _generation_product(user: User) -> str:
+    return product_for_role(role_name(user)) or TEACHER_GENERATION
+
+
 async def _run_billed_batch(session, exam, series, user: User, db: AsyncSession) -> None:
     started = time.monotonic()
-    async with bill_ai(user, TEACHER_GENERATION, session.id):
+    async with bill_ai(user, _generation_product(user), session.id):
         await run_generation_batch(session, exam, series, db)
     logger.info(
         "gemini-sessions batch session_id=%s took %.1fs",
@@ -219,7 +225,7 @@ async def run_next_generation_batch(
         raise HTTPException(status_code=400, detail="כל הקבוצות כבר נוצרו")
     exam = await db.get(Exam, session.exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     series = _series_from_session(session)
     await _run_billed_batch(session, exam, series, user, db)
     await db.commit()
@@ -239,7 +245,7 @@ async def refine_generation_session(
     if user_turns >= MAX_REFINE_TURNS:
         raise HTTPException(status_code=400, detail="הגעתם למספר המקסימלי של בקשות עדכון")
     refine_text = build_refine_user_message(message, _series_from_session(session))
-    async with bill_ai(user, TEACHER_GENERATION, session.id):
+    async with bill_ai(user, _generation_product(user), session.id):
         await _append_refine_exchange(session, refine_text, db)
     await db.commit()
     return _session_to_response(await _load_owned_session(session_id, user, db))
@@ -314,7 +320,7 @@ async def accept_generation_session(
         raise HTTPException(status_code=400, detail="היצירה עדיין לא הושלמה")
     exam = await db.get(Exam, session.exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if await exam_has_active_sessions(exam.id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     if import_body.questions_language is not None:

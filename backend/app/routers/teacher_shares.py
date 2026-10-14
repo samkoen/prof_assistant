@@ -22,7 +22,7 @@ router = APIRouter(prefix="/teacher-shares", tags=["teacher-shares"])
 async def send_share(
     body: TeacherShareCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.STUDENT)),
 ):
     share = await create_teacher_share(body, user, db)
     await db.commit()
@@ -33,7 +33,7 @@ async def send_share(
 @router.get("/incoming", response_model=list[TeacherShareResponse])
 async def list_incoming(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.STUDENT)),
 ):
     result = await db.execute(
         select(TeacherContentShare)
@@ -47,7 +47,7 @@ async def list_incoming(
 @router.get("/sent", response_model=list[TeacherShareResponse])
 async def list_sent(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.STUDENT)),
 ):
     result = await db.execute(
         select(TeacherContentShare)
@@ -63,7 +63,7 @@ async def accept_share(
     share_id: int,
     body: TeacherShareAccept,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.STUDENT)),
 ):
     share = await accept_teacher_share(share_id, body, user, db)
     await db.commit()
@@ -75,7 +75,7 @@ async def accept_share(
 async def decline_share(
     share_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.STUDENT)),
 ):
     share = await decline_teacher_share(share_id, user, db)
     await db.commit()

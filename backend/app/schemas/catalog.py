@@ -16,11 +16,16 @@ class CatalogCourseUpdate(BaseModel):
     description: str | None = None
 
 
+class PersonalSubjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
 class CatalogCourseResponse(BaseModel):
     id: int
     name: str
     description: str | None
-    teacher_id: int
+    teacher_id: int | None
     teacher_name: str
     exam_count: int = 0
     exercise_count: int = 0

@@ -22,7 +22,7 @@ def build_join_preview(
         group_name=offering.group_name,
         academic_year=offering.academic_year,
         semester=offering.semester,
-        teacher_name=offering.teacher.full_name,
+        teacher_name=offering.teacher.full_name if offering.teacher else "",
         teachers=teacher_refs_from_members(list(offering.teacher_members or []), offering),
         description=offering.description,
         is_open_enrollment=offering.is_open_enrollment and link_valid,

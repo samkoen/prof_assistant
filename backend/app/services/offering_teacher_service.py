@@ -268,8 +268,15 @@ def teacher_refs_from_members(members: list[OfferingTeacher], offering: CourseOf
     refs.sort(key=lambda r: (0 if r.role == OfferingTeacherRole.OWNER else 1, r.name))
     if refs:
         return refs
-    name = offering.teacher.full_name if offering.teacher else ""
-    return [OfferingTeacherRef(id=offering.teacher_id, name=name, role=OfferingTeacherRole.OWNER)]
+    if offering.teacher_id is None or offering.teacher is None:
+        return []
+    return [
+        OfferingTeacherRef(
+            id=offering.teacher_id,
+            name=offering.teacher.full_name,
+            role=OfferingTeacherRole.OWNER,
+        )
+    ]
 
 
 async def load_invite(db: AsyncSession, invite_id: int) -> OfferingTeacherInvite:

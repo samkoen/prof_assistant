@@ -15,7 +15,9 @@ from app.models.teacher_share import TeacherContentShare
 from app.models.user import User
 from app.schemas.teacher_share import TeacherShareAccept, TeacherShareCreate, TeacherShareResponse
 from app.services.catalog_teacher import teacher_owns_catalog
-from app.services.exam_lifecycle import duplicate_exam_to_catalog
+from app.services.exam_kind import apply_exam_kind, is_tirgoul
+from app.services.exam_lifecycle import duplicate_exam_to_catalog, open_tirgoul_sessions_if_ready
+from app.services.personal_subject import create_personal_subject
 
 
 async def find_teacher_by_email(db: AsyncSession, email: str) -> User:
@@ -28,6 +30,25 @@ async def find_teacher_by_email(db: AsyncSession, email: str) -> User:
     return teacher
 
 
+async def find_share_recipient(db: AsyncSession, email: str) -> User:
+    result = await db.execute(
+        select(User).where(
+            User.email == email.strip().lower(),
+            User.role.in_((UserRole.TEACHER, UserRole.STUDENT)),
+        )
+    )
+    recipient = result.scalar_one_or_none()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא — בדקו את האימייל")
+    return recipient
+
+
+def _sender_owns(catalog: CourseCatalog | None, sender_id: int) -> bool:
+    if not catalog:
+        return False
+    return catalog.teacher_id == sender_id or catalog.owner_student_id == sender_id
+
+
 async def _load_sender_exam(exam_id: int, sender_id: int, db: AsyncSession) -> Exam:
     result = await db.execute(
         select(Exam)
@@ -36,15 +57,15 @@ async def _load_sender_exam(exam_id: int, sender_id: int, db: AsyncSession) -> E
     )
     exam = result.scalar_one_or_none()
     if not exam or not exam.catalog_course:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
-    if exam.catalog_course.teacher_id != sender_id:
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
+    if not _sender_owns(exam.catalog_course, sender_id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     return exam
 
 
 async def _load_sender_catalog(catalog_id: int, sender_id: int, db: AsyncSession) -> CourseCatalog:
     catalog = await db.get(CourseCatalog, catalog_id)
-    if not catalog or catalog.teacher_id != sender_id:
+    if not _sender_owns(catalog, sender_id):
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     return catalog
 
@@ -64,7 +85,7 @@ async def _notify_share_received(db: AsyncSession, recipient_id: int, share_id: 
 async def create_teacher_share(
     body: TeacherShareCreate, sender: User, db: AsyncSession
 ) -> TeacherContentShare:
-    recipient = await find_teacher_by_email(db, body.recipient_email)
+    recipient = await find_share_recipient(db, body.recipient_email)
     if recipient.id == sender.id:
         raise HTTPException(status_code=400, detail="לא ניתן לשתף עם עצמך")
 
@@ -77,10 +98,10 @@ async def create_teacher_share(
     )
     if body.share_type == TeacherShareType.EXAM:
         if not body.exam_id:
-            raise HTTPException(status_code=400, detail="חסר מזהה מבחן")
+            raise HTTPException(status_code=400, detail="חסר מזהה מטלה")
         await _load_sender_exam(body.exam_id, sender.id, db)
         share.source_exam_id = body.exam_id
-        notif_title = "שיתוף מבחן ממתין"
+        notif_title = "שיתוף מטלה ממתין"
     else:
         if not body.catalog_id:
             raise HTTPException(status_code=400, detail="חסר מזהה קורס קטלוג")
@@ -94,41 +115,69 @@ async def create_teacher_share(
     return share
 
 
+def _recipient_owns(catalog: CourseCatalog, recipient: User) -> bool:
+    if recipient.role == UserRole.STUDENT:
+        return catalog.owner_student_id == recipient.id
+    return teacher_owns_catalog(catalog, recipient)
+
+
+async def _existing_target(recipient: User, catalog_id: int, db: AsyncSession) -> CourseCatalog:
+    catalog = await db.get(CourseCatalog, catalog_id)
+    if not catalog or not _recipient_owns(catalog, recipient):
+        raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+    return catalog
+
+
+async def _create_target(
+    recipient: User, body: TeacherShareAccept, source_name: str, db: AsyncSession
+) -> CourseCatalog:
+    name = (body.new_catalog_name or source_name).strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="יש לבחור קורס קטלוג או ליצור חדש")
+    if recipient.role == UserRole.STUDENT:
+        offering = await create_personal_subject(db, recipient, name, body.new_catalog_description)
+        catalog = await db.get(CourseCatalog, offering.catalog_course_id)
+        if not catalog:
+            raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+        return catalog
+    catalog = CourseCatalog(name=name, description=body.new_catalog_description, teacher_id=recipient.id)
+    db.add(catalog)
+    await db.flush()
+    return catalog
+
+
 async def _resolve_target_catalog(
     recipient: User, body: TeacherShareAccept, source_name: str, db: AsyncSession
 ) -> CourseCatalog:
     if not body.target_catalog_id and not (body.new_catalog_name or "").strip():
         raise HTTPException(status_code=400, detail="יש לבחור קורס קטלוג או ליצור חדש")
     if body.target_catalog_id:
-        catalog = await db.get(CourseCatalog, body.target_catalog_id)
-        if not catalog or not teacher_owns_catalog(catalog, recipient):
-            raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
-        return catalog
-    name = (body.new_catalog_name or source_name).strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="יש לבחור קורס קטלוג או ליצור חדש")
-    catalog = CourseCatalog(
-        name=name,
-        description=body.new_catalog_description,
-        teacher_id=recipient.id,
+        return await _existing_target(recipient, body.target_catalog_id, db)
+    return await _create_target(recipient, body, source_name, db)
+
+
+async def _store_shared_exam(
+    source: Exam, target: CourseCatalog, recipient: User, title: str, db: AsyncSession
+) -> Exam:
+    copy = await duplicate_exam_to_catalog(
+        source,
+        target_catalog_course_id=target.id,
+        owner_teacher_id=recipient.id,
+        title=title,
+        db=db,
+        bind_teacher_scope=recipient.role == UserRole.TEACHER,
     )
-    db.add(catalog)
-    await db.flush()
-    return catalog
+    if target.owner_student_id is not None and not is_tirgoul(copy):
+        apply_exam_kind(copy, True)
+        await open_tirgoul_sessions_if_ready(copy, db)
+    return copy
 
 
 async def _copy_exam_into_catalog(
     share: TeacherContentShare, target: CourseCatalog, recipient: User, db: AsyncSession
 ) -> Exam:
     exam = await _load_sender_exam(share.source_exam_id, share.sender_id, db)
-    title = f"{exam.title} (משותף)"
-    return await duplicate_exam_to_catalog(
-        exam,
-        target_catalog_course_id=target.id,
-        owner_teacher_id=recipient.id,
-        title=title,
-        db=db,
-    )
+    return await _store_shared_exam(exam, target, recipient, f"{exam.title} (משותף)", db)
 
 
 async def _copy_catalog_exams(
@@ -137,13 +186,7 @@ async def _copy_catalog_exams(
     result = await db.execute(select(Exam).where(Exam.catalog_course_id == share.source_catalog_id))
     exams = list(result.scalars().all())
     for exam in exams:
-        await duplicate_exam_to_catalog(
-            exam,
-            target_catalog_course_id=target.id,
-            owner_teacher_id=recipient.id,
-            title=exam.title,
-            db=db,
-        )
+        await _store_shared_exam(exam, target, recipient, exam.title, db)
     return len(exams)
 
 
@@ -194,14 +237,16 @@ async def _default_target_catalog_name(share: TeacherContentShare, db: AsyncSess
     return "קורס משותף"
 
 
-async def _suggest_catalog_id(recipient_id: int, source_name: str | None, db: AsyncSession) -> int | None:
+async def _suggest_catalog_id(recipient: User, source_name: str | None, db: AsyncSession) -> int | None:
     if not source_name:
         return None
+    owner = (
+        CourseCatalog.owner_student_id == recipient.id
+        if recipient.role == UserRole.STUDENT
+        else CourseCatalog.teacher_id == recipient.id
+    )
     result = await db.execute(
-        select(CourseCatalog.id).where(
-            CourseCatalog.teacher_id == recipient_id,
-            CourseCatalog.name == source_name,
-        )
+        select(CourseCatalog.id).where(owner, CourseCatalog.name == source_name)
     )
     return result.scalar_one_or_none()
 
@@ -232,8 +277,8 @@ async def share_to_response(share: TeacherContentShare, db: AsyncSession, viewer
             cat = await db.get(CourseCatalog, exam.catalog_course_id)
             suggest_name = cat.name if cat else None
     suggested = None
-    if share.recipient_id == viewer_id and share.status == TeacherShareStatus.PENDING.value:
-        suggested = await _suggest_catalog_id(share.recipient_id, suggest_name, db)
+    if recipient and share.recipient_id == viewer_id and share.status == TeacherShareStatus.PENDING.value:
+        suggested = await _suggest_catalog_id(recipient, suggest_name, db)
 
     return TeacherShareResponse(
         id=share.id,

@@ -8,7 +8,7 @@ function isRoleHome(path: string): boolean {
 
 /**
  * Un élément du menu est actif sur sa page et sur ses sous-pages
- * (ex. « מבחנים » reste actif sur /teacher/exams/12/edit). L'accueil
+ * (ex. « מטלות » reste actif sur /teacher/exams/12/edit). L'accueil
  * du rôle n'est actif que sur sa propre URL.
  */
 export function isMenuItemSelected(item: Pick<MenuItemDef, "path" | "matchPathPrefix">, pathname: string): boolean {

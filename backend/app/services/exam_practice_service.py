@@ -48,7 +48,7 @@ async def get_submitted_attempt(
     )
     attempt = row.scalar_one_or_none()
     if not attempt or not attempt.submitted_at:
-        raise HTTPException(status_code=400, detail="יש להגיש את המבחן לפני תרגול")
+        raise HTTPException(status_code=400, detail="יש להגיש את המטלה לפני תרגול")
     return attempt
 
 
