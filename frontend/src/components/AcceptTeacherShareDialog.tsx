@@ -11,6 +11,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api, ApiError, type CatalogCourse, type TeacherShare } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 
 const NEW_CATALOG = "__new__";
@@ -34,6 +35,7 @@ export default function AcceptTeacherShareDialog({
   const [newDesc, setNewDesc] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const personal = useAuth().user?.role === "student";
 
   useEffect(() => {
     if (!open || !share) return;
@@ -93,15 +95,15 @@ export default function AcceptTeacherShareDialog({
           {he.shareFromTeacher(share.sender_name)}
         </Typography>
         <Alert severity="info">{summary}</Alert>
-        <Typography variant="body2">{he.shareTargetCatalogHint}</Typography>
+        <Typography variant="body2">{personal ? he.shareTargetSubjectHint : he.shareTargetCatalogHint}</Typography>
         <TextField
           select
-          label={he.shareTargetCatalog}
+          label={personal ? he.shareTargetSubject : he.shareTargetCatalog}
           value={targetId}
           onChange={(e) => setTargetId(e.target.value)}
           fullWidth
         >
-          <MenuItem value={NEW_CATALOG}>{he.shareCreateNewCatalog}</MenuItem>
+          <MenuItem value={NEW_CATALOG}>{personal ? he.shareCreateNewSubject : he.shareCreateNewCatalog}</MenuItem>
           {catalogs.map((c) => (
             <MenuItem key={c.id} value={String(c.id)}>
               {c.name}

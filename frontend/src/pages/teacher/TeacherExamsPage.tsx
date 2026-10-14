@@ -13,7 +13,7 @@ import { useTeacherExams } from "../../hooks/useTeacherExams";
 import { he } from "../../i18n/he";
 import { catalogNames, NO_FILTERS } from "../../utils/examFilters";
 
-/** Page « מבחנים » : recherche, onglets ouverts/clos, activation et clôture. */
+/** Page « מטלות » : recherche, onglets ouverts/clos, activation et clôture. */
 export default function TeacherExamsPage() {
   const navigate = useNavigate();
   const data = useTeacherExams();

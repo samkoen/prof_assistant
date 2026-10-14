@@ -248,7 +248,7 @@ async def reorder_questions(exam_id: int, question_ids: list[int], db: AsyncSess
     result = await db.execute(select(Question).where(Question.exam_id == exam_id))
     questions = {q.id: q for q in result.scalars().all()}
     if not questions:
-        raise HTTPException(status_code=400, detail="אין שאלות במבחן")
+        raise HTTPException(status_code=400, detail="אין שאלות במטלה")
     if set(question_ids) != set(questions.keys()) or len(question_ids) != len(questions):
         raise HTTPException(status_code=400, detail="רשימת השאלות אינה תואמת")
     for index, qid in enumerate(question_ids):

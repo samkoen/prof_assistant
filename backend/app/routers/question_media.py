@@ -23,7 +23,7 @@ async def post_question_image(
     exam_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     return await upload_question_image(exam_id, file, db)

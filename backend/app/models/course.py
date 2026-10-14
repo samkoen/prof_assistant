@@ -1,6 +1,18 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -11,15 +23,29 @@ class CourseCatalog(Base):
     """Cours catalogue — contenu pédagogique d'un prof (matière), réutilisable entre הרצות."""
 
     __tablename__ = "course_catalogs"
-    __table_args__ = (UniqueConstraint("teacher_id", "name", name="uq_catalog_teacher_name"),)
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "name", name="uq_catalog_teacher_name"),
+        UniqueConstraint("owner_student_id", "name", name="uq_catalog_student_name"),
+        CheckConstraint(
+            "(teacher_id IS NOT NULL AND owner_student_id IS NULL) OR "
+            "(teacher_id IS NULL AND owner_student_id IS NOT NULL)",
+            name="ck_catalog_one_owner",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    owner_student_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    teacher = relationship("User", back_populates="catalog_courses")
+    teacher = relationship(
+        "User", foreign_keys=[teacher_id], back_populates="catalog_courses"
+    )
+    owner_student = relationship(
+        "User", foreign_keys=[owner_student_id], back_populates="owned_catalogs"
+    )
     offerings = relationship("CourseOffering", back_populates="catalog_course")
     exams = relationship("Exam", back_populates="catalog_course")
     exercises = relationship("Exercise", back_populates="catalog_course")
@@ -38,11 +64,18 @@ class CourseOffering(Base):
             "group_name",
             name="uq_offering_session",
         ),
+        Index(
+            "uq_personal_offering_catalog",
+            "catalog_course_id",
+            unique=True,
+            sqlite_where=text("teacher_id IS NULL"),
+            postgresql_where=text("teacher_id IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     catalog_course_id: Mapped[int] = mapped_column(ForeignKey("course_catalogs.id"), index=True)
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     group_name: Mapped[str] = mapped_column(String(255))
     academic_year: Mapped[int] = mapped_column(Integer, index=True)
     semester: Mapped[int] = mapped_column(Integer, index=True)

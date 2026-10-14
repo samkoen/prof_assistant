@@ -79,6 +79,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       matchPathPrefix: "/student/courses",
     },
     { text: he.joinByTeacherTitle, icon: <SchoolIcon />, path: "/student/join-course" },
+    { text: he.studentShares, icon: <ShareIcon />, path: "/student/shares" },
     {
       text: he.exams,
       icon: <QuizIcon />,

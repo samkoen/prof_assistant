@@ -19,6 +19,7 @@ interface ShareWithTeacherDialogProps {
   examId?: number;
   catalogId?: number;
   itemLabel: string;
+  emailLabel?: string;
   onClose: () => void;
   onSent: () => void;
 }
@@ -29,6 +30,7 @@ export default function ShareWithTeacherDialog({
   examId,
   catalogId,
   itemLabel,
+  emailLabel = he.teacherEmail,
   onClose,
   onSent,
 }: ShareWithTeacherDialogProps) {
@@ -68,7 +70,7 @@ export default function ShareWithTeacherDialog({
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
         <Alert severity="info">{itemLabel}</Alert>
         <TextField
-          label={he.teacherEmail}
+          label={emailLabel}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

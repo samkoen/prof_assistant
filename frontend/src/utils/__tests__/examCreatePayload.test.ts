@@ -4,6 +4,7 @@ import {
   EMPTY_EXAM_FORM,
   buildCreatePayload,
   editorPathAfterCreate,
+  forceTirgoulForm,
   resolveScope,
   type ExamCreateForm,
 } from "../examCreatePayload";
@@ -56,11 +57,24 @@ describe("buildCreatePayload", () => {
     const payload = buildCreatePayload(form({ is_tirgoul: true, title: "תרגיל" }), offering, 1);
     expect(payload).toMatchObject({ shuffle_questions: false, shuffle_options: true, is_tirgoul: true, offering_id: 7 });
   });
+
+  it("force un tirgoul personnel même si le formulaire disait examen", () => {
+    const payload = buildCreatePayload(forceTirgoulForm(form({ is_tirgoul: false, audience: "this_group" })), offering, 1);
+    expect(payload.is_tirgoul).toBe(true);
+    expect(payload.shuffle_questions).toBe(false);
+    expect(payload.scope_group_name).toBeNull();
+  });
 });
 
 describe("editorPathAfterCreate", () => {
   it("n'ajoute pas de paramètre pour la liste des examens", () => {
     expect(editorPathAfterCreate(9, "/teacher/exams")).toBe("/teacher/exams/9/edit");
+  });
+
+  it("ouvre l'éditeur élève en conservant le retour", () => {
+    expect(editorPathAfterCreate(4, "/student/courses/2", "/student/tirgoulim")).toBe(
+      "/student/tirgoulim/4/edit?return=%2Fstudent%2Fcourses%2F2",
+    );
   });
 
   it("conserve la page de retour encodée", () => {

@@ -29,6 +29,7 @@ from app.routers import (
     question_media,
     students_router,
     offering_teachers,
+    personal_subjects,
     teacher_shares,
 )
 
@@ -73,6 +74,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(students_router.router, prefix="/api")
 app.include_router(teacher_shares.router, prefix="/api")
+app.include_router(personal_subjects.router, prefix="/api")
 app.include_router(offering_teachers.router, prefix="/api")
 
 

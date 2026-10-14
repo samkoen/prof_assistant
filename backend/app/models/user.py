@@ -35,7 +35,12 @@ class User(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    catalog_courses = relationship("CourseCatalog", back_populates="teacher")
+    catalog_courses = relationship(
+        "CourseCatalog", foreign_keys="CourseCatalog.teacher_id", back_populates="teacher"
+    )
+    owned_catalogs = relationship(
+        "CourseCatalog", foreign_keys="CourseCatalog.owner_student_id", back_populates="owner_student"
+    )
     offerings_teaching = relationship("CourseOffering", back_populates="teacher")
     enrollments = relationship("CourseEnrollment", back_populates="student")
     notifications = relationship("Notification", back_populates="user")

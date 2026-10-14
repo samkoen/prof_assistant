@@ -39,7 +39,7 @@ async def preview_gemini_generation(
     exam_id: int,
     body: GeminiGenerationPreviewRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     return await preview_generation_context(exam, user, body.series, body.source_ids, db)
@@ -50,7 +50,7 @@ async def start_gemini_session(
     exam_id: int,
     body: GeminiSessionCreateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     return await create_generation_session(exam, user, body.series, db, body.source_ids)
@@ -60,7 +60,7 @@ async def start_gemini_session(
 async def get_active_gemini_session(
     exam_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     return await get_active_session_for_exam(exam_id, user, db)
@@ -70,7 +70,7 @@ async def get_active_gemini_session(
 async def get_gemini_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     return await get_generation_session(session_id, user, db)
 
@@ -80,7 +80,7 @@ async def refine_gemini_session(
     session_id: int,
     body: GeminiSessionRefineRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     return await refine_generation_session(session_id, user, body.message, db)
 
@@ -89,7 +89,7 @@ async def refine_gemini_session(
 async def next_gemini_batch(
     session_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     return await run_next_generation_batch(session_id, user, db)
 
@@ -98,7 +98,7 @@ async def next_gemini_batch(
 async def abandon_gemini_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await abandon_generation_session(session_id, user, db)
     return {"ok": True}
@@ -109,7 +109,7 @@ async def report_gemini_parse_error_route(
     session_id: int,
     body: GeminiParseErrorReportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     errors = [e.model_dump() for e in body.errors]
     sent = await report_gemini_parse_error(session_id, user, errors, db)
@@ -121,7 +121,7 @@ async def accept_gemini_session(
     session_id: int,
     body: QuestionsImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     count = await accept_generation_session(session_id, user, body, db)
     return GeminiSessionAcceptResponse(imported_count=count)
