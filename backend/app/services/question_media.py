@@ -15,6 +15,7 @@ from app.models.exam import Exam, ExamSession, StudentExamAttempt
 from app.models.user import User
 from app.services.catalog_scope import teacher_can_edit_catalog_item
 from app.services.exam_questions import exam_has_active_sessions
+from app.services.personal_subject import student_may_edit_exam
 
 _ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 _MEDIA_TYPES = {
@@ -95,16 +96,21 @@ async def assert_exam_editable_for_images(exam_id: int, db: AsyncSession) -> Exa
     return exam
 
 
+def viewer_may_edit_images(user: User, exam: Exam, catalog: CourseCatalog | None) -> bool:
+    if user.role == UserRole.ADMIN:
+        return True
+    if user.role == UserRole.TEACHER and catalog:
+        return teacher_can_edit_catalog_item(exam, user, catalog.teacher_id)
+    return bool(catalog and student_may_edit_exam(exam, catalog, user))
+
+
 async def assert_can_view_question_images(exam_id: int, user: User, db: AsyncSession) -> None:
     exam = await db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
-    if user.role == UserRole.ADMIN:
+    catalog = await db.get(CourseCatalog, exam.catalog_course_id)
+    if viewer_may_edit_images(user, exam, catalog):
         return
-    if user.role == UserRole.TEACHER:
-        catalog = await db.get(CourseCatalog, exam.catalog_course_id)
-        if catalog and teacher_can_edit_catalog_item(exam, user, catalog.teacher_id):
-            return
     count = await db.scalar(
         select(func.count())
         .select_from(StudentExamAttempt)

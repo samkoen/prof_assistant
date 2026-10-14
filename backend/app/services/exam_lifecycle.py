@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -90,7 +90,22 @@ async def _matching_tirgoul_offerings(exam: Exam, db: AsyncSession) -> list[Cour
         select(CourseOffering).where(CourseOffering.catalog_course_id == exam.catalog_course_id)
     )
     hidden = await offering_ids_excluding_exam(db, exam.id)
-    return [o for o in rows.scalars().all() if o.id not in hidden and catalog_item_matches_offering(exam, o)]
+    matched = [o for o in rows.scalars().all() if o.id not in hidden and catalog_item_matches_offering(exam, o)]
+    return await _only_private_owner_groups(exam, matched, db)
+
+
+async def _only_private_owner_groups(exam: Exam, offerings: list[CourseOffering], db: AsyncSession) -> list[CourseOffering]:
+    if not exam.private_student_id or not offerings:
+        return offerings
+    rows = await db.execute(
+        select(CourseEnrollment.offering_id).where(
+            CourseEnrollment.student_id == exam.private_student_id,
+            CourseEnrollment.status == EnrollmentStatus.APPROVED,
+            CourseEnrollment.offering_id.in_([item.id for item in offerings]),
+        )
+    )
+    allowed = set(rows.scalars().all())
+    return [item for item in offerings if item.id in allowed]
 
 
 async def _ensure_tirgoul_offering_sessions(exam: Exam, db: AsyncSession) -> None:
@@ -204,6 +219,7 @@ async def duplicate_exam_to_catalog(
         is_tirgoul=source.is_tirgoul,
     )
     apply_exam_kind(copy, bool(source.is_tirgoul))
+    _keep_private_scope(copy, source)
     db.add(copy)
     await db.flush()
 
@@ -234,6 +250,16 @@ async def duplicate_exam_to_catalog(
 
     await open_tirgoul_sessions_if_ready(copy, db)
     return copy
+
+
+def _keep_private_scope(copy: Exam, source: Exam) -> None:
+    if not source.private_student_id:
+        return
+    copy.private_student_id = source.private_student_id
+    copy.scope_teacher_id = None
+    copy.scope_academic_year = source.scope_academic_year
+    copy.scope_semester = source.scope_semester
+    copy.scope_group_name = source.scope_group_name
 
 
 async def duplicate_exam(
@@ -292,6 +318,18 @@ async def _delete_exam_side_rows(exam_id: int, db: AsyncSession) -> None:
     await db.execute(delete(ExamOfferingExclusion).where(ExamOfferingExclusion.exam_id == exam_id))
 
 
+async def delete_private_exams_on_offering(db: AsyncSession, offering_id: int) -> None:
+    ids = (
+        await db.execute(
+            select(Exam.id)
+            .join(ExamSession, ExamSession.exam_id == Exam.id)
+            .where(ExamSession.offering_id == offering_id, Exam.private_student_id.is_not(None))
+        )
+    ).scalars().all()
+    for exam_id in ids:
+        await delete_exam_cascade(exam_id, db)
+
+
 async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
     await _delete_exam_side_rows(exam_id, db)
     sessions = (
@@ -346,7 +384,9 @@ def session_allows_student_work(
 async def notify_exam_available_to_pending_students(
     session: ExamSession, exam: Exam, db: AsyncSession
 ) -> None:
-    """Notifie les inscrits qui n'ont pas encore rendu le mבחן."""
+    """Notifie les inscrits qui n'ont pas encore rendu. Une matala privée ne part vers personne."""
+    if exam.private_student_id is not None:
+        return
     attempts = (
         await db.execute(
             select(StudentExamAttempt).where(StudentExamAttempt.exam_session_id == session.id)
@@ -383,7 +423,15 @@ def student_visible_session_statuses() -> tuple[ExamStatus, ...]:
     return (ExamStatus.ACTIVE, ExamStatus.CLOSED)
 
 
+def class_sessions_clause():
+    """Sessions d'une matala de classe : les matalot privées d'un élève en sont absentes."""
+    return ExamSession.exam_id.in_(select(Exam.id).where(Exam.private_student_id.is_(None)))
+
+
 def student_visible_sessions_clause(student_id: int):
-    """Sessions actives et fermées du cours ; `student_id` garde la signature des appels."""
-    _ = student_id
-    return ExamSession.status.in_(student_visible_session_statuses())
+    """Sessions de classe, plus les matalot privées de cet élève."""
+    own = or_(Exam.private_student_id.is_(None), Exam.private_student_id == student_id)
+    return and_(
+        ExamSession.status.in_(student_visible_session_statuses()),
+        ExamSession.exam_id.in_(select(Exam.id).where(own)),
+    )

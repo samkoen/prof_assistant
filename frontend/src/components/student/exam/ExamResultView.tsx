@@ -18,14 +18,14 @@ function updateScore(state: ExamTakeState) {
 
 function ResultActions({ state, id }: { state: ExamTakeState; id: number }) {
   const { paper, phase } = state.loader;
-  const { startingPractice, retryTirgoul, startPractice } = state.actions;
+  const { startingPractice, startPractice } = state.actions;
   if (!paper) return null;
-  const again = phase === "final" && paper.is_tirgoul;
-  const practice = (phase === "final" || phase === "practice_review") && !paper.is_tirgoul;
+  const again = paper.is_tirgoul && (phase === "final" || phase === "practice_review");
+  const practice = !paper.is_tirgoul && (phase === "final" || phase === "practice_review");
   return (
     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
       {again && (
-        <Button variant="contained" color="success" disabled={startingPractice} onClick={() => void retryTirgoul()}>
+        <Button variant="contained" color="success" disabled={startingPractice} onClick={startPractice}>
           {startingPractice ? he.loading : he.retryTirgoul}
         </Button>
       )}

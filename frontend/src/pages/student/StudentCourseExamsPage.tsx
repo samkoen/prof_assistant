@@ -13,7 +13,7 @@ import StudentLanguageSetting from "../../components/student/StudentLanguageSett
 import EmptyState from "../../components/ui/EmptyState";
 import { offeringLabel, type StudentExamSessionWithAttempt } from "../../api/client";
 import {
-  PersonalCourseButtons,
+  CourseExamActions,
   PersonalShareDialog,
   tirgoulEditPath,
   usePersonalShares,
@@ -52,7 +52,7 @@ export default function StudentCourseExamsPage() {
         title={he.courseExams}
         subtitle={data.offering ? offeringLabel(data.offering) : undefined}
         titleVariant="h5"
-        actions={data.offering?.is_personal ? <PersonalCourseButtons offering={data.offering} onShare={shares.shareSubject} /> : undefined}
+        actions={<CourseExamActions offering={data.offering} onShareSubject={shares.shareSubject} />}
       />
       <StudentLanguageSetting />
       {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
@@ -68,7 +68,7 @@ export default function StudentCourseExamsPage() {
             highlightedId={highlighted}
             empty={empty}
             onOpen={(sid) => navigate(`/student/exams/${sid}`)}
-            extraFor={data.offering?.is_personal ? (session) => <TirgoulRowActions offeringId={id} session={session} onShare={shares.shareExam} /> : undefined}
+            extraFor={(session) => rowExtra(data.offering, id, session, shares.shareExam)}
           />
         </>
       )}
@@ -84,6 +84,17 @@ export default function StudentCourseExamsPage() {
   );
 }
 
+function rowExtra(
+  offering: { is_personal?: boolean } | null,
+  offeringId: number,
+  session: StudentExamSessionWithAttempt,
+  onShare: (session: StudentExamSessionWithAttempt) => void,
+) {
+  if (offering?.is_personal) return <TirgoulRowActions offeringId={offeringId} session={session} onShare={onShare} />;
+  if (!session.owned_by_me) return null;
+  return <TirgoulRowActions offeringId={offeringId} session={session} />;
+}
+
 function TirgoulRowActions({
   offeringId,
   session,
@@ -91,7 +102,7 @@ function TirgoulRowActions({
 }: {
   offeringId: number;
   session: StudentExamSessionWithAttempt;
-  onShare: (session: StudentExamSessionWithAttempt) => void;
+  onShare?: (session: StudentExamSessionWithAttempt) => void;
 }) {
   const navigate = useNavigate();
   return (
@@ -99,9 +110,11 @@ function TirgoulRowActions({
       <Button size="small" startIcon={<EditIcon />} onClick={() => navigate(tirgoulEditPath(offeringId, session.exam_id))}>
         {he.editTirgoul}
       </Button>
-      <Button size="small" startIcon={<ShareIcon />} onClick={() => onShare(session)}>
-        {he.shareTirgoul}
-      </Button>
+      {onShare && (
+        <Button size="small" startIcon={<ShareIcon />} onClick={() => onShare(session)}>
+          {he.shareTirgoul}
+        </Button>
+      )}
     </Box>
   );
 }
