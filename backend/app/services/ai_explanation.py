@@ -52,13 +52,13 @@ async def _load_review_context(
     )
     session = session_row.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
 
     exam = session.exam
     if not exam.show_detailed_correction:
-        raise HTTPException(status_code=403, detail="הסבר אינו זמין למבחן זה")
+        raise HTTPException(status_code=403, detail="הסבר אינו זמין למטלה זו")
     if not for_practice and not session.results_published and not is_tirgoul(exam):
         raise HTTPException(status_code=403, detail="התוצאות טרם פורסמו")
 
@@ -70,7 +70,7 @@ async def _load_review_context(
     )
     attempt = attempt_row.scalar_one_or_none()
     if not attempt or not attempt.submitted_at:
-        raise HTTPException(status_code=400, detail="יש להגיש את המבחן לפני בקשת הסבר")
+        raise HTTPException(status_code=400, detail="יש להגיש את המטלה לפני בקשת הסבר")
     if for_practice and not attempt.practice_submitted_at:
         raise HTTPException(status_code=400, detail="יש להשלים תרגול לפני בקשת הסבר")
 

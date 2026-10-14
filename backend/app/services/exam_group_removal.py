@@ -9,9 +9,9 @@ from app.models.exam import Exam, ExamOfferingExclusion, ExamSession, StudentExa
 from app.services.catalog_scope import catalog_item_matches_offering
 from app.services.exam_lifecycle import delete_attempt_records, delete_exam_cascade
 
-_WRONG_OFFERING = "הרצת קורס לא תואמת למבחן"
-_NOT_FOR_GROUP = "המבחן לא מיועד להרצה זו"
-_ALREADY_REMOVED = "המבחן הוסר מהקבוצה הזו"
+_WRONG_OFFERING = "הרצת קורס לא תואמת למטלה"
+_NOT_FOR_GROUP = "המטלה לא מיועדת להרצה זו"
+_ALREADY_REMOVED = "המטלה הוסרה מהקבוצה הזו"
 
 
 def keeps_catalog_exam(other_group_count: int) -> bool:

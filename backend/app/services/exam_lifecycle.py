@@ -174,6 +174,7 @@ async def duplicate_exam_to_catalog(
     owner_teacher_id: int,
     title: str,
     db: AsyncSession,
+    bind_teacher_scope: bool = True,
 ) -> Exam:
     result = await db.execute(
         select(Question)
@@ -186,7 +187,7 @@ async def duplicate_exam_to_catalog(
     copy = Exam(
         catalog_course_id=target_catalog_course_id,
         created_by_id=owner_teacher_id,
-        scope_teacher_id=owner_teacher_id,
+        scope_teacher_id=owner_teacher_id if bind_teacher_scope else None,
         scope_academic_year=None,
         scope_semester=None,
         scope_group_name=None,
@@ -235,13 +236,21 @@ async def duplicate_exam_to_catalog(
     return copy
 
 
-async def duplicate_exam(source: Exam, title: str, created_by_id: int, db: AsyncSession) -> Exam:
+async def duplicate_exam(
+    source: Exam,
+    title: str,
+    created_by_id: int,
+    db: AsyncSession,
+    *,
+    bind_teacher_scope: bool = True,
+) -> Exam:
     return await duplicate_exam_to_catalog(
         source,
         target_catalog_course_id=source.catalog_course_id,
         owner_teacher_id=created_by_id,
         title=title,
         db=db,
+        bind_teacher_scope=bind_teacher_scope,
     )
 
 

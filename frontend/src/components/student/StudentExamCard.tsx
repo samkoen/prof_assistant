@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { alpha, Box, CardActionArea, LinearProgress, Paper, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
@@ -14,6 +15,7 @@ type StudentExamCardProps = {
   showCourse?: boolean;
   highlighted?: boolean;
   onOpen: (sessionId: number) => void;
+  extra?: ReactNode;
 };
 
 function ScoreBar({ attempt }: { attempt: StudentExamSessionWithAttempt["attempt"] }) {
@@ -53,7 +55,7 @@ function metaLine(session: StudentExamSessionWithAttempt, showCourse: boolean): 
 }
 
 /** Carte d'un examen côté élève : état, titre, score éventuel et action claire. */
-export default function StudentExamCard({ session, showCourse = false, highlighted = false, onOpen }: StudentExamCardProps) {
+export default function StudentExamCard({ session, showCourse = false, highlighted = false, onOpen, extra }: StudentExamCardProps) {
   const view = studentExamView(session, session.attempt);
   const tone = statusTones[view.tone];
   return (
@@ -86,6 +88,7 @@ export default function StudentExamCard({ session, showCourse = false, highlight
         </Box>
         <ActionHint label={view.actionLabel} openable={view.openable} pending={view.pending} />
       </CardActionArea>
+      {extra}
     </Paper>
   );
 }

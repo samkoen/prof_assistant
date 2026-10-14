@@ -70,6 +70,7 @@ from app.services.exam_lifecycle import (
     session_allows_student_work,
 )
 from app.services.option_shuffle import shuffled_options
+from app.services.personal_subject import lock_personal_create, student_may_edit_exam
 from app.services.exam_kind import (
     apply_exam_kind,
     integrity_on_activate,
@@ -191,14 +192,23 @@ def _session_response(session: ExamSession, question_count: int = 0) -> ExamSess
     )
 
 
+def _refuse_student_class_action(user: User) -> None:
+    if user.role == UserRole.STUDENT:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+
+
 async def _get_teacher_exam(exam_id: int, user: User, db: AsyncSession) -> Exam:
     exam = await db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     catalog = await db.get(CourseCatalog, exam.catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     if user.role == UserRole.ADMIN:
+        return exam
+    if user.role == UserRole.STUDENT:
+        if not student_may_edit_exam(exam, catalog, user):
+            raise HTTPException(status_code=403, detail="אין הרשאה")
         return exam
     if not teacher_can_edit_catalog_item(exam, user, catalog.teacher_id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
@@ -217,7 +227,7 @@ async def _get_teacher_session(session_id: int, user: User, db: AsyncSession) ->
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מפגש מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מפגש מטלה לא נמצא")
     return session
 
 
@@ -272,7 +282,7 @@ async def _get_student_active_session(session_id: int, user: User, db: AsyncSess
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if session.status != ExamStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if not await _student_approved_for_offering(session.offering_id, user, db):
@@ -289,7 +299,7 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
     return session
@@ -476,13 +486,14 @@ async def _start_attempt_clock(attempt, exam, session, now, db) -> None:
 async def create_exam(
     body: ExamCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     catalog = await db.get(CourseCatalog, body.catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="אין הרשאה")
+    lock_personal_create(body, catalog, user)
     body.scope_teacher_id = enforce_teacher_scope_id(user, body.scope_teacher_id)
     if body.scope_teacher_id is not None and user.role == UserRole.TEACHER and body.scope_teacher_id != user.id:
         raise HTTPException(status_code=403, detail="לא ניתן להגביל למורה אחר")
@@ -519,11 +530,13 @@ async def list_catalog_exams(
     catalog_course_id: int,
     offering_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     catalog = await db.get(CourseCatalog, catalog_course_id)
     if not catalog:
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
+    if user.role == UserRole.STUDENT and catalog.owner_student_id != user.id:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
     if user.role == UserRole.TEACHER and not teacher_owns_catalog(catalog, user):
         raise HTTPException(status_code=403, detail="אין הרשאה")
 
@@ -724,7 +737,7 @@ async def update_exam(
     exam_id: int,
     body: ExamUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     data = body.model_dump(exclude_unset=True)
@@ -760,12 +773,14 @@ async def copy_exam(
     exam_id: int,
     body: ExamDuplicateRequest | None = None,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     source = await _get_teacher_exam(exam_id, user, db)
     body = body or ExamDuplicateRequest()
     title = (body.title or "").strip() or f"{source.title} (עותק)"
-    copy = await duplicate_exam(source, title, user.id, db)
+    copy = await duplicate_exam(
+        source, title, user.id, db, bind_teacher_scope=user.role != UserRole.STUDENT
+    )
     await db.commit()
     await db.refresh(copy)
     cnt = await db.scalar(
@@ -780,8 +795,9 @@ async def attach_exam_to_offering(
     exam_id: int,
     body: ExamSessionActivate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
+    _refuse_student_class_action(user)
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
@@ -791,14 +807,14 @@ async def attach_exam_to_offering(
     if user.role == UserRole.TEACHER and not await is_offering_member(db, body.offering_id, user.id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     if offering.catalog_course_id != exam.catalog_course_id:
-        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
+        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למטלה")
     if not catalog_item_visible_to_teacher(exam, offering.teacher_id):
-        raise HTTPException(status_code=403, detail="אין הרשאה למבחן זה")
+        raise HTTPException(status_code=403, detail="אין הרשאה למטלה זו")
     if not catalog_item_matches_offering(exam, offering):
         widen_scope_for_offering(exam, offering)
     await assert_not_excluded(db, exam_id, offering.id)
     if not catalog_item_matches_offering(exam, offering):
-        raise HTTPException(status_code=400, detail="לא ניתן להוסיף מבחן זה לקבוצה")
+        raise HTTPException(status_code=400, detail="לא ניתן להוסיף מטלה זו לקבוצה")
     await ensure_draft_session(exam_id, body.offering_id, db)
     await open_tirgoul_sessions_if_ready(exam, db)
     await db.commit()
@@ -816,8 +832,9 @@ async def remove_exam_from_offering(
     exam_id: int,
     offering_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
+    _refuse_student_class_action(user)
     exam = await _get_teacher_exam(exam_id, user, db)
     offering = await db.get(CourseOffering, offering_id)
     if not offering:
@@ -832,11 +849,11 @@ async def remove_exam_from_offering(
 async def delete_exam(
     exam_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     if not await exam_delete_allowed(exam, db):
-        raise HTTPException(status_code=400, detail="לא ניתן למחוק — המבחן הופעל בעבר")
+        raise HTTPException(status_code=400, detail="לא ניתן למחוק — המטלה הופעלה בעבר")
     await delete_exam_cascade(exam_id, db)
     await db.commit()
 
@@ -845,7 +862,7 @@ async def delete_exam(
 async def get_exam_detail(
     exam_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     q_result = await db.execute(
@@ -872,7 +889,7 @@ async def download_exam_pdf(
     exam_id: int,
     include_answers: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     q_result = await db.execute(
@@ -883,7 +900,7 @@ async def download_exam_pdf(
     )
     questions = q_result.scalars().all()
     if not questions:
-        raise HTTPException(status_code=400, detail="אין שאלות במבחן")
+        raise HTTPException(status_code=400, detail="אין שאלות במטלה")
     catalog = await db.get(CourseCatalog, exam.catalog_course_id)
     course_name = catalog.name if catalog else ""
     try:
@@ -903,7 +920,7 @@ async def import_questions(
     exam_id: int,
     body: QuestionsImportRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -935,7 +952,7 @@ async def generate_questions_draft(
     exam_id: int,
     body: GeminiGenerateQuestionsRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -949,7 +966,7 @@ async def add_question(
     exam_id: int,
     body: QuestionCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -970,7 +987,7 @@ async def reorder_exam_questions(
     exam_id: int,
     body: QuestionsReorderRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -986,7 +1003,7 @@ async def edit_question(
     question_id: int,
     body: QuestionUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -1002,7 +1019,7 @@ async def update_answer_key(
     exam_id: int,
     body: AnswerKeyUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -1017,7 +1034,7 @@ async def remove_question(
     exam_id: int,
     question_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     await _get_teacher_exam(exam_id, user, db)
     if await exam_has_active_sessions(exam_id, db):
@@ -1035,7 +1052,7 @@ async def activate_exam(
 ):
     exam = await db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if is_tirgoul(exam):
         raise HTTPException(status_code=400, detail="תרגול נפתח אוטומטית אחרי הוספת שאלות")
     offering = await db.execute(
@@ -1049,11 +1066,11 @@ async def activate_exam(
     )
     offering_obj = offering.scalar_one_or_none()
     if not offering_obj:
-        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למבחן")
+        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למטלה")
     if not catalog_item_visible_to_teacher(exam, offering_obj.teacher_id):
         raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
     if not catalog_item_matches_offering(exam, offering_obj):
-        raise HTTPException(status_code=400, detail="המבחן לא מיועד להרצה זו (היקף/הרשאות)")
+        raise HTTPException(status_code=400, detail="המטלה לא מיועדת להרצה זו (היקף/הרשאות)")
     await assert_not_excluded(db, exam_id, offering_obj.id)
 
     result = await db.execute(
@@ -1120,8 +1137,9 @@ async def activate_exam(
 async def get_session_results(
     session_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
+    _refuse_student_class_action(user)
     if user.role == UserRole.TEACHER:
         session = await _get_teacher_session(session_id, user, db)
     else:
@@ -1135,7 +1153,7 @@ async def get_session_results(
         )
         session = result.scalar_one_or_none()
         if not session:
-            raise HTTPException(status_code=404, detail="מפגש מבחן לא נמצא")
+            raise HTTPException(status_code=404, detail="מפגש מטלה לא נמצא")
 
     enrollments = (
         await db.execute(
@@ -1375,7 +1393,7 @@ async def save_session_answers(
     if not session_allows_student_work(session, attempt):
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if not attempt or not attempt.started_at:
-        raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
+        raise HTTPException(status_code=400, detail="לא התחלת את המטלה")
     exam = session.exam
     if session.integrity_mode_enabled and not attempt.rules_accepted_at:
         raise HTTPException(status_code=400, detail="יש לאשר את כללי המבחן")
@@ -1413,7 +1431,7 @@ async def log_integrity_events(
     attempt = await get_owned_attempt(attempt_id, user, db)
     session = await db.get(ExamSession, attempt.exam_session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     assert_exam_session_token(session, attempt, provided_token)
     attempt = await record_events(attempt, session, body.events, db)
     await db.commit()
@@ -1436,7 +1454,7 @@ async def submit_exam_session(
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     exam = session.exam
     attempt_result = await db.execute(
         select(StudentExamAttempt).where(
@@ -1446,7 +1464,7 @@ async def submit_exam_session(
     )
     attempt = attempt_result.scalar_one_or_none()
     if not attempt or not attempt.started_at:
-        raise HTTPException(status_code=400, detail="לא התחלת את המבחן")
+        raise HTTPException(status_code=400, detail="לא התחלת את המטלה")
     if attempt.submitted_at:
         raise HTTPException(status_code=400, detail="כבר הוגש")
     if session.results_published:
@@ -1484,7 +1502,7 @@ async def get_session_review(
     )
     attempt = attempt_result.scalar_one_or_none()
     if not attempt or not attempt.submitted_at:
-        raise HTTPException(status_code=400, detail="המבחן טרם הוגש")
+        raise HTTPException(status_code=400, detail="המטלה טרם הוגשה")
 
     published = session.results_published
     attempt_resp = _attempt_response(attempt, exam.id, results_published=published, exam=exam)

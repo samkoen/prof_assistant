@@ -12,14 +12,19 @@ import type { TeacherShare } from "../../api/client";
 import { useTeacherShares } from "../../hooks/useTeacherShares";
 import { he } from "../../i18n/he";
 
-/** Partages entre professeurs : reçus à traiter, envoyés et invitations de groupe. */
-export default function TeacherSharesPage() {
+/** Partages reçus et envoyés. L'élève n'a pas les invitations de co-enseignement. */
+export default function TeacherSharesPage({ audience = "teacher" }: { audience?: "teacher" | "student" }) {
   const data = useTeacherShares();
   const [acceptShare, setAcceptShare] = useState<TeacherShare | null>(null);
+  const student = audience === "student";
 
   return (
     <Box sx={{ width: "100%" }} dir="rtl">
-      <ListPageToolbar title={he.teacherShares} subtitle={he.teacherSharesSubtitle} titleVariant="h5" />
+      <ListPageToolbar
+        title={student ? he.studentShares : he.teacherShares}
+        subtitle={student ? he.studentSharesSubtitle : he.teacherSharesSubtitle}
+        titleVariant="h5"
+      />
       {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
       {data.loading ? (
         <Skeleton variant="rounded" height={220} />
@@ -45,7 +50,7 @@ export default function TeacherSharesPage() {
           )}
           <SectionHeader title={he.sentShares} />
           <SentSharesList shares={data.sentSorted} />
-          <OfferingTeacherInvitesSection onError={data.setError} />
+          {!student && <OfferingTeacherInvitesSection onError={data.setError} />}
         </>
       )}
       <AcceptTeacherShareDialog

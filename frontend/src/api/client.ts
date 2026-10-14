@@ -202,7 +202,7 @@ export interface CatalogCourse {
   id: number;
   name: string;
   description: string | null;
-  teacher_id: number;
+  teacher_id: number | null;
   teacher_name: string;
   exam_count: number;
   exercise_count: number;
@@ -223,6 +223,7 @@ export interface CourseOffering {
   teacher_name: string;
   teachers?: OfferingTeacherRef[];
   created_at: string;
+  is_personal?: boolean;
   enrollment_status?: "pending" | "approved" | "rejected" | null;
   join_token?: string | null;
   join_token_expires_at?: string | null;

@@ -89,7 +89,7 @@ def media_type_for(filename: str) -> str:
 async def assert_exam_editable_for_images(exam_id: int, db: AsyncSession) -> Exam:
     exam = await db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     return exam
@@ -98,7 +98,7 @@ async def assert_exam_editable_for_images(exam_id: int, db: AsyncSession) -> Exa
 async def assert_can_view_question_images(exam_id: int, user: User, db: AsyncSession) -> None:
     exam = await db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if user.role == UserRole.ADMIN:
         return
     if user.role == UserRole.TEACHER:

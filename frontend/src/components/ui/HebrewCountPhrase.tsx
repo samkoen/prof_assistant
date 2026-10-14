@@ -5,7 +5,7 @@ type HebrewCountPhraseProps = {
   count: number | string;
 };
 
-/** Libellé hébreu puis nombre à sa droite (ex. « שאלות במבחן 3 »). */
+/** Libellé hébreu puis nombre à sa droite (ex. « שאלות במטלה 3 »). */
 export default function HebrewCountPhrase({ label, count }: HebrewCountPhraseProps) {
   return (
     <Box

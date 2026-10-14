@@ -88,10 +88,12 @@ async def create_catalog_course(
 async def list_my_catalog_courses(
     teacher_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     q = _catalog_query().order_by(CourseCatalog.name)
-    if user.role == UserRole.TEACHER:
+    if user.role == UserRole.STUDENT:
+        q = q.where(CourseCatalog.owner_student_id == user.id)
+    elif user.role == UserRole.TEACHER:
         q = q.where(CourseCatalog.teacher_id == user.id)
     elif teacher_id is not None:
         q = q.where(CourseCatalog.teacher_id == teacher_id)

@@ -73,8 +73,13 @@ export function buildCreatePayload(form: ExamCreateForm, offering: OfferingScope
   };
 }
 
+/** Tirgoul personnel : type forcé, sans restriction de groupe. */
+export function forceTirgoulForm(form: ExamCreateForm): ExamCreateForm {
+  return { ...form, is_tirgoul: true, audience: "all" };
+}
+
 /** Chemin de l'éditeur après création, en conservant la page de retour. */
-export function editorPathAfterCreate(examId: number, returnTo: string): string {
-  const suffix = returnTo !== "/teacher/exams" ? `?return=${encodeURIComponent(returnTo)}` : "";
-  return `/teacher/exams/${examId}/edit${suffix}`;
+export function editorPathAfterCreate(examId: number, returnTo: string, base = "/teacher/exams"): string {
+  const suffix = returnTo !== base && returnTo !== "/teacher/exams" ? `?return=${encodeURIComponent(returnTo)}` : "";
+  return `${base}/${examId}/edit${suffix}`;
 }

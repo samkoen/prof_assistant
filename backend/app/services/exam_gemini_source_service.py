@@ -65,7 +65,7 @@ def _defaults_for_type(source_type: str) -> tuple[bool, bool]:
 async def _assert_exam_editable(exam_id: int, db: AsyncSession) -> Exam:
     exam = await db.get(Exam, exam_id)
     if not exam:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     return exam
@@ -103,7 +103,7 @@ async def upload_source(
         .where(ExamGeminiSource.exam_id == exam_id, ExamGeminiSource.teacher_id == user.id)
     )
     if (count or 0) >= settings.gemini_source_max_files_per_exam:
-        raise HTTPException(status_code=400, detail="מגבלת מספר קבצים למבחן זה")
+        raise HTTPException(status_code=400, detail="מגבלת מספר קבצים למטלה זו")
 
     raw = await file.read()
     filename = file.filename or "source.txt"

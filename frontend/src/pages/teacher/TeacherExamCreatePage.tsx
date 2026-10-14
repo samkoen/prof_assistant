@@ -10,14 +10,17 @@ import { useExamCreate } from "../../hooks/useExamCreate";
 import { he } from "../../i18n/he";
 
 /** Création d'examen : sections claires, puis passage direct à l'éditeur de questions. */
-export default function TeacherExamCreatePage() {
-  const c = useExamCreate();
+export default function TeacherExamCreatePage({ forceTirgoul = false }: { forceTirgoul?: boolean }) {
+  const c = useExamCreate({
+    forceTirgoul,
+    editorBase: forceTirgoul ? "/student/tirgoulim" : "/teacher/exams",
+  });
   const backLabel = c.params.returnTo.includes("/exams") ? he.backToExams : he.backToCourses;
   const noCatalogs = c.catalogs.length === 0;
   return (
     <Box dir="rtl" sx={{ maxWidth: 760, mx: "auto", width: "100%" }}>
       <ListPageToolbar
-        title={he.createExam}
+        title={forceTirgoul ? he.createTirgoul : he.createExam}
         subtitle={c.offering ? offeringLabel(c.offering) : he.createExamSubtitle}
         titleVariant="h5"
         actions={<BackButton to={c.params.returnTo} label={backLabel} />}
@@ -25,8 +28,8 @@ export default function TeacherExamCreatePage() {
       {c.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => c.setError("")}>{c.error}</Alert>}
       <Box component="form" onSubmit={(e) => e.preventDefault()}>
         <BasicsSection form={c.form} onChange={c.patch} catalogs={c.catalogs} lockCatalog={Boolean(c.params.catalogId)} />
-        <TypeSection form={c.form} onChange={c.patch} />
-        {c.offering ? <AudienceSection form={c.form} onChange={c.patch} /> : <ScopeSection form={c.form} onChange={c.patch} />}
+        {!forceTirgoul && <TypeSection form={c.form} onChange={c.patch} />}
+        {!forceTirgoul && (c.offering ? <AudienceSection form={c.form} onChange={c.patch} /> : <ScopeSection form={c.form} onChange={c.patch} />)}
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-start", flexWrap: "wrap" }}>
           <DisabledActionTooltip disabled={c.saving || noCatalogs} disabledReason={noCatalogs ? he.noCatalogCourses : undefined}>
             <Button variant="contained" size="large" endIcon={<ArrowForwardIcon sx={{ transform: "scaleX(-1)" }} />} onClick={c.submit}>

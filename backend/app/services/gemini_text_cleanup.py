@@ -51,7 +51,7 @@ def clean_gemini_source_text(text: str) -> str:
 
 
 def clean_gemini_user_text(text: str) -> str:
-    """הנחיות מורה, כותרת מבחן, בקשות עדכון."""
+    """הנחיות מורה, כותרת מטלה, בקשות עדכון."""
     if not text:
         return ""
     out = _normalize_newlines(text.strip()).replace(_NULL, "")

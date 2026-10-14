@@ -47,6 +47,7 @@ class CourseOfferingResponse(BaseModel):
     teacher_name: str
     teachers: list[OfferingTeacherRef] = Field(default_factory=list)
     created_at: datetime
+    is_personal: bool = False
     enrollment_status: EnrollmentStatus | None = None
     join_token: str | None = None
     join_token_expires_at: datetime | None = None

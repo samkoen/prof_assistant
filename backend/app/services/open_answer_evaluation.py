@@ -168,7 +168,7 @@ async def _load_session_for_student(session_id: int, user: User, db: AsyncSessio
     )
     session = session_row.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="מבחן לא נמצא")
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
     return session
@@ -177,7 +177,7 @@ async def _load_session_for_student(session_id: int, user: User, db: AsyncSessio
 def _assert_review_allowed(session: ExamSession, *, for_practice: bool) -> None:
     exam = session.exam
     if not exam.show_detailed_correction:
-        raise HTTPException(status_code=403, detail="הסבר אינו זמין למבחן זה")
+        raise HTTPException(status_code=403, detail="הסבר אינו זמין למטלה זו")
     if not for_practice and not session.results_published and not is_tirgoul(exam):
         raise HTTPException(status_code=403, detail="התוצאות טרם פורסמו")
 
@@ -193,7 +193,7 @@ async def _load_submitted_attempt(
     )
     attempt = attempt_row.scalar_one_or_none()
     if not attempt or not attempt.submitted_at:
-        raise HTTPException(status_code=400, detail="יש להגיש את המבחן לפני בקשת הערכה")
+        raise HTTPException(status_code=400, detail="יש להגיש את המטלה לפני בקשת הערכה")
     if for_practice and not attempt.practice_submitted_at:
         raise HTTPException(status_code=400, detail="יש להשלים תרגול לפני בקשת הערכה")
     return attempt
