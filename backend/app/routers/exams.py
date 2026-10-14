@@ -59,6 +59,7 @@ from app.services.exam_group_removal import (
     without_excluded,
 )
 from app.services.exam_lifecycle import (
+    class_sessions_clause,
     delete_exam_cascade,
     student_visible_sessions_clause,
     duplicate_exam,
@@ -70,7 +71,7 @@ from app.services.exam_lifecycle import (
     session_allows_student_work,
 )
 from app.services.option_shuffle import shuffled_options
-from app.services.personal_subject import lock_personal_create, student_may_edit_exam
+from app.services.personal_subject import prepare_student_create, student_may_edit_exam
 from app.services.exam_kind import (
     apply_exam_kind,
     integrity_on_activate,
@@ -226,7 +227,7 @@ async def _get_teacher_session(session_id: int, user: User, db: AsyncSession) ->
         .where(ExamSession.id == session_id, offering_managed_by_clause(user.id))
     )
     session = result.scalar_one_or_none()
-    if not session:
+    if not session or session.exam.private_student_id is not None:
         raise HTTPException(status_code=404, detail="מפגש מטלה לא נמצא")
     return session
 
@@ -287,6 +288,7 @@ async def _get_student_active_session(session_id: int, user: User, db: AsyncSess
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
+    _refuse_private_exam(session.exam, user.id)
     return session
 
 
@@ -302,7 +304,13 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
+    _refuse_private_exam(session.exam, user.id)
     return session
+
+
+def _refuse_private_exam(exam: Exam, user_id: int) -> None:
+    if exam.private_student_id not in (None, user_id):
+        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
 
 
 async def _saved_answers_for_attempt(attempt_id: int, db: AsyncSession) -> list[SavedAnswerDraft]:
@@ -493,7 +501,7 @@ async def create_exam(
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="אין הרשאה")
-    lock_personal_create(body, catalog, user)
+    private_owner = await prepare_student_create(body, catalog, user, db)
     body.scope_teacher_id = enforce_teacher_scope_id(user, body.scope_teacher_id)
     if body.scope_teacher_id is not None and user.role == UserRole.TEACHER and body.scope_teacher_id != user.id:
         raise HTTPException(status_code=403, detail="לא ניתן להגביל למורה אחר")
@@ -512,6 +520,7 @@ async def create_exam(
     )
     apply_exam_kind(exam, body.is_tirgoul)
     apply_scope_fields(exam, body, user.id)
+    exam.private_student_id = private_owner
     db.add(exam)
     await db.flush()
     if body.offering_id:
@@ -540,7 +549,10 @@ async def list_catalog_exams(
     if user.role == UserRole.TEACHER and not teacher_owns_catalog(catalog, user):
         raise HTTPException(status_code=403, detail="אין הרשאה")
 
-    q = select(Exam).where(Exam.catalog_course_id == catalog_course_id)
+    q = select(Exam).where(
+        Exam.catalog_course_id == catalog_course_id,
+        Exam.private_student_id.is_(None),
+    )
     if user.role == UserRole.TEACHER:
         q = q.where(scope_teacher_filter(Exam, user.id))
     result = await db.execute(q)
@@ -607,7 +619,10 @@ async def student_my_exams_board(
 async def _catalog_exams_for_offering(
     offering: CourseOffering, user: User, db: AsyncSession
 ) -> list[ExamResponse]:
-    q = select(Exam).where(Exam.catalog_course_id == offering.catalog_course_id)
+    q = select(Exam).where(
+        Exam.catalog_course_id == offering.catalog_course_id,
+        Exam.private_student_id.is_(None),
+    )
     if user.role == UserRole.TEACHER:
         q = q.where(scope_teacher_filter(Exam, offering.teacher_id))
     result = await db.execute(q)
@@ -647,6 +662,7 @@ async def teacher_offering_exams_board(
             selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
         )
         .where(ExamSession.offering_id == offering_id)
+        .where(class_sessions_clause())
         .order_by(ExamSession.created_at.desc())
     )
     sessions = list(session_rows.scalars().all())
@@ -688,6 +704,8 @@ async def list_offering_exam_sessions(
     )
     if user.role == UserRole.STUDENT:
         q = q.where(student_visible_sessions_clause(user.id))
+    else:
+        q = q.where(class_sessions_clause())
     q = q.order_by(ExamSession.created_at.desc())
     sessions = (await db.execute(q)).scalars().all()
     return await sessions_to_responses(list(sessions), db)
@@ -707,6 +725,7 @@ async def list_my_exam_sessions(
                 selectinload(ExamSession.offering).selectinload(CourseOffering.catalog_course),
             )
             .where(offering_managed_by_clause(user.id))
+            .where(class_sessions_clause())
             .order_by(ExamSession.created_at.desc())
         )
     elif user.role == UserRole.STUDENT:
@@ -1152,7 +1171,7 @@ async def get_session_results(
             .where(ExamSession.id == session_id)
         )
         session = result.scalar_one_or_none()
-        if not session:
+        if not session or session.exam.private_student_id is not None:
             raise HTTPException(status_code=404, detail="מפגש מטלה לא נמצא")
 
     enrollments = (
@@ -1549,14 +1568,12 @@ async def start_practice_session(
     user: User = Depends(require_roles(UserRole.STUDENT)),
 ):
     session = await _get_student_session(session_id, user, db)
-    if is_tirgoul(session.exam):
-        raise HTTPException(status_code=400, detail="בתרגול אפשר לחזור על המבחן עצמו")
     attempt = await get_submitted_attempt(session_id, user.id, db)
     attempt = await start_practice(attempt, db)
     await db.commit()
     await db.refresh(attempt)
     return _attempt_response(
-        attempt, session.exam_id, results_published=session.results_published
+        attempt, session.exam_id, results_published=session.results_published, exam=session.exam
     )
 
 
@@ -1588,7 +1605,7 @@ async def take_practice_session(
     return ExamTakeResponse(
         **meta,
         attempt=_attempt_response(
-            attempt, exam.id, results_published=session.results_published
+            attempt, exam.id, results_published=session.results_published, exam=exam
         ),
         questions=paper,
         saved_answers=saved,
@@ -1622,7 +1639,7 @@ async def submit_practice_session(
     await db.commit()
     await db.refresh(attempt)
     return _attempt_response(
-        attempt, session.exam_id, results_published=session.results_published
+        attempt, session.exam_id, results_published=session.results_published, exam=session.exam
     )
 
 
@@ -1650,7 +1667,7 @@ async def get_practice_review(
         raise HTTPException(status_code=400, detail="טרם הושלם תרגול")
     # תרגול: משוב מיידי (לא תלוי בפרסום תוצאות המבחן הרשמי)
     attempt_resp = _attempt_response(
-        attempt, exam.id, results_published=session.results_published
+        attempt, exam.id, results_published=session.results_published, exam=exam
     )
     if not exam.show_detailed_correction:
         return ExamReviewResponse(

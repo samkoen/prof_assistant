@@ -33,6 +33,27 @@ export function usePersonalShares(offering: CourseOffering | null) {
   return { target, setTarget, notice, setNotice, shareSubject, shareExam };
 }
 
+export function OwnMatalaButton({ offering }: { offering: CourseOffering }) {
+  const navigate = useNavigate();
+  return (
+    <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate(tirgoulCreatePath(offering))}>
+      {he.createOwnMatala}
+    </Button>
+  );
+}
+
+export function CourseExamActions({
+  offering,
+  onShareSubject,
+}: {
+  offering: CourseOffering | null;
+  onShareSubject: () => void;
+}) {
+  if (!offering || offering.enrollment_status === "pending") return null;
+  if (offering.is_personal) return <PersonalCourseButtons offering={offering} onShare={onShareSubject} />;
+  return <OwnMatalaButton offering={offering} />;
+}
+
 export function PersonalCourseButtons({
   offering,
   onShare,

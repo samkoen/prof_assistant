@@ -863,6 +863,8 @@ export const he = {
   personalSubjectName: "שם המקצוע",
   personalSubjectsEmpty: "עדיין אין מקצוע אישי — צרו אחד ותרגלו לבד",
   createTirgoul: "הוספת תרגול",
+  createOwnMatala: "הוספת מטלה",
+  ownMatalaPrivate: "רק אתם רואים את המטלה ואת הציון",
   editTirgoul: "עריכת תרגול",
   shareSubject: "שיתוף מקצוע",
   shareTirgoul: "שיתוף תרגול",

@@ -168,7 +168,7 @@ async def finalize_exam_submission(
     attempt.submitted_at = now
     attempt.score = total
     attempt.max_score = max_total
-    attempt.can_resubmit = is_tirgoul(exam)
+    attempt.can_resubmit = False
     await db.flush()
     await _close_session_if_all_done(session, exam, db)
     return attempt

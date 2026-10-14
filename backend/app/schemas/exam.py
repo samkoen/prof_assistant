@@ -198,6 +198,7 @@ class AttemptResponse(BaseModel):
 
 class StudentExamSessionRow(ExamSessionResponse):
     attempt: AttemptResponse | None = None
+    owned_by_me: bool = False
 
 
 class StudentOfferingExamsBoard(BaseModel):

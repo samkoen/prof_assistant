@@ -476,6 +476,7 @@ export interface PracticeResult {
 
 export interface StudentExamSessionWithAttempt extends ExamSession {
   attempt: ExamAttempt | null;
+  owned_by_me?: boolean;
 }
 
 export interface StudentOfferingExamsBoard {

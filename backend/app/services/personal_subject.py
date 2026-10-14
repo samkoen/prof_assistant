@@ -21,22 +21,57 @@ def personal_period() -> tuple[int, int]:
     return datetime.now(timezone.utc).year, 1
 
 
-def lock_personal_create(body, catalog: CourseCatalog, user: User) -> None:
-    """Un élève ne crée qu'un tirgoul sur sa matière, sans portée professeur."""
-    if user.role != UserRole.STUDENT:
-        return
-    if catalog.owner_student_id != user.id or not body.is_tirgoul:
-        raise HTTPException(status_code=403, detail="אין הרשאה")
+def _clear_scope(body) -> None:
     body.scope_teacher_id = None
     body.scope_academic_year = None
     body.scope_semester = None
     body.scope_group_name = None
 
 
-def student_may_edit_exam(exam: Exam, catalog: CourseCatalog, user: User) -> bool:
+def _bind_group_scope(body, offering: CourseOffering) -> None:
+    body.scope_academic_year = offering.academic_year
+    body.scope_semester = offering.semester
+    body.scope_group_name = offering.group_name
+
+
+async def _enrolled_offering(db: AsyncSession, offering_id: int | None, catalog_id: int, student_id: int) -> CourseOffering:
+    offering = await db.get(CourseOffering, offering_id) if offering_id else None
+    if not offering or offering.catalog_course_id != catalog_id:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    enrolled = await db.scalar(
+        select(CourseEnrollment.id).where(
+            CourseEnrollment.offering_id == offering.id,
+            CourseEnrollment.student_id == student_id,
+            CourseEnrollment.status == EnrollmentStatus.APPROVED,
+        )
+    )
+    if not enrolled:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    return offering
+
+
+async def prepare_student_create(body, catalog: CourseCatalog, user: User, db: AsyncSession) -> int | None:
+    """Tirgoul perso, ou tirgoul privé sur un cours de classe. Retourne l'élève propriétaire."""
     if user.role != UserRole.STUDENT:
+        return None
+    if not body.is_tirgoul:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    _clear_scope(body)
+    if catalog.owner_student_id == user.id:
+        return None
+    if catalog.teacher_id is None or catalog.owner_student_id is not None:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
+    offering = await _enrolled_offering(db, body.offering_id, catalog.id, user.id)
+    _bind_group_scope(body, offering)
+    return user.id
+
+
+def student_may_edit_exam(exam: Exam, catalog: CourseCatalog, user: User) -> bool:
+    if user.role != UserRole.STUDENT or not exam.is_tirgoul:
         return False
-    return catalog.owner_student_id == user.id and bool(exam.is_tirgoul)
+    if exam.private_student_id == user.id:
+        return True
+    return catalog.owner_student_id == user.id
 
 
 def _new_catalog(student_id: int, name: str, description: str | None) -> CourseCatalog:

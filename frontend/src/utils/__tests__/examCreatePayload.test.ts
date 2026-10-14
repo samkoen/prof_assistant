@@ -4,6 +4,7 @@ import {
   EMPTY_EXAM_FORM,
   buildCreatePayload,
   editorPathAfterCreate,
+  ensureCatalogOption,
   forceTirgoulForm,
   resolveScope,
   type ExamCreateForm,
@@ -63,6 +64,14 @@ describe("buildCreatePayload", () => {
     expect(payload.is_tirgoul).toBe(true);
     expect(payload.shuffle_questions).toBe(false);
     expect(payload.scope_group_name).toBeNull();
+  });
+});
+
+describe("ensureCatalogOption", () => {
+  it("ajoute le cours verrouillé absent de la liste", () => {
+    const extra = { id: 4, name: "מתמטיקה" };
+    expect(ensureCatalogOption([{ id: 1 }], "4", extra)).toEqual([{ id: 1 }, extra]);
+    expect(ensureCatalogOption([{ id: 4 }], "4", extra)).toEqual([{ id: 4 }]);
   });
 });
 

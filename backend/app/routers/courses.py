@@ -49,6 +49,7 @@ from app.services.offering_lifecycle import (
     refuse_if_offering_has_exams,
 )
 from app.services.exam_board_service import active_exam_counts_for_student
+from app.services.exam_lifecycle import class_sessions_clause, delete_private_exams_on_offering
 from app.services.enrollment_service import (
     create_student_enrollment,
     enrollment_to_response,
@@ -160,6 +161,7 @@ async def delete_offering(
     offering = await _offering_for_owner(offering_id, user, db)
     count = await offering_exam_session_count(db, offering.id)
     refuse_if_offering_has_exams(count)
+    await delete_private_exams_on_offering(db, offering.id)
     await delete_offering_dependents(db, offering.id)
     await db.delete(offering)
     await db.commit()
@@ -325,6 +327,7 @@ async def get_student_offering_exam_results(
             .where(
                 ExamSession.offering_id == offering_id,
                 ExamSession.status != ExamStatus.DRAFT,
+                class_sessions_clause(),
             )
             .order_by(ExamSession.activated_at.desc().nullslast(), ExamSession.id.desc())
         )
