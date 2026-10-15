@@ -70,8 +70,10 @@ describe("buildCreatePayload", () => {
 describe("ensureCatalogOption", () => {
   it("ajoute le cours verrouillé absent de la liste", () => {
     const extra = { id: 4, name: "מתמטיקה" };
-    expect(ensureCatalogOption([{ id: 1 }], "4", extra)).toEqual([{ id: 1 }, extra]);
-    expect(ensureCatalogOption([{ id: 4 }], "4", extra)).toEqual([{ id: 4 }]);
+    const other = { id: 1, name: "אחר" };
+    const same = { id: 4, name: "ישן" };
+    expect(ensureCatalogOption([other], "4", extra)).toEqual([other, extra]);
+    expect(ensureCatalogOption([same], "4", extra)).toEqual([same]);
   });
 });
 
