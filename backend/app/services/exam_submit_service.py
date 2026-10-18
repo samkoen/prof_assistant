@@ -22,7 +22,7 @@ from app.models.exam import (
 )
 from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
-from app.services.exam_kind import is_tirgoul
+from app.services.exam_kind import is_task, is_tirgoul
 from app.services.scoring import score_exam_answers
 from app.services.utc_time import as_utc
 
@@ -112,7 +112,7 @@ async def restart_resubmit_attempt(attempt: StudentExamAttempt, db: AsyncSession
 
 
 async def _close_session_if_all_done(session: ExamSession, exam: Exam, db: AsyncSession) -> None:
-    if is_tirgoul(exam):
+    if is_tirgoul(exam) or is_task(exam):
         return
     enrolled = await db.scalar(
         select(func.count())
@@ -144,6 +144,13 @@ async def finalize_exam_submission(
     answer_items: list[SubmitAnswerItem],
     db: AsyncSession,
 ) -> StudentExamAttempt:
+    if is_task(exam):
+        from app.services.task_review import finalize_task_submission
+
+        await finalize_task_submission(attempt, exam, db)
+        await db.flush()
+        await _close_session_if_all_done(session, exam, db)
+        return attempt
     now = datetime.now(timezone.utc)
     questions = await _questions_by_id(exam.id, db)
     for old in (await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))).scalars():

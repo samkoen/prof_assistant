@@ -3,6 +3,7 @@ import type { ExamTakeState } from "../../../hooks/examTake/useExamTake";
 import { he } from "../../../i18n/he";
 import { scrollToExamQuestion } from "../../../utils/studentExamQuestionNav";
 import { unansweredCount } from "../../../utils/examTake";
+import TaskTakePanel from "./TaskTakePanel";
 import ExamQuestionList from "./ExamQuestionList";
 import ExamResultView from "./ExamResultView";
 import ExamSubmitBar from "./ExamSubmitBar";
@@ -71,6 +72,9 @@ function OfficialBody({ state }: { state: ExamTakeState }) {
 /** Corps de la page selon la phase : résultat, entraînement ou examen officiel. */
 export default function ExamTakeBody({ state, id }: { state: ExamTakeState; id: number }) {
   if (state.submitted) return <ExamResultView state={state} id={id} />;
+  if (state.loader.paper?.kind === "task" && state.loader.paper) {
+    return <TaskTakePanel sessionId={state.loader.paper.session_id} submitting={state.actions.submitting} onSubmit={() => state.actions.submit()} />;
+  }
   if (state.rulesPending) return null;
   if (state.loader.phase === "practice") return <PracticeBody state={state} />;
   return <OfficialBody state={state} />;

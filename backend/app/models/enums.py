@@ -19,6 +19,24 @@ class ExamStatus(str, enum.Enum):
     CLOSED = "closed"
 
 
+class ExamKind(str, enum.Enum):
+    OFFICIAL = "official"
+    TIRGOUL = "tirgoul"
+    TASK = "task"
+
+
+class TaskVerdict(str, enum.Enum):
+    DONE = "done"
+    PARTIAL = "partial"
+    NOT_DONE = "not_done"
+
+
+class TaskReviewSource(str, enum.Enum):
+    AUTO = "auto"
+    AI = "ai"
+    TEACHER = "teacher"
+
+
 class ExamQuestionsLanguage(str, enum.Enum):
     HE = "he"
     FR = "fr"

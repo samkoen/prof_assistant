@@ -1,4 +1,4 @@
-import { Box, Card, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Typography } from "@mui/material";
+import { Box, Button, Card, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, Typography } from "@mui/material";
 import StatusChip from "../ui/StatusChip";
 import type { StudentExamResult } from "../../api/client";
 import { he } from "../../i18n/he";
@@ -20,6 +20,7 @@ type ResultsTableProps = {
   sortKey: ResultsSortKey;
   direction: SortDirection;
   onSort: (key: ResultsSortKey) => void;
+  onReview?: (row: StudentExamResult) => void;
 };
 
 const STATUS_VIEW: Record<ResultStatus, { label: string; tone: StatusTone }> = {
@@ -57,6 +58,7 @@ function HeadRow(props: ResultsTableProps) {
           <TableCell>{he.integrityHiddenTime}</TableCell>
         </>
       )}
+      {props.onReview && <TableCell />}
     </TableRow>
   );
 }
@@ -85,7 +87,7 @@ function IntegrityCells({ row }: { row: StudentExamResult }) {
   );
 }
 
-function ResultRow({ row, integrity }: { row: StudentExamResult; integrity: boolean }) {
+function ResultRow({ row, integrity, onReview }: { row: StudentExamResult; integrity: boolean; onReview?: (row: StudentExamResult) => void }) {
   const status = STATUS_VIEW[row.status];
   return (
     <TableRow hover>
@@ -99,6 +101,13 @@ function ResultRow({ row, integrity }: { row: StudentExamResult; integrity: bool
       </TableCell>
       <TableCell>{formatDateTime(row.submitted_at)}</TableCell>
       {integrity && <IntegrityCells row={row} />}
+      {onReview && (
+        <TableCell>
+          <Button size="small" variant="outlined" disabled={!row.attempt_id || row.status !== "submitted"} onClick={() => onReview(row)}>
+            {he.taskOpenReview}
+          </Button>
+        </TableCell>
+      )}
     </TableRow>
   );
 }
@@ -114,7 +123,7 @@ export default function ResultsTable(props: ResultsTableProps) {
           </TableHead>
           <TableBody>
             {props.rows.map((row) => (
-              <ResultRow key={row.student_id} row={row} integrity={props.integrity} />
+              <ResultRow key={row.student_id} row={row} integrity={props.integrity} onReview={props.onReview} />
             ))}
           </TableBody>
         </Table>

@@ -36,7 +36,7 @@ export default function TeacherExamCreatePage({ forceTirgoul = false }: { forceT
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-start", flexWrap: "wrap" }}>
           <DisabledActionTooltip disabled={c.saving || noCatalogs} disabledReason={noCatalogs ? he.noCatalogCourses : undefined}>
             <Button variant="contained" size="large" endIcon={<ArrowForwardIcon sx={{ transform: "scaleX(-1)" }} />} onClick={c.submit}>
-              {c.saving ? he.loading : he.createExamContinue}
+              {c.saving ? he.loading : c.form.kind === "task" ? he.createTaskContinue : he.createExamContinue}
             </Button>
           </DisabledActionTooltip>
           <Button size="large" onClick={c.reset}>{he.cancel}</Button>

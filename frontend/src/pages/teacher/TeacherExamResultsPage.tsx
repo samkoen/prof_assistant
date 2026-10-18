@@ -12,6 +12,8 @@ import ScoreDistribution from "../../components/results/ScoreDistribution";
 import BrandPageLoader from "../../components/ui/BrandPageLoader";
 import EmptyState from "../../components/ui/EmptyState";
 import PageHeroBanner from "../../components/ui/PageHeroBanner";
+import TaskReviewDialog from "../../components/exams/TaskReviewDialog";
+import { api } from "../../api/client";
 import { useResultsView } from "../../hooks/useResultsView";
 import { useSessionResults } from "../../hooks/useSessionResults";
 import { he } from "../../i18n/he";
@@ -26,6 +28,8 @@ export default function TeacherExamResultsPage() {
   const view = useResultsView(results);
   const [keyOpen, setKeyOpen] = useState(false);
   const [success, setSuccess] = useState("");
+  const [review, setReview] = useState<{ id: number; name: string } | null>(null);
+  const task = data?.kind === "task";
 
   if (loading && !data) return <BrandPageLoader />;
   if (!data) return <Alert severity="error">{error || he.errorGeneric}</Alert>;
@@ -38,7 +42,15 @@ export default function TeacherExamResultsPage() {
       <PageHeroBanner
         title={data.exam_title}
         subtitle={`${he.examResults} · ${data.offering_label}`}
-        actions={<AnswerKeyButton allowed={data.can_correct_answer_key} onClick={() => setKeyOpen(true)} />}
+        actions={
+          task ? (
+            <Button variant="contained" disabled={data.results_published} onClick={() => void publish(Number(sessionId), setSuccess, reload)} sx={{ bgcolor: "#fff", color: "primary.dark" }}>
+              {data.results_published ? he.taskPublished : he.taskPublish}
+            </Button>
+          ) : (
+            <AnswerKeyButton allowed={data.can_correct_answer_key} onClick={() => setKeyOpen(true)} />
+          )
+        }
       />
       {data.integrity_mode_enabled && <Alert severity="info" sx={{ mb: 2 }}>{he.integrityMode}: {he.integrityModeHint}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
@@ -51,7 +63,14 @@ export default function TeacherExamResultsPage() {
       ) : view.rows.length === 0 ? (
         <EmptyState title={he.resultsNoMatch} />
       ) : (
-        <ResultsTable rows={view.rows} integrity={data.integrity_mode_enabled} sortKey={view.sortKey} direction={view.direction} onSort={view.toggleSort} />
+        <ResultsTable
+          rows={view.rows}
+          integrity={data.integrity_mode_enabled}
+          sortKey={view.sortKey}
+          direction={view.direction}
+          onSort={view.toggleSort}
+          onReview={task ? (row) => row.attempt_id && setReview({ id: row.attempt_id, name: row.student_name }) : undefined}
+        />
       )}
       <ExamAnswerKeyDialog
         open={keyOpen}
@@ -63,8 +82,17 @@ export default function TeacherExamResultsPage() {
           void reload();
         }}
       />
+      {task && (
+        <TaskReviewDialog open={Boolean(review)} sessionId={Number(sessionId)} attemptId={review?.id ?? null} studentName={review?.name ?? ""} onClose={() => { setReview(null); void reload(); }} />
+      )}
     </Box>
   );
+}
+
+async function publish(sessionId: number, setSuccess: (msg: string) => void, reload: () => Promise<void> | void) {
+  await api(`/api/exams/sessions/${sessionId}/close`, { method: "POST" });
+  setSuccess(he.taskPublished);
+  await reload();
 }
 
 function AnswerKeyButton({ allowed, onClick }: { allowed: boolean; onClick: () => void }) {

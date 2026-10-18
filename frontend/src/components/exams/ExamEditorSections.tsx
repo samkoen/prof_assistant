@@ -1,4 +1,5 @@
 import { Box } from "@mui/material";
+import TaskStepsEditor from "./TaskStepsEditor";
 import ExamEditorAddQuestionsSection from "../ExamEditorAddQuestionsSection";
 import ExamEditorQuestionsSection from "../ExamEditorQuestionsSection";
 import ExamEditorSettings from "./ExamEditorSettings";
@@ -45,7 +46,8 @@ function AddQuestions({ editor, exam, examId, onTabChange }: ExamEditorSectionsP
   );
 }
 
-function Questions({ editor, exam, onTabChange }: ExamEditorSectionsProps) {
+function Questions({ editor, exam, examId, onTabChange }: ExamEditorSectionsProps) {
+  if (exam.kind === "task") return <TaskStepsEditor examId={examId} />;
   const { ops, dialog } = editor;
   return (
     <ExamEditorQuestionsSection

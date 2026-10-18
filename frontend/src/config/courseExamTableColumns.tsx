@@ -14,6 +14,9 @@ export interface CourseExamRow {
 }
 
 function statusProps(row: CourseExamRow) {
+  if (row.exam.kind === "task") {
+    return { color: "secondary" as const, label: he.taskChip };
+  }
   if (row.exam.is_tirgoul) {
     return { color: "info" as const, label: he.tirgoulChip };
   }
@@ -32,11 +35,11 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       key: "title",
       label: he.examTitle,
       minWidth: 180,
-      getValue: (r) => (r.exam.is_tirgoul ? `${r.exam.title} · ${he.tirgoulChip}` : r.exam.title),
+      getValue: (r) => `${r.exam.title}${r.exam.kind === "task" ? ` · ${he.taskChip}` : r.exam.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}`,
       renderCell: (r) => (
         <Typography variant="body2" fontWeight={600}>
           {r.exam.title}
-          {r.exam.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
+          {r.exam.kind === "task" ? ` · ${he.taskChip}` : r.exam.is_tirgoul ? ` · ${he.tirgoulChip}` : ""}
         </Typography>
       ),
     },

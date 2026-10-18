@@ -31,6 +31,7 @@ from app.routers import (
     offering_teachers,
     personal_subjects,
     teacher_shares,
+    tasks,
 )
 
 
@@ -64,6 +65,7 @@ app.include_router(ai_billing_admin.router, prefix="/api")
 app.include_router(catalog_courses.router, prefix="/api")
 app.include_router(courses.router, prefix="/api")
 app.include_router(exams.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 app.include_router(exam_gemini_generation.router, prefix="/api")
 app.include_router(exam_gemini_sources.router, prefix="/api")
 app.include_router(question_media.router, prefix="/api")

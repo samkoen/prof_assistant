@@ -53,8 +53,9 @@ export function TypeSection({ form, onChange }: FormProps) {
   return (
     <FormSection title={he.createExamType}>
       <Box role="radiogroup" sx={cardsRowSx}>
-        <ChoiceCard title={he.createExamTypePractice} description={he.createExamTypePracticeHint} selected={form.is_tirgoul} onSelect={() => onChange({ is_tirgoul: true })} />
-        <ChoiceCard title={he.createExamTypeExam} description={he.createExamTypeExamHint} selected={!form.is_tirgoul} onSelect={() => onChange({ is_tirgoul: false })} />
+        <ChoiceCard title={he.createExamTypePractice} description={he.createExamTypePracticeHint} selected={form.kind === "tirgoul"} onSelect={() => onChange({ kind: "tirgoul", is_tirgoul: true })} />
+        <ChoiceCard title={he.createExamTypeExam} description={he.createExamTypeExamHint} selected={form.kind === "official"} onSelect={() => onChange({ kind: "official", is_tirgoul: false })} />
+        <ChoiceCard title={he.createExamTypeTask} description={he.createExamTypeTaskHint} selected={form.kind === "task"} onSelect={() => onChange({ kind: "task", is_tirgoul: false })} />
       </Box>
     </FormSection>
   );

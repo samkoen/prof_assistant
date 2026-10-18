@@ -25,12 +25,15 @@ from app.models.exam_gemini_generation import (
 )
 from app.models.exam_gemini_source import ExamGeminiSource
 from app.models.notification import Notification
+from app.models.task import TaskProof, TaskReview, TaskStep
 from app.services.catalog_scope import catalog_item_matches_offering
-from app.services.exam_kind import apply_exam_kind, is_tirgoul
+from app.services.exam_kind import apply_exam_kind, exam_kind_value, is_task, is_tirgoul
+from app.models.enums import ExamKind
 from app.services.question_media import copy_image_url_for_duplicate
 
 
 async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) -> None:
+    await _delete_attempt_task_rows(attempt.id, db)
     for answer in (
         await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
     ).scalars():
@@ -125,6 +128,24 @@ async def _activate_draft_tirgoul_sessions(exam: Exam, db: AsyncSession) -> None
         await notify_exam_available_to_pending_students(session, exam, db)
 
 
+async def _delete_attempt_task_rows(attempt_id: int, db: AsyncSession) -> None:
+    for model in (TaskProof, TaskReview):
+        rows = await db.execute(select(model).where(model.attempt_id == attempt_id))
+        for row in rows.scalars():
+            await db.delete(row)
+
+
+async def open_task_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> None:
+    if not is_task(exam):
+        return
+    assert exam is not None
+    count = await db.scalar(select(func.count()).select_from(TaskStep).where(TaskStep.exam_id == exam.id))
+    if not count:
+        return
+    await _ensure_tirgoul_offering_sessions(exam, db)
+    await _activate_draft_tirgoul_sessions(exam, db)
+
+
 async def open_tirgoul_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> None:
     if not is_tirgoul(exam):
         return
@@ -152,7 +173,10 @@ async def _activated_exam_ids(exam_ids: list[int], db: AsyncSession) -> set[int]
 
 async def _tirgoul_exam_ids(exam_ids: list[int], db: AsyncSession) -> set[int]:
     rows = await db.execute(
-        select(Exam.id).where(Exam.id.in_(exam_ids), Exam.is_tirgoul.is_(True))
+        select(Exam.id).where(
+            Exam.id.in_(exam_ids),
+            or_(Exam.is_tirgoul.is_(True), Exam.kind == ExamKind.TASK.value),
+        )
     )
     return set(rows.scalars().all())
 
@@ -170,7 +194,7 @@ async def exams_can_delete_map(exam_ids: list[int], db: AsyncSession) -> dict[in
 
 async def exam_delete_allowed(exam: Exam, db: AsyncSession) -> bool:
     activated = await exam_has_non_draft_sessions(exam.id, db)
-    return can_delete_exam(is_tirgoul(exam), activated)
+    return can_delete_exam(is_tirgoul(exam) or is_task(exam), activated)
 
 
 async def exam_has_non_draft_sessions(exam_id: int, db: AsyncSession) -> bool:
@@ -217,6 +241,7 @@ async def duplicate_exam_to_catalog(
         default_multiple_scoring=source.default_multiple_scoring,
         questions_language=source.questions_language,
         is_tirgoul=source.is_tirgoul,
+        kind=exam_kind_value(source),
     )
     apply_exam_kind(copy, bool(source.is_tirgoul))
     _keep_private_scope(copy, source)
@@ -248,7 +273,12 @@ async def duplicate_exam_to_catalog(
                 )
             )
 
+    if is_task(copy):
+        from app.services.task_service import copy_task_steps
+
+        await copy_task_steps(source.id, copy.id, db)
     await open_tirgoul_sessions_if_ready(copy, db)
+    await open_task_sessions_if_ready(copy, db)
     return copy
 
 
@@ -344,6 +374,10 @@ async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
         for attempt in attempts:
             await delete_attempt_records(attempt, db)
         await db.delete(session)
+
+    steps = (await db.execute(select(TaskStep).where(TaskStep.exam_id == exam_id))).scalars().all()
+    for step in steps:
+        await db.delete(step)
 
     questions = (
         await db.execute(select(Question).where(Question.exam_id == exam_id))

@@ -255,6 +255,35 @@ Teacher instructions define the focus; sources provide the base and examples.
         required=("{body}", "Course-material file"),
         placeholders=("body",),
     ),
+    PromptSpec(
+        key="task_verify.system",
+        body=(
+            "You check whether a student completed a practical task. "
+            "The proof file is attached. Return JSON only. Do not invent facts. "
+            "Write appreciation in {language_rule}."
+        ),
+        required=("JSON", "{language_rule}"),
+        placeholders=("language_rule",),
+    ),
+    PromptSpec(
+        key="task_verify.user",
+        body="""Read the attached proof and the task below.
+Write appreciation in {language_rule}.
+verdict is one of: done, partial, not_done.
+score is a number from 0 to {max_points}.
+done means the proof shows the task was completed.
+partial means only part of it is visible.
+not_done means the proof does not show the task, or is unrelated.
+
+Title: {title}
+Instructions:
+{instructions}
+
+Return JSON: {"verdict":"done|partial|not_done","score":0,"appreciation":"..."}
+""",
+        required=("verdict", "{instructions}", "{max_points}", "{language_rule}"),
+        placeholders=("language_rule", "title", "instructions", "max_points"),
+    ),
 )
 
 _SPECS_BY_KEY = {spec.key: spec for spec in PROMPT_SPECS}
