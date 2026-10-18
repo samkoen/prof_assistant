@@ -6,11 +6,21 @@ from sqlalchemy.orm import selectinload
 
 from app.models.course import CourseEnrollment, CourseOffering
 from app.models.enums import EnrollmentStatus, ExamStatus
-from app.models.exam import ExamSession, Question, StudentExamAttempt
+from app.models.exam import Exam, ExamSession, Question, StudentExamAttempt
 from app.models.user import User
 from app.schemas.exam import AttemptResponse, ExamSessionResponse, StudentExamSessionRow
-from app.services.exam_kind import hide_attempt_score, is_tirgoul
+from app.services.exam_kind import exam_kind_value, hide_attempt_score, is_task, is_tirgoul
 from app.services.exam_lifecycle import student_visible_sessions_clause
+
+
+async def display_counts_by_exam(exams: list[Exam], db: AsyncSession) -> dict[int, int]:
+    """Questions pour un examen, sous-tâches pour une משימה."""
+    from app.services.task_service import step_counts_by_exam_id
+
+    ids = [exam.id for exam in exams]
+    questions = await question_counts_by_exam_id(ids, db)
+    steps = await step_counts_by_exam_id(ids, db)
+    return {exam.id: steps.get(exam.id, 0) if is_task(exam) else questions.get(exam.id, 0) for exam in exams}
 
 
 async def question_counts_by_exam_id(
@@ -86,6 +96,7 @@ def session_response(
         results_published=session.results_published,
         integrity_mode_enabled=session.integrity_mode_enabled,
         is_tirgoul=is_tirgoul(session.exam),
+        kind=exam_kind_value(session.exam),
         question_count=question_count,
     )
 
@@ -122,8 +133,18 @@ def attempt_response(
 async def sessions_to_responses(
     sessions: list[ExamSession], db: AsyncSession
 ) -> list[ExamSessionResponse]:
-    counts = await question_counts_by_exam_id([s.exam_id for s in sessions], db)
+    counts = await _visible_counts(sessions, db)
     return [session_response(s, counts.get(s.exam_id, 0)) for s in sessions]
+
+
+async def _visible_counts(sessions: list[ExamSession], db: AsyncSession) -> dict[int, int]:
+    from app.services.task_service import step_counts_by_exam_id
+
+    exam_ids = [s.exam_id for s in sessions]
+    questions = await question_counts_by_exam_id(exam_ids, db)
+    steps = await step_counts_by_exam_id(exam_ids, db)
+    task_ids = {s.exam_id for s in sessions if is_task(s.exam)}
+    return {exam_id: steps.get(exam_id, 0) if exam_id in task_ids else questions.get(exam_id, 0) for exam_id in exam_ids}
 
 
 async def build_student_session_rows(
@@ -131,7 +152,7 @@ async def build_student_session_rows(
 ) -> list[StudentExamSessionRow]:
     if not sessions:
         return []
-    counts = await question_counts_by_exam_id([s.exam_id for s in sessions], db)
+    counts = await _visible_counts(sessions, db)
     session_ids = [s.id for s in sessions]
     attempt_rows = await db.execute(
         select(StudentExamAttempt).where(
@@ -145,7 +166,7 @@ async def build_student_session_rows(
     rows: list[StudentExamSessionRow] = []
     for session in sessions:
         count = counts.get(session.exam_id, 0)
-        if is_tirgoul(session.exam) and count == 0:
+        if (is_tirgoul(session.exam) or is_task(session.exam)) and count == 0:
             continue
         base = session_response(session, count)
         attempt = attempts_by_session.get(session.id)

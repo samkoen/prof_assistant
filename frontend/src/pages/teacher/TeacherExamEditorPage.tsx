@@ -24,7 +24,8 @@ export default function TeacherExamEditorPage() {
   const editor = useExamEditor(id, offeringId);
   const { fb, data, title, changes, ops, dialog } = editor;
   const exam = data.exam;
-  const { tab, setTab } = useEditorTab(exam?.question_count ?? 0, exam?.is_editable ?? false);
+  const task = exam?.kind === "task";
+  const { tab, setTab } = useEditorTab(task ? 1 : exam?.question_count ?? 0, task ? false : exam?.is_editable ?? false);
 
   if (data.loading && !exam) return <BrandPageLoader />;
   if (!exam) return <Alert severity="error">{fb.error || he.errorGeneric}</Alert>;
@@ -61,7 +62,7 @@ export default function TeacherExamEditorPage() {
       />
       {fb.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => fb.setError("")}>{fb.error}</Alert>}
       {fb.success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => fb.setSuccess("")}>{fb.success}</Alert>}
-      <ExamEditorTabs value={tab} questionCount={exam.question_count} canAdd={exam.is_editable} onChange={setTab} />
+      <ExamEditorTabs value={tab} questionCount={exam.question_count} canAdd={!task && exam.is_editable} stepsMode={task} onChange={setTab} />
       <ExamEditorSections editor={editor} exam={exam} examId={id} tab={tab} onTabChange={setTab} />
       <QuestionEditDialog
         examId={id}

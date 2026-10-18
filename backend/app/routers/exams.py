@@ -10,7 +10,7 @@ from starlette.responses import Response
 from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
-from app.models.enums import EnrollmentStatus, ExamStatus, UserRole
+from app.models.enums import EnrollmentStatus, ExamKind, ExamStatus, UserRole
 from app.models.exam import Answer, Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.models.notification import Notification
 from app.models.enums import NotificationType
@@ -74,7 +74,10 @@ from app.services.option_shuffle import shuffled_options
 from app.services.personal_subject import prepare_student_create, student_may_edit_exam
 from app.services.exam_kind import (
     apply_exam_kind,
+    apply_task_kind,
+    exam_kind_value,
     integrity_on_activate,
+    is_task,
     is_tirgoul,
     should_shuffle_options,
     should_shuffle_questions,
@@ -107,9 +110,12 @@ from app.services.catalog_scope import (
 
 from app.services.gemini_question_generation import generate_exam_questions_text
 from app.services.exam_pdf import build_exam_pdf_bytes, pdf_content_disposition
+from app.services.task_pdf import build_task_pdf_bytes
+from app.services.task_service import list_steps
 from app.services.exam_board_service import (
     build_student_session_rows,
     load_student_exam_sessions,
+    display_counts_by_exam,
     question_counts_by_exam_id,
     sessions_to_responses,
 )
@@ -166,6 +172,7 @@ def _exam_response(
         default_multiple_scoring=exam.default_multiple_scoring,
         questions_language=exam.questions_language,
         is_tirgoul=is_tirgoul(exam),
+        kind=exam_kind_value(exam),
         question_count=question_count,
         can_delete=can_delete,
         **scope_to_response(exam, names),
@@ -189,6 +196,7 @@ def _session_response(session: ExamSession, question_count: int = 0) -> ExamSess
         results_published=session.results_published,
         integrity_mode_enabled=session.integrity_mode_enabled,
         is_tirgoul=is_tirgoul(session.exam),
+        kind=exam_kind_value(session.exam),
         question_count=question_count,
     )
 
@@ -338,6 +346,7 @@ def _take_meta(session: ExamSession, exam: Exam) -> dict:
         "results_published": session.results_published,
         "questions_language": exam.questions_language,
         "is_tirgoul": is_tirgoul(exam),
+        "kind": exam_kind_value(exam),
     }
 
 
@@ -484,7 +493,7 @@ async def _start_attempt_clock(attempt, exam, session, now, db) -> None:
     if attempt.can_resubmit:
         await restart_resubmit_attempt(attempt, db)
     attempt.started_at = now
-    attempt.expires_at = None if is_tirgoul(exam) else now + timedelta(minutes=exam.duration_minutes)
+    attempt.expires_at = None if is_tirgoul(exam) or is_task(exam) else now + timedelta(minutes=exam.duration_minutes)
     attempt.can_resubmit = False
     if not session.integrity_mode_enabled:
         attempt.session_token = new_exam_session_token()
@@ -501,6 +510,8 @@ async def create_exam(
         raise HTTPException(status_code=404, detail="קורס קטלוג לא נמצא")
     if user.role == UserRole.TEACHER and catalog.teacher_id != user.id:
         raise HTTPException(status_code=403, detail="אין הרשאה")
+    if body.kind == ExamKind.TASK and user.role == UserRole.STUDENT:
+        raise HTTPException(status_code=403, detail="אין הרשאה")
     private_owner = await prepare_student_create(body, catalog, user, db)
     body.scope_teacher_id = enforce_teacher_scope_id(user, body.scope_teacher_id)
     if body.scope_teacher_id is not None and user.role == UserRole.TEACHER and body.scope_teacher_id != user.id:
@@ -516,9 +527,12 @@ async def create_exam(
         warning_minutes=body.warning_minutes,
         auto_submit_on_timeout=body.auto_submit_on_timeout,
         default_multiple_scoring=body.default_multiple_scoring,
-        is_tirgoul=body.is_tirgoul,
+        is_tirgoul=body.is_tirgoul and body.kind != ExamKind.TASK,
     )
-    apply_exam_kind(exam, body.is_tirgoul)
+    if body.kind == ExamKind.TASK:
+        apply_task_kind(exam)
+    else:
+        apply_exam_kind(exam, body.is_tirgoul)
     apply_scope_fields(exam, body, user.id)
     exam.private_student_id = private_owner
     db.add(exam)
@@ -566,7 +580,7 @@ async def list_catalog_exams(
 
     names = await load_scope_teacher_names(db, exams)
     delete_map = await exams_can_delete_map([e.id for e in exams], db)
-    counts = await question_counts_by_exam_id([e.id for e in exams], db)
+    counts = await display_counts_by_exam(exams, db)
     return [
         _exam_response(exam, counts.get(exam.id, 0), names, can_delete=delete_map.get(exam.id, True))
         for exam in exams
@@ -631,7 +645,7 @@ async def _catalog_exams_for_offering(
     exams = without_excluded(exams, await excluded_exam_ids(db, offering.id))
     names = await load_scope_teacher_names(db, exams)
     delete_map = await exams_can_delete_map([e.id for e in exams], db)
-    counts = await question_counts_by_exam_id([e.id for e in exams], db)
+    counts = await display_counts_by_exam(exams, db)
     return [
         _exam_response(exam, counts.get(exam.id, 0), names, can_delete=delete_map.get(exam.id, True))
         for exam in exams
@@ -895,11 +909,29 @@ async def get_exam_detail(
     editable = not await exam_has_active_sessions(exam_id, db)
     can_delete = await exam_delete_allowed(exam, db)
     catalog = await db.get(CourseCatalog, exam.catalog_course_id)
+    item_count = len(await list_steps(exam_id, db)) if is_task(exam) else len(questions)
     return ExamDetailResponse(
-        **_exam_response(exam, len(questions), names, can_delete=can_delete).model_dump(),
+        **_exam_response(exam, item_count, names, can_delete=can_delete).model_dump(),
         catalog_course_name=catalog.name if catalog else "",
         questions=[QuestionResponse.model_validate(q) for q in questions],
         is_editable=editable,
+    )
+
+
+async def _task_pdf_response(exam: Exam, exam_id: int, db: AsyncSession) -> Response:
+    steps = await list_steps(exam_id, db)
+    if not steps:
+        raise HTTPException(status_code=400, detail="אין תת-משימות במשימה")
+    catalog = await db.get(CourseCatalog, exam.catalog_course_id)
+    course_name = catalog.name if catalog else ""
+    try:
+        pdf_bytes = build_task_pdf_bytes(exam, steps, course_name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="לא ניתן ליצור PDF — חסרה גופן במערכת") from None
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": pdf_content_disposition(exam)},
     )
 
 
@@ -911,6 +943,8 @@ async def download_exam_pdf(
     user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT)),
 ):
     exam = await _get_teacher_exam(exam_id, user, db)
+    if is_task(exam):
+        return await _task_pdf_response(exam, exam_id, db)
     q_result = await db.execute(
         select(Question)
         .options(selectinload(Question.options))
@@ -1072,8 +1106,9 @@ async def activate_exam(
     exam = await db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
-    if is_tirgoul(exam):
-        raise HTTPException(status_code=400, detail="תרגול נפתח אוטומטית אחרי הוספת שאלות")
+    if is_tirgoul(exam) or is_task(exam):
+        detail = "משימה נפתחת אוטומטית אחרי הוספת תת-משימות" if is_task(exam) else "תרגול נפתח אוטומטית אחרי הוספת שאלות"
+        raise HTTPException(status_code=400, detail=detail)
     offering = await db.execute(
         select(CourseOffering)
         .options(selectinload(CourseOffering.catalog_course))
@@ -1236,7 +1271,9 @@ async def get_session_results(
         exam_title=session.exam.title,
         offering_label=offering_label,
         integrity_mode_enabled=session.integrity_mode_enabled,
-        can_correct_answer_key=can_correct,
+        can_correct_answer_key=can_correct and not is_task(session.exam),
+        results_published=session.results_published,
+        kind=exam_kind_value(session.exam),
         results=rows,
     )
 

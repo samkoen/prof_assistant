@@ -100,6 +100,20 @@ function ClosedActions({ session, busy, handlers }: Omit<ActionsProps, "closedTa
   );
 }
 
+function TaskActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
+  return (
+    <Box sx={rowSx}>
+      <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
+      {session.status === "active" && !session.results_published && (
+        <LoadingButton size="small" variant="contained" loading={isBusy(busy, "close", session.id)} onClick={() => handlers.onRequest("close", session)}>
+          {he.taskPublish}
+        </LoadingButton>
+      )}
+      <GradesButton session={session} />
+    </Box>
+  );
+}
+
 function PracticeActions({ session }: { session: ExamSession }) {
   return (
     <Box sx={rowSx}>
@@ -111,6 +125,7 @@ function PracticeActions({ session }: { session: ExamSession }) {
 
 /** Actions disponibles selon l'état de la session (pratique, brouillon, actif, clos). */
 export default function SessionCardActions({ session, closedTab, busy, handlers }: ActionsProps) {
+  if (session.kind === "task") return <TaskActions session={session} busy={busy} handlers={handlers} />;
   if (session.is_tirgoul) return <PracticeActions session={session} />;
   if (closedTab) return <ClosedActions session={session} busy={busy} handlers={handlers} />;
   if (session.status === "draft") return <DraftActions session={session} handlers={handlers} />;

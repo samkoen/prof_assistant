@@ -284,6 +284,7 @@ export interface Exam extends CatalogItemScope {
   default_multiple_scoring: string;
   questions_language: "he" | "fr" | "en" | "ru";
   is_tirgoul?: boolean;
+  kind?: "official" | "tirgoul" | "task";
   question_count: number;
   can_delete?: boolean;
 }
@@ -303,6 +304,7 @@ export interface ExamSession {
   results_published: boolean;
   integrity_mode_enabled: boolean;
   is_tirgoul?: boolean;
+  kind?: "official" | "tirgoul" | "task";
   question_count: number;
 }
 
@@ -392,6 +394,8 @@ export interface ExamSessionResults {
   offering_label: string;
   integrity_mode_enabled: boolean;
   can_correct_answer_key: boolean;
+  results_published?: boolean;
+  kind?: "official" | "tirgoul" | "task";
   results: StudentExamResult[];
 }
 
@@ -429,6 +433,7 @@ export interface ExamTake {
   results_published?: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
   is_tirgoul?: boolean;
+  kind?: "official" | "tirgoul" | "task";
   attempt: ExamAttempt;
   questions: StudentQuestion[];
   saved_answers?: { question_id: number; selected_option_ids: number[]; text_answer?: string | null }[];

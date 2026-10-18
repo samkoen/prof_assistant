@@ -17,7 +17,7 @@ describe("aiPromptLabel", () => {
 describe("aiPromptUsage", () => {
   it("décrit la page et le bouton pour chaque modèle du catalogue", () => {
     const keys = aiPromptCatalogKeys();
-    expect(keys).toHaveLength(19);
+    expect(keys).toHaveLength(21);
     for (const key of keys) {
       const usage = aiPromptUsage(key);
       expect(usage.length, key).toBeGreaterThan(20);

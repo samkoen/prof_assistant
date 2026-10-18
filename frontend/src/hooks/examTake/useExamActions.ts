@@ -23,6 +23,7 @@ export function useExamActions(id: number, loader: ExamLoader, store: ExamAnswer
 
   const payloadNow = useCallback(() => {
     const paper = paperRef.current;
+    if (paper?.kind === "task") return { answers: [] };
     if (!paper?.questions.length) return null;
     const { answers, texts } = snapshot();
     return buildAnswersPayload(paper.questions, answers, texts);

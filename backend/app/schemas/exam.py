@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.course import CourseOfferingResponse
 
-from app.models.enums import ExamStatus, ModelAnswerSource, MultipleScoringMode, QuestionType
+from app.models.enums import ExamKind, ExamStatus, ModelAnswerSource, MultipleScoringMode, QuestionType
 from app.schemas.catalog_scope import CatalogItemScopeFields, CatalogItemScopeResponse
 
 
@@ -77,6 +77,7 @@ class ExamCreate(CatalogItemScopeFields):
     auto_submit_on_timeout: bool = True
     default_multiple_scoring: MultipleScoringMode = MultipleScoringMode.PROPORTIONAL
     is_tirgoul: bool = False
+    kind: ExamKind | None = None
 
 
 class ExamUpdate(BaseModel):
@@ -113,6 +114,7 @@ class ExamResponse(CatalogItemScopeResponse):
     default_multiple_scoring: MultipleScoringMode
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     is_tirgoul: bool = False
+    kind: ExamKind = ExamKind.OFFICIAL
     question_count: int = 0
     can_delete: bool = True
 
@@ -134,6 +136,7 @@ class ExamSessionResponse(BaseModel):
     results_published: bool
     integrity_mode_enabled: bool = False
     is_tirgoul: bool = False
+    kind: ExamKind = ExamKind.OFFICIAL
     question_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -233,6 +236,8 @@ class ExamSessionResultsResponse(BaseModel):
     offering_label: str
     integrity_mode_enabled: bool = False
     can_correct_answer_key: bool = False
+    results_published: bool = False
+    kind: ExamKind = ExamKind.OFFICIAL
     results: list[StudentExamResultRow]
 
 
@@ -323,6 +328,7 @@ class ExamTakeResponse(BaseModel):
     results_published: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     is_tirgoul: bool = False
+    kind: ExamKind = ExamKind.OFFICIAL
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
     saved_answers: list[SavedAnswerDraft] = []

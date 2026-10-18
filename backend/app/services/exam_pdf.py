@@ -254,7 +254,7 @@ class _ExamPdf(FPDF):
         self.set_y(-14)
         self.set_font(FONT_FAMILY, size=9)
         self.set_text_color(*COLOR_MUTED)
-        self.cell(0, 8, f"{prefix} {self.page_no()}/{{nb}}", align="C")
+        self.cell(0, 8, f"{prefix} {self.page_no()}", align="C")
 
 
 def _create_pdf(layout: PdfLayout) -> _ExamPdf:

@@ -1,6 +1,7 @@
 import { he } from "../i18n/he";
 
 export type ExamAudience = "all" | "this_group";
+export type ExamKind = "official" | "tirgoul" | "task";
 
 export interface ExamCreateForm {
   catalog_course_id: string;
@@ -10,6 +11,7 @@ export interface ExamCreateForm {
   scope_semester: string;
   scope_group_name: string;
   is_tirgoul: boolean;
+  kind: ExamKind;
 }
 
 export interface OfferingScope {
@@ -34,6 +36,7 @@ export const EMPTY_EXAM_FORM: ExamCreateForm = {
   scope_semester: "",
   scope_group_name: "",
   is_tirgoul: true,
+  kind: "tirgoul",
 };
 
 function numberOrNull(value: string): number | null {
@@ -66,9 +69,10 @@ export function buildCreatePayload(form: ExamCreateForm, offering: OfferingScope
     catalog_course_id: Number(form.catalog_course_id),
     offering_id: offering ? offering.id : null,
     title: form.title.trim() || he.newExamDefaultTitle,
-    shuffle_questions: !form.is_tirgoul,
-    shuffle_options: true,
-    is_tirgoul: form.is_tirgoul,
+    shuffle_questions: form.kind === "official",
+    shuffle_options: form.kind !== "task",
+    is_tirgoul: form.kind === "tirgoul",
+    kind: form.kind,
     ...resolveScope(form, offering, userId),
   };
 }
@@ -81,7 +85,7 @@ export function ensureCatalogOption<T extends { id: number }>(catalogs: T[], cat
 
 /** Tirgoul personnel : type forcé, sans restriction de groupe. */
 export function forceTirgoulForm(form: ExamCreateForm): ExamCreateForm {
-  return { ...form, is_tirgoul: true, audience: "all" };
+  return { ...form, kind: "tirgoul", is_tirgoul: true, audience: "all" };
 }
 
 /** Chemin de l'éditeur après création, en conservant la page de retour. */

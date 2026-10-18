@@ -76,6 +76,7 @@ export default function StudentExamCard({ session, showCourse = false, highlight
         <Box sx={{ minWidth: 0, flex: 1, textAlign: "right" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
             <StatusChip label={view.label} tone={view.tone} />
+            {session.kind === "task" && <StatusChip label={he.taskChip} tone="violet" />}
             {session.is_tirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
           </Box>
           <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.35 }}>

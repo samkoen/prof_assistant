@@ -47,21 +47,27 @@ describe("EMPTY_EXAM_FORM", () => {
 
 describe("buildCreatePayload", () => {
   it("applique un titre par défaut et mélange les questions pour un vrai examen", () => {
-    const payload = buildCreatePayload(form({ title: "  ", is_tirgoul: false }), null, 1);
+    const payload = buildCreatePayload(form({ title: "  ", kind: "official", is_tirgoul: false }), null, 1);
     expect(payload.title).toBe(he.newExamDefaultTitle);
     expect(payload.shuffle_questions).toBe(true);
     expect(payload.offering_id).toBeNull();
     expect(payload.catalog_course_id).toBe(3);
   });
 
+  it("crée une tâche sans mélange et sans flag tirgoul", () => {
+    const payload = buildCreatePayload(form({ kind: "task", title: "משימה" }), offering, 1);
+    expect(payload).toMatchObject({ kind: "task", is_tirgoul: false, shuffle_questions: false, shuffle_options: false });
+  });
+
   it("garde l'ordre des questions d'un exercice mais mélange toujours les options", () => {
     const payload = buildCreatePayload(form({ is_tirgoul: true, title: "תרגיל" }), offering, 1);
-    expect(payload).toMatchObject({ shuffle_questions: false, shuffle_options: true, is_tirgoul: true, offering_id: 7 });
+    expect(payload).toMatchObject({ shuffle_questions: false, shuffle_options: true, is_tirgoul: true, kind: "tirgoul", offering_id: 7 });
   });
 
   it("force un tirgoul personnel même si le formulaire disait examen", () => {
     const payload = buildCreatePayload(forceTirgoulForm(form({ is_tirgoul: false, audience: "this_group" })), offering, 1);
     expect(payload.is_tirgoul).toBe(true);
+    expect(payload.kind).toBe("tirgoul");
     expect(payload.shuffle_questions).toBe(false);
     expect(payload.scope_group_name).toBeNull();
   });

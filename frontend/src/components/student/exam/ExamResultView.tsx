@@ -3,6 +3,7 @@ import { Box, Button } from "@mui/material";
 import type { ExamTakeState } from "../../../hooks/examTake/useExamTake";
 import { he } from "../../../i18n/he";
 import { studentCourseExamsPath } from "../../../utils/studentCourseExamsNav";
+import TaskResultPanel from "./TaskResultPanel";
 import ExamSubmissionReview from "../../ExamSubmissionReview";
 import ExamResultHeader from "./ExamResultHeader";
 
@@ -20,8 +21,9 @@ function ResultActions({ state, id }: { state: ExamTakeState; id: number }) {
   const { paper, phase } = state.loader;
   const { startingPractice, startPractice } = state.actions;
   if (!paper) return null;
-  const again = paper.is_tirgoul && (phase === "final" || phase === "practice_review");
-  const practice = !paper.is_tirgoul && (phase === "final" || phase === "practice_review");
+  const task = paper.kind === "task";
+  const again = !task && paper.is_tirgoul && (phase === "final" || phase === "practice_review");
+  const practice = !task && !paper.is_tirgoul && (phase === "final" || phase === "practice_review");
   return (
     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
       {again && (
@@ -56,7 +58,7 @@ export default function ExamResultView({ state, id }: { state: ExamTakeState; id
           practiceReview={phase === "practice_review"}
         />
       )}
-      {review && <ExamSubmissionReview review={review} onAttemptScore={updateScore(state)} />}
+      {paper.kind === "task" ? <TaskResultPanel sessionId={paper.session_id} /> : review && <ExamSubmissionReview review={review} onAttemptScore={updateScore(state)} />}
       <ResultActions state={state} id={id} />
     </>
   );

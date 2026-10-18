@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from app.models.enums import ExamStatus, ModelAnswerSource, QuestionType
 from app.models.exam import Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.schemas.exam import QuestionCreate, QuestionUpdate
-from app.services.exam_kind import is_tirgoul
+from app.services.exam_kind import is_task, is_tirgoul
 
 _TRIM_EDGES = "\n\r\t"
 
@@ -18,7 +18,7 @@ def normalize_question_text(text: str) -> str:
 async def exam_has_active_sessions(exam_id: int, db: AsyncSession) -> bool:
     """Vrai si session active ou fermée avec au moins une tentative en cours."""
     exam = await db.get(Exam, exam_id)
-    if is_tirgoul(exam):
+    if is_tirgoul(exam) or is_task(exam):
         return False
     active = await db.scalar(
         select(func.count())
@@ -112,6 +112,11 @@ async def persist_question(
     order_index: int,
     db: AsyncSession,
 ) -> Question:
+    exam = await db.get(Exam, exam_id)
+    if is_task(exam):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="משימה אינה מכילה שאלות")
     question = Question(
         exam_id=exam_id,
         text=normalize_question_text(body.text),
