@@ -67,6 +67,7 @@ from app.services.exam_lifecycle import (
     exam_delete_allowed,
     exams_can_delete_map,
     notify_exam_available_to_pending_students,
+    open_task_sessions_if_ready,
     open_tirgoul_sessions_if_ready,
     session_allows_student_work,
 )
@@ -850,6 +851,7 @@ async def attach_exam_to_offering(
         raise HTTPException(status_code=400, detail="לא ניתן להוסיף מטלה זו לקבוצה")
     await ensure_draft_session(exam_id, body.offering_id, db)
     await open_tirgoul_sessions_if_ready(exam, db)
+    await open_task_sessions_if_ready(exam, db)
     await db.commit()
     await db.refresh(exam)
     cnt = await db.scalar(
