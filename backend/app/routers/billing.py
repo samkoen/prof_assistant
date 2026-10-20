@@ -10,11 +10,18 @@ from app.schemas.billing import (
     BalanceResponse,
     CheckoutRequest,
     CheckoutResponse,
+    GuestCheckoutRequest,
     OrderStatusResponse,
     PackListResponse,
 )
 from app.services.billing.balance import balance_for, product_for_role
-from app.services.billing.checkout import apply_webhook, confirm_order_with_payme, start_checkout
+from app.services.billing.checkout import (
+    apply_webhook,
+    confirm_order_with_payme,
+    refresh_public_order,
+    start_checkout,
+)
+from app.services.billing.guest_checkout import start_guest_checkout
 from app.services.billing.constants import ORDER_PENDING
 from app.services.billing.context import role_name
 from app.services.billing.settings_store import get_billing_config
@@ -48,6 +55,12 @@ async def list_packs(
     return {"packs": config.payloads_for(product_for_role(role) or "")}
 
 
+@router.post("/guest-checkout", response_model=CheckoutResponse)
+async def guest_checkout(body: GuestCheckoutRequest, db: AsyncSession = Depends(get_db)):
+    order, url = await start_guest_checkout(body.email, body.pack_code, db)
+    return CheckoutResponse(order_id=order.id, transaction_id=order.transaction_id, payment_url=url)
+
+
 @router.post("/checkout", response_model=CheckoutResponse)
 async def checkout(
     body: CheckoutRequest,
@@ -64,6 +77,17 @@ async def _owned_order(transaction_id: str, user: User, db: AsyncSession) -> Pay
     if order is None or order.user_id != user.id:
         raise HTTPException(status_code=404, detail="הזמנה לא נמצאה")
     return order
+
+
+@router.get("/orders/{transaction_id}/status", response_model=OrderStatusResponse)
+async def public_order_status(transaction_id: str, db: AsyncSession = Depends(get_db)):
+    order = await refresh_public_order(transaction_id, db)
+    return OrderStatusResponse(
+        transaction_id=order.transaction_id,
+        status=order.status,
+        credits=order.credits,
+        product=order.product,
+    )
 
 
 @router.get("/orders/{transaction_id}", response_model=OrderStatusResponse)
