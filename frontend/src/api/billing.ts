@@ -74,8 +74,19 @@ export async function startCheckout(packCode: string): Promise<CheckoutResult> {
   });
 }
 
+export async function startGuestCheckout(email: string, packCode: string): Promise<CheckoutResult> {
+  return api<CheckoutResult>("/api/billing/guest-checkout", {
+    method: "POST",
+    body: JSON.stringify({ email, pack_code: packCode }),
+  });
+}
+
 export async function fetchOrderStatus(transactionId: string): Promise<OrderStatus> {
   return api<OrderStatus>(`/api/billing/orders/${transactionId}`);
+}
+
+export async function fetchPublicOrderStatus(transactionId: string): Promise<OrderStatus> {
+  return api<OrderStatus>(`/api/billing/orders/${transactionId}/status`);
 }
 
 export type { AiCreditPack };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Box, Button, Typography } from "@mui/material";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
-import { fetchOrderStatus, notifyBillingChanged } from "../api/billing";
+import { fetchPublicOrderStatus, notifyBillingChanged } from "../api/billing";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { he } from "../i18n/he";
 
@@ -15,7 +15,7 @@ async function pollOrder(order: string, onStatus: (status: string) => void, stop
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (stopped()) return;
     try {
-      const row = await fetchOrderStatus(order);
+      const row = await fetchPublicOrderStatus(order);
       if (stopped()) return;
       onStatus(row.status);
       if (row.status === "paid") {

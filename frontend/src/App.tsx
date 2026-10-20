@@ -59,6 +59,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/contact-us" element={<PublicContactPage />} />
+        <Route path="/billing/return" element={<BillingReturnPage />} />
         <Route path="/join/t/:joinToken" element={<StudentJoinCoursePage />} />
         <Route path="/join/:offeringId" element={<StudentJoinCoursePage />} />
 
@@ -71,7 +72,6 @@ export default function App() {
         >
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/billing/return" element={<BillingReturnPage />} />
 
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route path="/admin" element={<AdminOverviewPage />} />

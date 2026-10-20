@@ -29,6 +29,11 @@ class CheckoutRequest(BaseModel):
     pack_code: str
 
 
+class GuestCheckoutRequest(BaseModel):
+    email: str
+    pack_code: str
+
+
 class CheckoutResponse(BaseModel):
     order_id: int
     transaction_id: str

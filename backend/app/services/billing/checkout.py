@@ -138,6 +138,15 @@ async def _fail_if_terminal(order: PaymentOrder, db: AsyncSession, item: dict | 
     return "failed"
 
 
+async def refresh_public_order(transaction_id: str, db: AsyncSession) -> PaymentOrder:
+    order = await _find_order(db, transaction_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="הזמנה לא נמצאה")
+    if order.status == ORDER_PENDING:
+        await confirm_order_with_payme(order, db)
+    return order
+
+
 async def confirm_order_with_payme(order: PaymentOrder, db: AsyncSession) -> str:
     if order.status == ORDER_PAID:
         return "already_paid"
