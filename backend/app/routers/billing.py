@@ -30,6 +30,12 @@ async def get_balance(
     return await balance_for(user, db)
 
 
+@router.get("/catalog", response_model=PackListResponse)
+async def public_catalog(db: AsyncSession = Depends(get_db)):
+    config = await get_billing_config(db)
+    return {"packs": config.payloads_for()}
+
+
 @router.get("/packs", response_model=PackListResponse)
 async def list_packs(
     db: AsyncSession = Depends(get_db),

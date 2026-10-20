@@ -2,6 +2,7 @@ import { Box, Typography } from "@mui/material";
 import BusinessDetails from "../components/public/BusinessDetails";
 import OfferGrid from "../components/public/OfferGrid";
 import ProductDemo from "../components/public/ProductDemo";
+import PublicCommerce from "../components/public/PublicCommerce";
 import PublicSiteFrame from "../components/public/PublicSiteFrame";
 import { he } from "../i18n/he";
 import { brand } from "../theme/brand";
@@ -11,8 +12,9 @@ export default function PublicHomePage() {
     <PublicSiteFrame>
       <HomeLead />
       <OfferGrid />
-      <ProductDemo />
+      <PublicCommerce />
       <BusinessDetails />
+      <ProductDemo />
     </PublicSiteFrame>
   );
 }
