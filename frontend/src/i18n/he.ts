@@ -824,6 +824,20 @@ export const he = {
   aiCreditsProfileTitle: "קרדיטי AI",
   aiCreditsStudentUse: "הסברי שאלות והערכת תשובות פתוחות",
   aiCreditsTeacherUse: "יצירת מטלות עם AI",
+  creditCostTeacherTitle: "עלות כתיבת מטלה למורה",
+  creditCostTeacherUsual: (calls: number) =>
+    `יצירת מטלה עם AI עולה בדרך כלל קרדיט אחד לכל המטלה. קרדיט אחד כולל עד ${calls} פניות ל-AI באותה יצירה: הכתיבה עצמה ובקשות תיקון.`,
+  creditCostTeacherLength: "אורך השאלות אינו משנה את מספר הקרדיטים.",
+  creditCostTeacherSplit: (calls: number) =>
+    `מספר השאלות והמורכבות משנים את המחיר רק אם היצירה כבדה ומתפצלת. בנושא רגיל כל פנייה מכסה כ־3 שאלות. מ־12 שאלות, או בנושא מורכב כמו עצים, כל פנייה מכסה 2 שאלות. כל ${calls} פניות נספרות כקרדיט.`,
+  creditCostTeacherExamples: (five: number, twelve: number, thirty: number) =>
+    `לדוגמה, גם אם היצירה מתפצלת: 5 שאלות — ${five === 1 ? "קרדיט אחד" : `${five} קרדיטים`}. 12 שאלות — עד ${twelve === 1 ? "קרדיט אחד" : `${twelve} קרדיטים`}. 30 שאלות — עד ${thirty === 1 ? "קרדיט אחד" : `${thirty} קרדיטים`}.`,
+  creditCostStudentTitle: "עלות לתלמיד",
+  creditCostStudentEach: "הסבר על שאלה, או הערכה של תשובה פתוחה, עולים קרדיט אחד לכל בקשה.",
+  creditCostStudentFactors:
+    "מספר השאלות במטלה, רמת הקושי ואורך השאלה אינם משנים את המחיר. כל בקשה היא קרדיט אחד, בלי קשר לאורך הטקסט.",
+  creditCostStudentAgain:
+    "הסבר שכבר נשמר נפתח שוב בלי חיוב. בקשה להסבר חדש עולה שוב קרדיט אחד. ההגשה עצמה אינה עולה קרדיטים.",
   aiCreditsLoadError: "לא ניתן לטעון את יתרת הקרדיטים",
   aiCreditsRemaining: (n: number) => `נותרו ${n} קרדיטי AI`,
   aiCreditsUnlimited: "קרדיטי AI ללא הגבלה",

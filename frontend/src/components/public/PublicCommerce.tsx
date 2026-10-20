@@ -2,13 +2,15 @@ import { Link as RouterLink } from "react-router-dom";
 import { Box, Link, Stack, Typography } from "@mui/material";
 import { usePublicCatalog } from "../../hooks/usePublicCatalog";
 import { he } from "../../i18n/he";
+import CreditCostNotes from "../billing/CreditCostNotes";
 import PublicPackPurchase from "./PublicPackPurchase";
 
 export default function PublicCommerce() {
-  const packs = usePublicCatalog();
+  const { packs, callsPerCredit } = usePublicCatalog();
   return (
     <Box sx={{ my: { xs: 4, sm: 6 } }}>
       <PublicPackPurchase packs={packs} />
+      <CreditCostNotes audience="both" callsPerCredit={callsPerCredit} />
       <InfoBlock title={he.publicHome.paymentTitle} text={he.publicHome.paymentBody} />
       <LegalLinks />
     </Box>

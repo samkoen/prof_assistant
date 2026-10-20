@@ -14,3 +14,4 @@ async def test_public_catalog_lists_prices_without_login(it_env: ItEnv):
         "teacher_5": 29,
         "teacher_15": 69,
     }
+    assert response.json()["calls_per_teacher_credit"] == 5

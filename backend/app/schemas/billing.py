@@ -23,6 +23,7 @@ class BalanceResponse(BaseModel):
 
 class PackListResponse(BaseModel):
     packs: list[CreditPackResponse]
+    calls_per_teacher_credit: int = 5
 
 
 class CheckoutRequest(BaseModel):

@@ -8,9 +8,12 @@ import {
   type WalletBalance,
 } from "../api/billing";
 import { he } from "../i18n/he";
+import CreditCostNotes from "./billing/CreditCostNotes";
 import PackLabel from "./billing/PackLabel";
 import { hebrewAlignRightSx } from "../styles/hebrewAlign";
 import { profileCreditWallets, type AiCreditPack } from "../utils/aiCredits";
+import { creditAudience } from "../utils/creditCost";
+import { usePublicCatalog } from "../hooks/usePublicCatalog";
 import Spinner from "./ui/Spinner";
 
 function usageLabel(product: string): string {
@@ -99,6 +102,7 @@ function buyPack(code: string, setPaying: (v: boolean) => void, setPayError: (v:
 
 export default function AiCreditsProfileCard({ role }: { role: string }) {
   const { wallets, packs, error } = useProfileCredits(role);
+  const { callsPerCredit } = usePublicCatalog();
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
   return (
@@ -111,6 +115,7 @@ export default function AiCreditsProfileCard({ role }: { role: string }) {
         {payError && <Alert severity="error" sx={{ mt: 1 }}>{payError}</Alert>}
         {wallets === null && !error && <Spinner size={22} sx={{ mt: 1 }} />}
         {wallets && <WalletLines wallets={wallets} />}
+        <CreditCostNotes audience={creditAudience(role)} callsPerCredit={callsPerCredit} />
         <PackBuyRow packs={packs} paying={paying} onBuy={(code) => buyPack(code, setPaying, setPayError)} />
       </CardContent>
     </Card>
