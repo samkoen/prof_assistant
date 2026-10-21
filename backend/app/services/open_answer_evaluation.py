@@ -21,6 +21,7 @@ from app.models.exam import (
 from app.models.user import User
 from app.schemas.gemini_questions import GeminiSeriesLanguage
 from app.services.ai_client import AiError, generate_text
+from app.services.exam_visibility import ensure_student_can_see_exam
 from app.services.billing.constants import STUDENT_AI, TEACHER_GENERATION
 from app.services.billing.context import bill_ai, unbilled
 from app.services.exam_kind import is_tirgoul
@@ -171,6 +172,7 @@ async def _load_session_for_student(session_id: int, user: User, db: AsyncSessio
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
+    ensure_student_can_see_exam(session.exam, user.id)
     return session
 
 

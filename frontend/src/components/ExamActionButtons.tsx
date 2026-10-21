@@ -24,6 +24,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
+import HideExamButton from "./exams/HideExamButton";
 import ExamPortableExportDialog from "./ExamPortableExportDialog";
 import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
 import { api, ApiError, downloadExamPdf, type Exam } from "../api/client";
@@ -124,6 +125,16 @@ export function ExamActionButtons({
       setBusy(null);
     }
   };
+
+  const hideBtn = (
+    <HideExamButton
+      exam={exam}
+      iconOnly={iconOnly}
+      size={size}
+      onChanged={onChanged}
+      onError={onError}
+    />
+  );
 
   const deleteBtn = iconOnly ? (
     <DisabledActionTooltip
@@ -328,6 +339,7 @@ export function ExamActionButtons({
     const thirdAction = primaryAction === "delete" ? deleteBtn : duplicateBtn;
     return (
       <>
+        {hideBtn}
         {thirdAction}
         {moreMenuBtn}
         {moreMenu}
@@ -342,6 +354,7 @@ export function ExamActionButtons({
       {exportBtn}
       {shareBtn}
       <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
+      {hideBtn}
       {(!hideInactive || canDelete) && deleteBtn}
       {dialogs}
     </>

@@ -100,6 +100,10 @@ class ExamDuplicateRequest(BaseModel):
     title: str | None = Field(default=None, max_length=255)
 
 
+class ExamStudentVisibilityUpdate(BaseModel):
+    hidden_from_students: bool
+
+
 class ExamResponse(CatalogItemScopeResponse):
     id: int
     catalog_course_id: int
@@ -117,6 +121,7 @@ class ExamResponse(CatalogItemScopeResponse):
     kind: ExamKind = ExamKind.OFFICIAL
     question_count: int = 0
     can_delete: bool = True
+    hidden_from_students: bool = False
 
     model_config = {"from_attributes": True}
 

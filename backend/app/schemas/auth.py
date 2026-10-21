@@ -27,6 +27,19 @@ class ResendVerificationResponse(BaseModel):
     ok: bool = True
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: AppEmail
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10)
+    new_password: str = Field(min_length=6)
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool = True
+
+
 class UserResponse(BaseModel):
     id: int
     email: str

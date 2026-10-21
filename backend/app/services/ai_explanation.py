@@ -17,6 +17,7 @@ from app.services.ai_client import AiError, generate_text
 from app.services.billing.constants import STUDENT_AI
 from app.services.billing.context import bill_ai
 from app.services.exam_kind import is_tirgoul
+from app.services.exam_visibility import ensure_student_can_see_exam
 
 
 def _resolve_language(user: User) -> ExplanationLanguage:
@@ -55,6 +56,7 @@ async def _load_review_context(
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
+    ensure_student_can_see_exam(session.exam, user.id)
 
     exam = session.exam
     if not exam.show_detailed_correction:

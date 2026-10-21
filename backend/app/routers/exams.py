@@ -27,6 +27,7 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailResponse,
     ExamDuplicateRequest,
+    ExamStudentVisibilityUpdate,
     ExamReviewQuestion,
     ExamReviewResponse,
     ExamResponse,
@@ -58,6 +59,7 @@ from app.services.exam_group_removal import (
     remove_exam_from_group,
     without_excluded,
 )
+from app.services.exam_visibility import ensure_student_can_see_exam
 from app.services.exam_lifecycle import (
     class_sessions_clause,
     delete_exam_cascade,
@@ -176,6 +178,7 @@ def _exam_response(
         kind=exam_kind_value(exam),
         question_count=question_count,
         can_delete=can_delete,
+        hidden_from_students=bool(exam.hidden_from_students),
         **scope_to_response(exam, names),
     )
 
@@ -318,8 +321,7 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
 
 
 def _refuse_private_exam(exam: Exam, user_id: int) -> None:
-    if exam.private_student_id not in (None, user_id):
-        raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
+    ensure_student_can_see_exam(exam, user_id)
 
 
 async def _saved_answers_for_attempt(attempt_id: int, db: AsyncSession) -> list[SavedAnswerDraft]:
@@ -878,6 +880,27 @@ async def remove_exam_from_offering(
         raise HTTPException(status_code=403, detail="אין הרשאה")
     await remove_exam_from_group(exam, offering, db)
     await db.commit()
+
+
+@router.patch("/{exam_id}/student-visibility", response_model=ExamResponse)
+async def set_exam_student_visibility(
+    exam_id: int,
+    body: ExamStudentVisibilityUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER, UserRole.ADMIN)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    exam.hidden_from_students = body.hidden_from_students
+    await db.commit()
+    await db.refresh(exam)
+    return await _exam_response_for(exam, db)
+
+
+async def _exam_response_for(exam: Exam, db: AsyncSession) -> ExamResponse:
+    cnt = await db.scalar(select(func.count()).select_from(Question).where(Question.exam_id == exam.id))
+    names = await load_scope_teacher_names(db, [exam])
+    can_delete = await exam_delete_allowed(exam, db)
+    return _exam_response(exam, cnt or 0, names, can_delete=can_delete)
 
 
 @router.delete("/{exam_id}", status_code=204)

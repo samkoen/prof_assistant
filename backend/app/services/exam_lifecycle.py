@@ -463,9 +463,10 @@ def class_sessions_clause():
 
 
 def student_visible_sessions_clause(student_id: int):
-    """Sessions de classe, plus les matalot privées de cet élève."""
-    own = or_(Exam.private_student_id.is_(None), Exam.private_student_id == student_id)
+    """Sessions de classe, plus les matalot privées de cet élève. Les מטלות masquées en sont absentes."""
+    from app.services.exam_visibility import visible_exam_ids_for_student
+
     return and_(
         ExamSession.status.in_(student_visible_session_statuses()),
-        ExamSession.exam_id.in_(select(Exam.id).where(own)),
+        ExamSession.exam_id.in_(visible_exam_ids_for_student(student_id)),
     )

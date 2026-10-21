@@ -1,9 +1,10 @@
 import pytest
 
-from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_NOT_VERIFIED
+from app.security import create_password_reset_token
+from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_NOT_VERIFIED, RESET_TOKEN_INVALID
 from tests.integration.conftest import ItEnv
 from tests.integration.http_helpers import login, logout
-from tests.integration.seed import STUDENT_EMAIL
+from tests.integration.seed import PASSWORD, STUDENT_EMAIL
 
 PENDING_EMAIL = "pending.verify@assistant-ai.local"
 
@@ -82,3 +83,86 @@ async def test_resend_verification_always_ok(it_env: ItEnv, monkeypatch):
     )
     assert unknown.status_code == pending.status_code == verified.status_code == 200
     assert sent == [PENDING_EMAIL]
+
+
+def _capture_reset(monkeypatch) -> list[int]:
+    captured: list[int] = []
+
+    async def capture(_email: str, user_id: int, _name: str) -> bool:
+        captured.append(user_id)
+        return True
+
+    monkeypatch.setattr(
+        "app.services.password_reset.email_service.send_password_reset_email",
+        capture,
+    )
+    return captured
+
+
+@pytest.mark.integration
+async def test_forgot_password_then_login_with_new_password(it_env: ItEnv, monkeypatch):
+    captured = _capture_reset(monkeypatch)
+    unknown = await it_env.client.post(
+        "/api/auth/forgot-password",
+        json={"email": "nobody@assistant-ai.local"},
+    )
+    assert unknown.status_code == 200
+    assert captured == []
+    asked = await it_env.client.post(
+        "/api/auth/forgot-password",
+        json={"email": STUDENT_EMAIL},
+    )
+    assert asked.status_code == 200
+    assert len(captured) == 1
+    reset = await it_env.client.post(
+        "/api/auth/reset-password",
+        json={"token": create_password_reset_token(captured[0]), "new_password": "new-secret"},
+    )
+    assert reset.status_code == 200
+    old = await it_env.client.post(
+        "/api/auth/login",
+        json={"email": STUDENT_EMAIL, "password": PASSWORD},
+    )
+    assert old.status_code == 401
+    fresh = await it_env.client.post(
+        "/api/auth/login",
+        json={"email": STUDENT_EMAIL, "password": "new-secret"},
+    )
+    assert fresh.status_code == 200
+
+
+@pytest.mark.integration
+async def test_reset_password_rejects_bad_token_and_short_password(it_env: ItEnv):
+    bad = await it_env.client.post(
+        "/api/auth/reset-password",
+        json={"token": "not-a-valid-token-value", "new_password": "new-secret"},
+    )
+    assert bad.status_code == 400
+    assert bad.json()["detail"] == RESET_TOKEN_INVALID
+    short = await it_env.client.post(
+        "/api/auth/reset-password",
+        json={"token": "0123456789abc", "new_password": "12345"},
+    )
+    assert short.status_code == 422
+
+
+@pytest.mark.integration
+async def test_reset_unlocks_unverified_account(it_env: ItEnv, monkeypatch):
+    captured = _capture_reset(monkeypatch)
+    created = await it_env.client.post("/api/auth/register", json=_register_payload(PENDING_EMAIL))
+    assert created.status_code == 200
+    asked = await it_env.client.post(
+        "/api/auth/forgot-password",
+        json={"email": PENDING_EMAIL},
+    )
+    assert asked.status_code == 200
+    reset = await it_env.client.post(
+        "/api/auth/reset-password",
+        json={"token": create_password_reset_token(captured[0]), "new_password": "new-secret"},
+    )
+    assert reset.status_code == 200
+    fresh = await it_env.client.post(
+        "/api/auth/login",
+        json={"email": PENDING_EMAIL, "password": "new-secret"},
+    )
+    assert fresh.status_code == 200

@@ -287,6 +287,7 @@ export interface Exam extends CatalogItemScope {
   kind?: "official" | "tirgoul" | "task";
   question_count: number;
   can_delete?: boolean;
+  hidden_from_students?: boolean;
 }
 
 export interface ExamSession {

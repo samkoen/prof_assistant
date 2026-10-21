@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     brevo_use_simulation: bool = True
     brevo_sandbox_recipient: str = ""
     email_verify_expire_hours: int = 48
+    password_reset_expire_hours: int = 2
 
     access_token_expire_days_student: int = 7
     access_token_expire_days_staff: int = 30
