@@ -9,7 +9,11 @@ import DataListTable from "../../components/DataListTable/DataListTable";
 import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
 import ListPageToolbar from "../../components/ListPageToolbar";
-import { getCourseExamTableColumns } from "../../config/courseExamTableColumns";
+import {
+  COURSE_EXAMS_DEFAULT_SORT,
+  courseExamRowSx,
+  getCourseExamTableColumns,
+} from "../../config/courseExamTableColumns";
 import { offeringLabel, type CourseOffering } from "../../api/client";
 import { useOfferingExamsBoard } from "../../hooks/useOfferingExamsBoard";
 import { he } from "../../i18n/he";
@@ -67,6 +71,8 @@ export default function TeacherCourseExamsPage() {
             loading={false}
             emptyMessage={tab === "closed" ? he.noClosedExams : he.noExams}
             getRowId={(row) => row.exam.id}
+            defaultSort={COURSE_EXAMS_DEFAULT_SORT}
+            getRowSx={courseExamRowSx}
             actionsColumnPx={320}
             renderActions={(row) => (
               <ExamOfferingRowActions

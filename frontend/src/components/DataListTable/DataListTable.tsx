@@ -20,6 +20,8 @@ import {
   TableSortLabel,
   TextField,
   Typography,
+  type SxProps,
+  type Theme,
 } from "@mui/material";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import {
@@ -59,11 +61,22 @@ export interface DataListTableProps<T> {
   toolbarExtra?: ReactNode;
   /** Largeur colonne actions (défaut : TABLE_ACTIONS_COLUMN_PX). */
   actionsColumnPx?: number;
+  /** Tri initial (défaut : première colonne, croissant). */
+  defaultSort?: { key: string; order: "asc" | "desc" };
+  /** Style de ligne (ex. couleur selon l'état de la ligne). */
+  getRowSx?: (row: T) => SxProps<Theme>;
 }
 
-function compareValues(a: string, b: string, order: "asc" | "desc"): number {
-  const cmp = a.localeCompare(b, "he", { numeric: true, sensitivity: "base" });
+function compareValues(a: string | number, b: string | number, order: "asc" | "desc"): number {
+  const cmp =
+    typeof a === "number" && typeof b === "number"
+      ? a - b
+      : String(a).localeCompare(String(b), "he", { numeric: true, sensitivity: "base" });
   return order === "asc" ? cmp : -cmp;
+}
+
+function sortValueOf<T>(col: DataListColumnDef<T>, row: T): string | number {
+  return col.getSortValue?.(row) ?? col.getValue?.(row) ?? "";
 }
 
 export default function DataListTable<T>({
@@ -76,6 +89,8 @@ export default function DataListTable<T>({
   renderActions,
   toolbarExtra,
   actionsColumnPx = TABLE_ACTIONS_COLUMN_PX,
+  defaultSort,
+  getRowSx,
 }: DataListTableProps<T>) {
   const widthsStorageKey = `assistant.table.${viewKey}.widths`;
   const columnsStorageKey = `assistant.table.${viewKey}.columns`;
@@ -87,8 +102,8 @@ export default function DataListTable<T>({
   const [columnPickerOpen, setColumnPickerOpen] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [debouncedFilters, setDebouncedFilters] = useState<Record<string, string>>({});
-  const [orderBy, setOrderBy] = useState<string>(columns[0]?.key ?? "");
-  const [order, setOrder] = useState<"asc" | "desc">("asc");
+  const [orderBy, setOrderBy] = useState<string>(defaultSort?.key ?? columns[0]?.key ?? "");
+  const [order, setOrder] = useState<"asc" | "desc">(defaultSort?.order ?? "asc");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [colWidthsPx, setColWidthsPx] = useState<Record<string, number> | null>(null);
@@ -257,7 +272,7 @@ export default function DataListTable<T>({
     const sortCol = visibleColumns.find((c) => c.key === orderBy && c.sortable !== false);
     if (sortCol) {
       list.sort((a, b) =>
-        compareValues(sortCol.getValue?.(a) ?? "", sortCol.getValue?.(b) ?? "", order)
+        compareValues(sortValueOf(sortCol, a), sortValueOf(sortCol, b), order)
       );
     }
     return list;
@@ -467,7 +482,7 @@ export default function DataListTable<T>({
                 </TableRow>
               )}
               {pagedRows.map((row) => (
-                <TableRow key={getRowId(row)} hover>
+                <TableRow key={getRowId(row)} hover sx={getRowSx?.(row)}>
                   {resizableOrder.map((colKey) => {
                     const col = visibleColumns.find((c) => c.key === colKey)!;
                     return (

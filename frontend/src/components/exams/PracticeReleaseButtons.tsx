@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip, Typography } from "@mui/material";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography } from "@mui/material";
 import BlockIcon from "@mui/icons-material/Block";
 import SendIcon from "@mui/icons-material/Send";
 import { api, ApiError } from "../../api/client";
@@ -16,6 +16,8 @@ type PracticeReleaseButtonsProps = PracticeReleaseInput & {
   onChanged: () => void | Promise<void>;
   onError: (message: string) => void;
   onSuccess?: (message: string) => void;
+  /** Icônes avec tooltip au lieu de boutons texte. */
+  iconOnly?: boolean;
 };
 
 const COPY: Record<ReleaseKind, { title: string; message: string; done: string; color: "success" | "warning" }> = {
@@ -91,10 +93,61 @@ export default function PracticeReleaseButtons(props: PracticeReleaseButtonsProp
     }
   };
 
+  const Triggers = props.iconOnly ? IconTriggers : ButtonTriggers;
+  return (
+    <>
+      <Triggers actions={actions} loading={loading} onPick={setPending} />
+      <ReleaseDialog kind={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void confirm()} />
+    </>
+  );
+}
+
+type TriggersProps = {
+  actions: ReturnType<typeof practiceReleaseActions>;
+  loading: boolean;
+  onPick: (kind: ReleaseKind) => void;
+};
+
+/** Variante icône + tooltip (tableaux denses). */
+function IconTriggers({ actions, loading, onPick }: TriggersProps) {
   return (
     <>
       {actions.deploy && (
-        <LoadingButton size="small" variant="contained" color="success" startIcon={<SendIcon />} loading={loading} onClick={() => setPending("deploy")}>
+        <Tooltip title={he.deployToStudents}>
+          <span>
+            <IconButton size="small" color="success" aria-label={he.deployToStudents} disabled={loading} onClick={() => onPick("deploy")}>
+              <SendIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+      {actions.deployBlocked && (
+        <Tooltip title={he.deployNeedsContent}>
+          <span>
+            <IconButton size="small" aria-label={he.deployToStudents} disabled>
+              <SendIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+      {actions.block && (
+        <Tooltip title={he.blockGrading}>
+          <span>
+            <IconButton size="small" color="warning" aria-label={he.blockGrading} disabled={loading} onClick={() => onPick("block")}>
+              <BlockIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+    </>
+  );
+}
+
+function ButtonTriggers({ actions, loading, onPick }: TriggersProps) {
+  return (
+    <>
+      {actions.deploy && (
+        <LoadingButton size="small" variant="contained" color="success" startIcon={<SendIcon />} loading={loading} onClick={() => onPick("deploy")}>
           {he.deployToStudents}
         </LoadingButton>
       )}
@@ -106,11 +159,10 @@ export default function PracticeReleaseButtons(props: PracticeReleaseButtonsProp
         </Tooltip>
       )}
       {actions.block && (
-        <LoadingButton size="small" variant="outlined" color="warning" startIcon={<BlockIcon />} loading={loading} onClick={() => setPending("block")}>
+        <LoadingButton size="small" variant="outlined" color="warning" startIcon={<BlockIcon />} loading={loading} onClick={() => onPick("block")}>
           {he.blockGrading}
         </LoadingButton>
       )}
-      <ReleaseDialog kind={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void confirm()} />
     </>
   );
 }

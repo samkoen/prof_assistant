@@ -10,5 +10,7 @@ export interface DataListColumnDef<T> {
   cellDir?: "ltr" | "rtl";
   /** Valeur texte pour tri / filtre */
   getValue?: (row: T) => string;
+  /** Valeur de tri (nombre pour dates / montants) ; défaut : getValue. */
+  getSortValue?: (row: T) => string | number;
   renderCell: (row: T) => ReactNode;
 }

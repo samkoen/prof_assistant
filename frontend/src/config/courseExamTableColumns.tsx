@@ -1,4 +1,4 @@
-import { Chip, Typography } from "@mui/material";
+import { Chip, Typography, alpha, type SxProps, type Theme } from "@mui/material";
 import type { DataListColumnDef } from "../components/DataListTable/types";
 import HebrewCountPhrase from "../components/ui/HebrewCountPhrase";
 import type { Exam, ExamSession } from "../api/client";
@@ -7,10 +7,27 @@ import {
   examSessionDisplayIso,
   formatExamDateTime,
 } from "../utils/examListSort";
+import { examDateSortValue, isVisibleToStudents } from "../utils/examRowVisibility";
 
 export interface CourseExamRow {
   exam: Exam;
   session?: ExamSession;
+}
+
+/** Tri initial du tableau : date de la matala, du plus récent au plus ancien. */
+export const COURSE_EXAMS_DEFAULT_SORT = { key: "exam_date", order: "desc" } as const;
+
+/** Vert clair : visible par les élèves ; gris : invisible (brouillon, non envoyée ou masquée). */
+export function courseExamRowSx(row: CourseExamRow): SxProps<Theme> {
+  const visible = isVisibleToStudents(row);
+  return {
+    backgroundColor: (theme) =>
+      visible ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.text.primary, 0.07),
+    "&.MuiTableRow-hover:hover": {
+      backgroundColor: (theme) =>
+        visible ? alpha(theme.palette.success.main, 0.18) : alpha(theme.palette.text.primary, 0.12),
+    },
+  };
 }
 
 function statusProps(row: CourseExamRow) {
@@ -65,6 +82,7 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       label: he.examDate,
       minWidth: 150,
       cellDir: "ltr",
+      getSortValue: (r) => examDateSortValue(r.session),
       getValue: (r) => {
         const iso = examSessionDisplayIso(r.session);
         return iso ? formatExamDateTime(iso) : "";

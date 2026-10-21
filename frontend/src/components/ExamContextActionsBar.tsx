@@ -336,6 +336,7 @@ export default function ExamContextActionsBar({
         )}
         {hasOfferingContext && (
           <PracticeReleaseButtons
+            iconOnly
             practice={exam.is_tirgoul === true || exam.kind === "tirgoul" || exam.kind === "task"}
             status={session?.status}
             gradingLocked={session?.grading_locked}
