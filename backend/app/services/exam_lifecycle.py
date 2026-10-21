@@ -4,7 +4,7 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.course import CourseEnrollment, CourseOffering
+from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.enums import EnrollmentStatus, ExamStatus, NotificationType
 from app.models.exam import (
     Answer,
@@ -135,6 +135,20 @@ async def _delete_attempt_task_rows(attempt_id: int, db: AsyncSession) -> None:
             await db.delete(row)
 
 
+async def _auto_open_practice(exam: Exam, db: AsyncSession) -> bool:
+    """Un תרגול personnel s'ouvre seul. Celui d'une classe attend le bouton du prof."""
+    if exam.private_student_id:
+        return True
+    catalog = await db.get(CourseCatalog, exam.catalog_course_id)
+    return bool(catalog and catalog.owner_student_id)
+
+
+async def _prepare_practice_sessions(exam: Exam, db: AsyncSession) -> None:
+    await _ensure_tirgoul_offering_sessions(exam, db)
+    if await _auto_open_practice(exam, db):
+        await _activate_draft_tirgoul_sessions(exam, db)
+
+
 async def open_task_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> None:
     if not is_task(exam):
         return
@@ -142,8 +156,7 @@ async def open_task_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> No
     count = await db.scalar(select(func.count()).select_from(TaskStep).where(TaskStep.exam_id == exam.id))
     if not count:
         return
-    await _ensure_tirgoul_offering_sessions(exam, db)
-    await _activate_draft_tirgoul_sessions(exam, db)
+    await _prepare_practice_sessions(exam, db)
 
 
 async def open_tirgoul_sessions_if_ready(exam: Exam | None, db: AsyncSession) -> None:
@@ -153,8 +166,7 @@ async def open_tirgoul_sessions_if_ready(exam: Exam | None, db: AsyncSession) ->
     qcount = await db.scalar(select(func.count()).select_from(Question).where(Question.exam_id == exam.id))
     if not qcount:
         return
-    await _ensure_tirgoul_offering_sessions(exam, db)
-    await _activate_draft_tirgoul_sessions(exam, db)
+    await _prepare_practice_sessions(exam, db)
 
 
 def can_delete_exam(is_tirgoul_exam: bool, activated: bool) -> bool:
@@ -463,9 +475,10 @@ def class_sessions_clause():
 
 
 def student_visible_sessions_clause(student_id: int):
-    """Sessions de classe, plus les matalot privées de cet élève."""
-    own = or_(Exam.private_student_id.is_(None), Exam.private_student_id == student_id)
+    """Sessions de classe, plus les matalot privées de cet élève. Les מטלות masquées en sont absentes."""
+    from app.services.exam_visibility import visible_exam_ids_for_student
+
     return and_(
         ExamSession.status.in_(student_visible_session_statuses()),
-        ExamSession.exam_id.in_(select(Exam.id).where(own)),
+        ExamSession.exam_id.in_(visible_exam_ids_for_student(student_id)),
     )

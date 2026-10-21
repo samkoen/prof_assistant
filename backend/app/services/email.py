@@ -7,9 +7,9 @@ import logging
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
-from app.security import create_email_verification_token
+from app.security import create_email_verification_token, create_password_reset_token
 from app.services.email_delivery import deliver_html_email
-from app.services.email_templates import verification_email_html
+from app.services.email_templates import password_reset_email_html, verification_email_html
 
 logger = logging.getLogger(__name__)
 
@@ -35,4 +35,28 @@ async def send_verification_email(email: str, user_id: int, full_name: str) -> b
     )
     if not ok:
         logger.warning("Échec envoi e-mail vérification pour user_id=%s", user_id)
+    return ok
+
+
+def build_password_reset_url(user_id: int) -> str:
+    token = create_password_reset_token(user_id)
+    base = settings.frontend_url.rstrip("/")
+    return f"{base}/reset-password?token={token}"
+
+
+async def send_password_reset_email(email: str, user_id: int, full_name: str) -> bool:
+    reset_url = build_password_reset_url(user_id)
+    subject = f"{settings.app_name} — איפוס סיסמה"
+    html = password_reset_email_html(
+        app_name=settings.app_name,
+        full_name=full_name,
+        reset_url=reset_url,
+    )
+    ok = await run_in_threadpool(
+        lambda: deliver_html_email(
+            to_email=email, subject=subject, html_content=html, kind="password_reset"
+        )
+    )
+    if not ok:
+        logger.warning("Échec envoi e-mail réinitialisation pour user_id=%s", user_id)
     return ok

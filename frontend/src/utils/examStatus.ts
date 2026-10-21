@@ -3,15 +3,28 @@ import { he } from "../i18n/he";
 import type { StatusTone } from "../theme/brand";
 
 export interface SessionStatusView {
-  key: "practice" | "draft" | "active" | "awaiting_publish" | "finished";
+  key: "practice" | "draft" | "active" | "awaiting_publish" | "finished" | "grading_locked";
   label: string;
   tone: StatusTone;
 }
 
-type SessionLike = Pick<ExamSession, "status" | "is_tirgoul" | "results_published">;
+type SessionLike = Pick<ExamSession, "status" | "is_tirgoul" | "results_published"> & {
+  grading_locked?: boolean;
+  kind?: ExamSession["kind"];
+};
+
+function isPracticeSession(session: SessionLike): boolean {
+  return Boolean(session.is_tirgoul || session.kind === "tirgoul" || session.kind === "task");
+}
 
 /** État lisible d'une session d'examen (libellé + ton de couleur). */
 export function sessionStatusView(session: SessionLike): SessionStatusView {
+  if (isPracticeSession(session) && session.grading_locked) {
+    return { key: "grading_locked", label: he.gradingLocked, tone: "warning" };
+  }
+  if (isPracticeSession(session) && session.status === "draft") {
+    return { key: "draft", label: he.practiceNotDeployed, tone: "neutral" };
+  }
   if (session.is_tirgoul) return { key: "practice", label: he.tirgoulChip, tone: "info" };
   if (session.status === "draft") return { key: "draft", label: he.examDraftStatus, tone: "neutral" };
   if (session.status === "active") return { key: "active", label: he.examStatusActive, tone: "success" };

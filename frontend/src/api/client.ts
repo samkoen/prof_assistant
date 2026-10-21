@@ -287,6 +287,7 @@ export interface Exam extends CatalogItemScope {
   kind?: "official" | "tirgoul" | "task";
   question_count: number;
   can_delete?: boolean;
+  hidden_from_students?: boolean;
 }
 
 export interface ExamSession {
@@ -302,6 +303,7 @@ export interface ExamSession {
   activated_at: string | null;
   closed_at: string | null;
   results_published: boolean;
+  grading_locked?: boolean;
   integrity_mode_enabled: boolean;
   is_tirgoul?: boolean;
   kind?: "official" | "tirgoul" | "task";
@@ -431,6 +433,7 @@ export interface ExamTake {
   auto_submit_on_timeout: boolean;
   integrity_mode_enabled: boolean;
   results_published?: boolean;
+  grading_locked?: boolean;
   questions_language?: "he" | "fr" | "en" | "ru";
   is_tirgoul?: boolean;
   kind?: "official" | "tirgoul" | "task";

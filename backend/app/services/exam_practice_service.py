@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.exam import Exam, ExamPracticeResult, ExamSession, OpenAnswerEvaluation, PracticeAnswer, Question, QuestionAiExplanation, StudentExamAttempt
 from app.schemas.exam import SubmitAnswerItem
 from app.services.exam_submit_service import persist_fields_for_answer
+from app.services.practice_release import write_practice_score
 from app.services.scoring import score_exam_answers
 
 
@@ -96,6 +97,8 @@ async def finalize_practice_submission(
     exam: Exam,
     answer_items: list[SubmitAnswerItem],
     db: AsyncSession,
+    *,
+    record_score: bool = True,
 ) -> StudentExamAttempt:
     if not attempt.practice_active:
         raise HTTPException(status_code=400, detail="אין תרגול פעיל")
@@ -120,17 +123,17 @@ async def finalize_practice_submission(
             )
         )
     attempt.practice_active = False
-    attempt.practice_score = total
-    attempt.practice_max_score = max_total
+    write_practice_score(attempt, total, max_total, record=record_score)
     attempt.practice_submitted_at = now
-    db.add(
-        ExamPracticeResult(
-            attempt_id=attempt.id,
-            score=total,
-            max_score=max_total,
-            submitted_at=now,
+    if record_score:
+        db.add(
+            ExamPracticeResult(
+                attempt_id=attempt.id,
+                score=total,
+                max_score=max_total,
+                submitted_at=now,
+            )
         )
-    )
     await db.flush()
     return attempt
 

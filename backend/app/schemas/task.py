@@ -45,4 +45,5 @@ class TaskReviewPatch(BaseModel):
 
 class TaskStudentResult(BaseModel):
     published: bool
+    grading_locked: bool = False
     steps: list[TaskReviewOut] = []

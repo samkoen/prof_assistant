@@ -8,6 +8,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const StudentJoinCoursePage = lazy(() => import("./pages/StudentJoinCoursePage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
@@ -58,6 +60,8 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/contact-us" element={<PublicContactPage />} />
         <Route path="/billing/return" element={<BillingReturnPage />} />
         <Route path="/join/t/:joinToken" element={<StudentJoinCoursePage />} />

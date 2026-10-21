@@ -94,6 +94,7 @@ def session_response(
         activated_at=session.activated_at,
         closed_at=session.closed_at,
         results_published=session.results_published,
+        grading_locked=bool(session.grading_locked),
         integrity_mode_enabled=session.integrity_mode_enabled,
         is_tirgoul=is_tirgoul(session.exam),
         kind=exam_kind_value(session.exam),

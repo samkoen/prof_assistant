@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
 import { ApiError } from "../api/client";
 import { joinRedirectPath } from "../utils/joinCourse";
+import { forgotPasswordPath } from "../utils/forgotPassword";
 import { shouldOfferResendVerification } from "../utils/resendVerification";
 import ResendVerificationForm from "../components/ResendVerificationForm";
 
@@ -75,6 +76,15 @@ export default function LoginPage() {
           fullWidth
           autoComplete="current-password"
         />
+        <Link
+          component={RouterLink}
+          to={forgotPasswordPath(joinToken)}
+          variant="body2"
+          fontWeight={700}
+          sx={{ alignSelf: "flex-start" }}
+        >
+          {he.forgotPassword}
+        </Link>
         <LoadingButton type="submit" variant="contained" size="large" loading={loading} sx={{ mt: 0.5 }}>
           {he.login}
         </LoadingButton>

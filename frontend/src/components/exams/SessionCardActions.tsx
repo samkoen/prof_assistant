@@ -5,6 +5,7 @@ import GradingIcon from "@mui/icons-material/Grading";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import { ExamEditLink } from "../ExamActionButtons";
+import PracticeReleaseButtons from "./PracticeReleaseButtons";
 import LoadingButton from "../ui/LoadingButton";
 import type { ExamSession } from "../../api/client";
 import type { SessionBusy } from "../../hooks/useSessionLifecycle";
@@ -15,6 +16,9 @@ import type { SessionActionKind } from "./sessionActionCopy";
 export type SessionCardHandlers = {
   onRequest: (kind: SessionActionKind, session: ExamSession) => void;
   onActivateSession: (session: ExamSession) => void;
+  onChanged: () => void | Promise<void>;
+  onError: (message: string) => void;
+  onSuccess?: (message: string) => void;
 };
 
 type ActionsProps = {
@@ -100,11 +104,27 @@ function ClosedActions({ session, busy, handlers }: Omit<ActionsProps, "closedTa
   );
 }
 
+function releaseProps(session: ExamSession, handlers: SessionCardHandlers) {
+  return {
+    practice: true,
+    status: session.status,
+    gradingLocked: session.grading_locked,
+    hasContent: session.question_count > 0,
+    examId: session.exam_id,
+    sessionId: session.id,
+    offeringId: session.offering_id,
+    onChanged: handlers.onChanged,
+    onError: handlers.onError,
+    onSuccess: handlers.onSuccess,
+  };
+}
+
 function TaskActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
   return (
     <Box sx={rowSx}>
+      <PracticeReleaseButtons {...releaseProps(session, handlers)} />
       <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
-      {session.status === "active" && !session.results_published && (
+      {session.status === "active" && !session.results_published && !session.grading_locked && (
         <LoadingButton size="small" variant="contained" loading={isBusy(busy, "close", session.id)} onClick={() => handlers.onRequest("close", session)}>
           {he.taskPublish}
         </LoadingButton>
@@ -114,9 +134,10 @@ function TaskActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab"
   );
 }
 
-function PracticeActions({ session }: { session: ExamSession }) {
+function PracticeActions({ session, handlers }: Pick<ActionsProps, "session" | "handlers">) {
   return (
     <Box sx={rowSx}>
+      <PracticeReleaseButtons {...releaseProps(session, handlers)} />
       <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
       <GradesButton session={session} />
     </Box>
@@ -126,7 +147,7 @@ function PracticeActions({ session }: { session: ExamSession }) {
 /** Actions disponibles selon l'état de la session (pratique, brouillon, actif, clos). */
 export default function SessionCardActions({ session, closedTab, busy, handlers }: ActionsProps) {
   if (session.kind === "task") return <TaskActions session={session} busy={busy} handlers={handlers} />;
-  if (session.is_tirgoul) return <PracticeActions session={session} />;
+  if (session.is_tirgoul) return <PracticeActions session={session} handlers={handlers} />;
   if (closedTab) return <ClosedActions session={session} busy={busy} handlers={handlers} />;
   if (session.status === "draft") return <DraftActions session={session} handlers={handlers} />;
   if (session.status === "active") return <ActiveActions session={session} busy={busy} handlers={handlers} />;

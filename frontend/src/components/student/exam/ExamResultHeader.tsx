@@ -10,6 +10,7 @@ type ExamResultHeaderProps = {
   practiceResults: PracticeResult[];
   resultsPublished: boolean;
   practiceReview: boolean;
+  gradingLocked?: boolean;
 };
 
 function ScoreHero({ title, score, max }: { title: string; score: number; max: number }) {
@@ -40,15 +41,26 @@ function PendingCard() {
   );
 }
 
+function NoGradeCard() {
+  return (
+    <Box dir="rtl" sx={{ mb: 3, p: 3, borderRadius: 3, bgcolor: statusTones.warning.bg, color: statusTones.warning.fg }}>
+      <Typography variant="subtitle1" fontWeight={800}>{he.noGradeTitle}</Typography>
+      <Typography variant="body2" sx={{ mt: 0.5 }}>{he.gradingLockedStudent}</Typography>
+    </Box>
+  );
+}
+
 /** En-tête de la page résultat : score en grand, ou état « résultats en attente », puis historique d'entraînement. */
-export default function ExamResultHeader({ attempt, practiceResults, resultsPublished, practiceReview }: ExamResultHeaderProps) {
-  const official = resultsPublished && attempt.score != null && attempt.max_score != null;
-  const practice = practiceReview && attempt.practice_score != null && attempt.practice_max_score != null;
+export default function ExamResultHeader({ attempt, practiceResults, resultsPublished, practiceReview, gradingLocked = false }: ExamResultHeaderProps) {
+  const practice = !gradingLocked && practiceReview && attempt.practice_score != null && attempt.practice_max_score != null;
+  const official = !practice && resultsPublished && attempt.score != null && attempt.max_score != null;
+  const noGrade = gradingLocked && attempt.score == null && Boolean(attempt.submitted_at || practiceReview);
   return (
     <>
       {practice && <ScoreHero title={he.examResultPracticeTitle} score={attempt.practice_score as number} max={attempt.practice_max_score as number} />}
-      {!practice && official && <ScoreHero title={he.examResultTitle} score={attempt.score as number} max={attempt.max_score as number} />}
-      {!practice && !official && attempt.submitted_at && <PendingCard />}
+      {official && <ScoreHero title={he.examResultTitle} score={attempt.score as number} max={attempt.max_score as number} />}
+      {noGrade && <NoGradeCard />}
+      {!practice && !official && !noGrade && attempt.submitted_at && <PendingCard />}
       <ExamPracticeHistory results={practiceResults} />
     </>
   );

@@ -1,7 +1,9 @@
 from app.security import (
     create_access_token,
     create_email_verification_token,
+    create_password_reset_token,
     decode_email_verification_token,
+    decode_password_reset_token,
     decode_session_token,
     hash_password,
     verify_password,
@@ -39,3 +41,16 @@ def test_session_token_rejected_by_email_decoder():
 def test_garbage_token_returns_none():
     assert decode_session_token("not-a-jwt") is None
     assert decode_email_verification_token("not-a-jwt") is None
+    assert decode_password_reset_token("not-a-jwt") is None
+
+
+def test_password_reset_token_is_not_a_session():
+    token = create_password_reset_token(9)
+    assert decode_session_token(token) is None
+    assert decode_email_verification_token(token) is None
+    assert decode_password_reset_token(token) == 9
+
+
+def test_email_token_cannot_reset_password():
+    token = create_email_verification_token(4)
+    assert decode_password_reset_token(token) is None

@@ -8,17 +8,27 @@ from app.dependencies import get_current_user
 from app.models.enums import UserRole
 from app.models.user import User
 from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     RegisterRequest,
     ResendVerificationRequest,
     ResendVerificationResponse,
+    ResetPasswordRequest,
     TokenResponse,
     UserAiExplanationLanguageUpdateRequest,
     UserProfileUpdateRequest,
     UserProfileUpdateResponse,
     UserResponse,
 )
-from app.services.auth_messages import EMAIL_ALREADY_EXISTS, EMAIL_DELIVERY_FAILED, EMAIL_NOT_VERIFIED
+from app.services.auth_messages import (
+    EMAIL_ALREADY_EXISTS,
+    EMAIL_DELIVERY_FAILED,
+    EMAIL_NOT_VERIFIED,
+    RESET_TOKEN_INVALID,
+    USER_BLOCKED,
+)
+from app.services.password_reset import ResetOutcome, request_password_reset, reset_password_with_token
 from app.services.auth_register import resolve_self_register_role, student_id_for_register
 from app.services.auth_verification import ResendOutcome, resend_verification_for_email
 from app.services.user_profile_service import update_user_profile
@@ -112,12 +122,31 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="אימייל או סיסמה שגויים")
     if user.is_blocked:
-        raise HTTPException(status_code=403, detail="המשתמש חסום")
+        raise HTTPException(status_code=403, detail=USER_BLOCKED)
     if not user.email_verified and not user.email_verified_by_teacher:
         raise HTTPException(status_code=403, detail=EMAIL_NOT_VERIFIED)
     token = create_access_token(user.id, user.role)
     _set_auth_cookie(response, token, user.role)
     return TokenResponse(user=UserResponse.model_validate(user))
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    await request_password_reset(db, body.email)
+    return ForgotPasswordResponse()
+
+
+@router.post("/reset-password", response_model=ForgotPasswordResponse)
+async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    outcome = await reset_password_with_token(db, body.token, body.new_password)
+    if outcome == ResetOutcome.INVALID:
+        raise HTTPException(status_code=400, detail=RESET_TOKEN_INVALID)
+    if outcome == ResetOutcome.BLOCKED:
+        raise HTTPException(status_code=403, detail=USER_BLOCKED)
+    return ForgotPasswordResponse()
 
 
 @router.post("/logout")
