@@ -1,13 +1,9 @@
 import { useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography } from "@mui/material";
-import BlockIcon from "@mui/icons-material/Block";
-import SendIcon from "@mui/icons-material/Send";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, Typography } from "@mui/material";
 import { api, ApiError } from "../../api/client";
 import { he } from "../../i18n/he";
 import { practiceReleaseActions, type PracticeReleaseInput } from "../../utils/practiceRelease";
-import LoadingButton from "../ui/LoadingButton";
-
-type ReleaseKind = "deploy" | "block";
+import { ButtonTriggers, IconTriggers, type ReleaseKind } from "./PracticeReleaseTriggers";
 
 type PracticeReleaseButtonsProps = PracticeReleaseInput & {
   examId: number;
@@ -20,10 +16,16 @@ type PracticeReleaseButtonsProps = PracticeReleaseInput & {
   iconOnly?: boolean;
 };
 
-const COPY: Record<ReleaseKind, { title: string; message: string; done: string; color: "success" | "warning" }> = {
+type Copy = { title: string; message: string; done: string; color: "success" | "warning" };
+
+const COPY: Record<ReleaseKind, Copy> = {
   deploy: { title: he.deployToStudents, message: he.deployToStudentsConfirm, done: he.deployedToStudents, color: "success" },
   block: { title: he.blockGrading, message: he.blockGradingConfirm, done: he.gradingBlocked, color: "warning" },
+  unlock: { title: he.unlockGrading, message: he.unlockGradingConfirm, done: he.gradingUnblocked, color: "success" },
 };
+
+/** Le blocage et son déblocage s'annulent l'un l'autre ; l'envoi notifie les élèves et reste définitif. */
+const INVERSE: Partial<Record<ReleaseKind, ReleaseKind>> = { block: "unlock", unlock: "block" };
 
 async function postRelease(kind: ReleaseKind, props: PracticeReleaseButtonsProps): Promise<void> {
   if (kind === "block" && props.sessionId) {
@@ -40,15 +42,45 @@ async function postRelease(kind: ReleaseKind, props: PracticeReleaseButtonsProps
   });
 }
 
+type Undo = { kind: ReleaseKind; message: string };
+
+function useRelease(props: PracticeReleaseButtonsProps) {
+  const [pending, setPending] = useState<ReleaseKind | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [undo, setUndo] = useState<Undo | null>(null);
+
+  const run = async (kind: ReleaseKind, offerUndo: boolean) => {
+    setLoading(true);
+    try {
+      await postRelease(kind, props);
+      const inverse = INVERSE[kind];
+      if (offerUndo && inverse) setUndo({ kind: inverse, message: COPY[kind].done });
+      else props.onSuccess?.(COPY[kind].done);
+      setPending(null);
+      await props.onChanged();
+    } catch (e) {
+      props.onError(e instanceof ApiError ? e.message : he.errorGeneric);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirm = () => (pending ? run(pending, true) : Promise.resolve());
+  const undoLast = async () => {
+    const last = undo;
+    setUndo(null);
+    if (last) await run(last.kind, false);
+  };
+  return { pending, setPending, loading, undo, dismissUndo: () => setUndo(null), confirm, undoLast };
+}
+
 function ReleaseDialog({
   kind,
-  title,
   loading,
   onClose,
   onConfirm,
 }: {
   kind: ReleaseKind | null;
-  title?: string;
   loading: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -59,7 +91,6 @@ function ReleaseDialog({
       <DialogTitle>{copy?.title}</DialogTitle>
       <DialogContent>
         <Typography>{copy?.message}</Typography>
-        {title && <Typography fontWeight={700} sx={{ mt: 1.5 }}>{title}</Typography>}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{he.cancel}</Button>
@@ -71,98 +102,39 @@ function ReleaseDialog({
   );
 }
 
-/** Envoi aux élèves, ou blocage de la note, pour un תרגול ou une משימה. */
+function UndoSnackbar({ undo, onUndo, onClose }: { undo: Undo | null; onUndo: () => void; onClose: () => void }) {
+  return (
+    <Snackbar
+      open={undo !== null}
+      autoHideDuration={8000}
+      onClose={(_, reason) => reason !== "clickaway" && onClose()}
+      message={undo?.message}
+      action={
+        <Button color="inherit" size="small" onClick={onUndo}>
+          {he.undoAction}
+        </Button>
+      }
+    />
+  );
+}
+
+/** Envoi aux élèves, blocage ou déblocage de la note, pour un תרגול ou une משימה. */
 export default function PracticeReleaseButtons(props: PracticeReleaseButtonsProps) {
   const actions = practiceReleaseActions(props);
-  const [pending, setPending] = useState<ReleaseKind | null>(null);
-  const [loading, setLoading] = useState(false);
-  if (!actions.deploy && !actions.deployBlocked && !actions.block) return null;
-
-  const confirm = async () => {
-    if (!pending) return;
-    setLoading(true);
-    try {
-      await postRelease(pending, props);
-      props.onSuccess?.(COPY[pending].done);
-      setPending(null);
-      await props.onChanged();
-    } catch (e) {
-      props.onError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const release = useRelease(props);
+  const visible = actions.deploy || actions.deployBlocked || actions.block || actions.unlock;
   const Triggers = props.iconOnly ? IconTriggers : ButtonTriggers;
+
   return (
     <>
-      <Triggers actions={actions} loading={loading} onPick={setPending} />
-      <ReleaseDialog kind={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void confirm()} />
-    </>
-  );
-}
-
-type TriggersProps = {
-  actions: ReturnType<typeof practiceReleaseActions>;
-  loading: boolean;
-  onPick: (kind: ReleaseKind) => void;
-};
-
-/** Variante icône + tooltip (tableaux denses). */
-function IconTriggers({ actions, loading, onPick }: TriggersProps) {
-  return (
-    <>
-      {actions.deploy && (
-        <Tooltip title={he.deployToStudents}>
-          <span>
-            <IconButton size="small" color="success" aria-label={he.deployToStudents} disabled={loading} onClick={() => onPick("deploy")}>
-              <SendIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      )}
-      {actions.deployBlocked && (
-        <Tooltip title={he.deployNeedsContent}>
-          <span>
-            <IconButton size="small" aria-label={he.deployToStudents} disabled>
-              <SendIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      )}
-      {actions.block && (
-        <Tooltip title={he.blockGrading}>
-          <span>
-            <IconButton size="small" color="warning" aria-label={he.blockGrading} disabled={loading} onClick={() => onPick("block")}>
-              <BlockIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      )}
-    </>
-  );
-}
-
-function ButtonTriggers({ actions, loading, onPick }: TriggersProps) {
-  return (
-    <>
-      {actions.deploy && (
-        <LoadingButton size="small" variant="contained" color="success" startIcon={<SendIcon />} loading={loading} onClick={() => onPick("deploy")}>
-          {he.deployToStudents}
-        </LoadingButton>
-      )}
-      {actions.deployBlocked && (
-        <Tooltip title={he.deployNeedsContent}>
-          <span>
-            <Button size="small" variant="contained" disabled startIcon={<SendIcon />}>{he.deployToStudents}</Button>
-          </span>
-        </Tooltip>
-      )}
-      {actions.block && (
-        <LoadingButton size="small" variant="outlined" color="warning" startIcon={<BlockIcon />} loading={loading} onClick={() => onPick("block")}>
-          {he.blockGrading}
-        </LoadingButton>
-      )}
+      {visible && <Triggers actions={actions} loading={release.loading} onPick={release.setPending} />}
+      <ReleaseDialog
+        kind={release.pending}
+        loading={release.loading}
+        onClose={() => release.setPending(null)}
+        onConfirm={() => void release.confirm()}
+      />
+      <UndoSnackbar undo={release.undo} onUndo={() => void release.undoLast()} onClose={release.dismissUndo} />
     </>
   );
 }

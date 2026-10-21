@@ -39,6 +39,7 @@ import {
   saveVisibleColumnKeys,
 } from "../../utils/tableLayoutUtils";
 import { AlignedTableCell, ResizableHeaderCell } from "../ResizableTableColumns/ResizableHeaderCell";
+import { loadTableSort, saveTableSort, type TableSort } from "../../utils/tableSortStorage";
 import ColumnPickerDialog from "./ColumnPickerDialog";
 import type { DataListColumnDef } from "./types";
 
@@ -102,8 +103,16 @@ export default function DataListTable<T>({
   const [columnPickerOpen, setColumnPickerOpen] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [debouncedFilters, setDebouncedFilters] = useState<Record<string, string>>({});
-  const [orderBy, setOrderBy] = useState<string>(defaultSort?.key ?? columns[0]?.key ?? "");
-  const [order, setOrder] = useState<"asc" | "desc">(defaultSort?.order ?? "asc");
+  const sortStorageKey = `assistant.table.${viewKey}.sort`;
+  const [initialSort] = useState<TableSort>(() =>
+    loadTableSort(
+      sortStorageKey,
+      columns.map((c) => c.key),
+      defaultSort ?? { key: columns[0]?.key ?? "", order: "asc" },
+    ),
+  );
+  const [orderBy, setOrderBy] = useState<string>(initialSort.key);
+  const [order, setOrder] = useState<"asc" | "desc">(initialSort.order);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [colWidthsPx, setColWidthsPx] = useState<Record<string, number> | null>(null);
@@ -286,8 +295,10 @@ export default function DataListTable<T>({
   const handleSort = (key: string) => {
     if (orderBy !== key) setPage(0);
     const isAsc = orderBy === key && order === "asc";
-    setOrder(isAsc ? "desc" : "asc");
+    const nextOrder = isAsc ? "desc" : "asc";
+    setOrder(nextOrder);
     setOrderBy(key);
+    saveTableSort(sortStorageKey, { key, order: nextOrder });
   };
 
   const hasActiveFilters = Object.values(filters).some((v) => v.trim() !== "");

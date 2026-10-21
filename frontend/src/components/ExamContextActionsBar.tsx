@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -48,6 +48,16 @@ type ExamContextActionsBarProps = {
   onDeleted?: () => void;
   onReopened?: () => void;
 };
+
+/** Emplacement de largeur fixe : chaque action reste au même endroit d'une ligne à l'autre. */
+function ActionSlot({ fixed, children }: { fixed: boolean; children: ReactNode }) {
+  if (!fixed) return <>{children}</>;
+  return (
+    <Box sx={{ width: 34, height: 34, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {children}
+    </Box>
+  );
+}
 
 function LifecycleActionButton({
   rules,
@@ -335,35 +345,39 @@ export default function ExamContextActionsBar({
           <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
         )}
         {hasOfferingContext && (
-          <PracticeReleaseButtons
-            iconOnly
-            practice={exam.is_tirgoul === true || exam.kind === "tirgoul" || exam.kind === "task"}
-            status={session?.status}
-            gradingLocked={session?.grading_locked}
-            hasContent={hasQuestions}
-            examId={exam.id}
-            sessionId={session?.id}
-            offeringId={courseId}
-            onChanged={onChanged}
-            onError={onError}
-            onSuccess={onSuccess}
-          />
+          <ActionSlot fixed={compactMenu}>
+            <PracticeReleaseButtons
+              iconOnly
+              practice={exam.is_tirgoul === true || exam.kind === "tirgoul" || exam.kind === "task"}
+              status={session?.status}
+              gradingLocked={session?.grading_locked}
+              hasContent={hasQuestions}
+              examId={exam.id}
+              sessionId={session?.id}
+              offeringId={courseId}
+              onChanged={onChanged}
+              onError={onError}
+              onSuccess={onSuccess}
+            />
+          </ActionSlot>
         )}
         {hasOfferingContext && (
-          <LifecycleActionButton
-            rules={rules}
-            session={session}
-            exam={exam}
-            activatingId={activatingId}
-            deactivatingSessionId={deactivatingSessionId}
-            reopeningSessionId={reopeningSessionId}
-            onStartClick={(target) => {
-              setActivateTiming(timingFromExam(target));
-              setActivateExam(target);
-            }}
-            onDeactivateClick={setConfirmSession}
-            onReopenClick={setReopenSession}
-          />
+          <ActionSlot fixed={compactMenu}>
+            <LifecycleActionButton
+              rules={rules}
+              session={session}
+              exam={exam}
+              activatingId={activatingId}
+              deactivatingSessionId={deactivatingSessionId}
+              reopeningSessionId={reopeningSessionId}
+              onStartClick={(target) => {
+                setActivateTiming(timingFromExam(target));
+                setActivateExam(target);
+              }}
+              onDeactivateClick={setConfirmSession}
+              onReopenClick={setReopenSession}
+            />
+          </ActionSlot>
         )}
         {!compactMenu && rules.showStudentLink && session && courseId && (
           <StudentExamLinkButton
