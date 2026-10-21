@@ -23,6 +23,7 @@ from app.models.exam import (
 from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
 from app.services.exam_kind import is_task, is_tirgoul
+from app.services.practice_release import should_record_score, write_official_score
 from app.services.scoring import score_exam_answers
 from app.services.utc_time import as_utc
 
@@ -162,6 +163,7 @@ async def finalize_exam_submission(
     }
     items_by_q = {item.question_id: item for item in answer_items if item.question_id in questions}
     total, max_total, normalized = score_exam_answers(questions, selected_by_q)
+    record = should_record_score(session)
     for qid, selected in normalized.items():
         item = items_by_q.get(qid) or SubmitAnswerItem(question_id=qid, selected_option_ids=selected)
         fields = persist_fields_for_answer(item, questions[qid])
@@ -173,8 +175,7 @@ async def finalize_exam_submission(
             )
         )
     attempt.submitted_at = now
-    attempt.score = total
-    attempt.max_score = max_total
+    write_official_score(attempt, total, max_total, record=record)
     attempt.can_resubmit = False
     await db.flush()
     await _close_session_if_all_done(session, exam, db)

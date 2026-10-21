@@ -14,6 +14,13 @@ export interface CourseExamRow {
 }
 
 function statusProps(row: CourseExamRow) {
+  const practice = row.exam.kind === "task" || row.exam.kind === "tirgoul" || row.exam.is_tirgoul;
+  if (practice && row.session?.grading_locked) {
+    return { color: "warning" as const, label: he.gradingLocked };
+  }
+  if (practice && row.session?.status !== "active" && row.session?.status !== "closed") {
+    return { color: "default" as const, label: he.practiceNotDeployed };
+  }
   if (row.exam.kind === "task") {
     return { color: "secondary" as const, label: he.taskChip };
   }

@@ -33,4 +33,9 @@ describe("sessionStatusView", () => {
   it("marque un examen clos et publié comme terminé", () => {
     expect(sessionStatusView({ status: "closed", results_published: true }).key).toBe("finished");
   });
+
+  it("signale un תרגול en attente d'envoi, puis une note bloquée", () => {
+    expect(sessionStatusView({ status: "draft", is_tirgoul: true, results_published: false }).key).toBe("draft");
+    expect(sessionStatusView({ status: "active", is_tirgoul: true, results_published: false, grading_locked: true }).key).toBe("grading_locked");
+  });
 });

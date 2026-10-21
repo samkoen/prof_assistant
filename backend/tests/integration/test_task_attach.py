@@ -46,4 +46,7 @@ async def test_attaching_a_ready_task_opens_the_new_group(it_env: ItEnv):
     )
     sessions = await json_ok(await client.get("/api/exams/sessions/mine"))
     attached = next(row for row in sessions if row["exam_id"] == exam["id"] and row["offering_id"] == second["id"])
-    assert attached["status"] == "active"
+    assert attached["status"] == "draft"
+    assert attached["grading_locked"] is False
+    deployed = await json_ok(await client.post(f"/api/exams/sessions/{attached['id']}/deploy"))
+    assert deployed["status"] == "active"

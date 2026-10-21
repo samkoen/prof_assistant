@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
-  Button,  Dialog,
+  Button,
+  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -15,6 +16,7 @@ import GradingIcon from "@mui/icons-material/Grading";
 import LinkIcon from "@mui/icons-material/Link";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import PracticeReleaseButtons from "./exams/PracticeReleaseButtons";
 import ExamActivateTimingFields from "./ExamActivateTimingFields";
 import StudentExamLinkButton from "./StudentExamLinkButton";
 import { ExamActionButtons, ExamEditLink, type ExamRowMenuExtra } from "./ExamActionButtons";
@@ -331,6 +333,20 @@ export default function ExamContextActionsBar({
       <Box sx={hebrewActionsLeftSx}>
         {showEditLink && (
           <ExamEditLink examId={exam.id} returnTo={returnTo} iconOnly viewOnly={!canEdit} />
+        )}
+        {hasOfferingContext && (
+          <PracticeReleaseButtons
+            practice={exam.is_tirgoul === true || exam.kind === "tirgoul" || exam.kind === "task"}
+            status={session?.status}
+            gradingLocked={session?.grading_locked}
+            hasContent={hasQuestions}
+            examId={exam.id}
+            sessionId={session?.id}
+            offeringId={courseId}
+            onChanged={onChanged}
+            onError={onError}
+            onSuccess={onSuccess}
+          />
         )}
         {hasOfferingContext && (
           <LifecycleActionButton

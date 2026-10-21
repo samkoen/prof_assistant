@@ -22,7 +22,12 @@ export default function TeacherExamsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const lifecycle = useSessionLifecycle({ reload: data.load, onError: data.setError, onReopened: () => setTab("open") });
   const activation = useActivateExam({ offerings: data.offerings, reload: data.load, onError: data.setError });
-  const handlers = { onRequest: lifecycle.request, onActivateSession: activation.startFromSession };
+  const handlers = {
+    onRequest: lifecycle.request,
+    onActivateSession: activation.startFromSession,
+    onChanged: data.load,
+    onError: data.setError,
+  };
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
     data.load();

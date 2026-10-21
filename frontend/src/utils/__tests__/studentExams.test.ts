@@ -18,6 +18,14 @@ describe("studentExamView", () => {
   it("copie rendue sans publication → hors note", () => {
     expect(studentExamView({ status: "closed", results_published: false } as never, submitted as never).key).toBe("submitted");
   });
+  it("תרגול bloqué sans note reste ouvrable", () => {
+    const view = studentExamView(
+      { status: "active", is_tirgoul: true, grading_locked: true } as never,
+      { started_at: "2026-01-01", submitted_at: "2026-01-02", score: null, max_score: null } as never,
+    );
+    expect(view.key).toBe("submitted");
+    expect(view.openable).toBe(true);
+  });
   it("copie rendue avec résultats publiés (ou entraînement) → noté", () => {
     expect(studentExamView({ status: "closed", results_published: true } as never, submitted as never).key).toBe("graded");
     expect(studentExamView({ status: "active", is_tirgoul: true } as never, submitted as never).key).toBe("graded");

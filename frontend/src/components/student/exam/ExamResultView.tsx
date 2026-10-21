@@ -56,6 +56,7 @@ export default function ExamResultView({ state, id }: { state: ExamTakeState; id
           practiceResults={practiceResults}
           resultsPublished={published}
           practiceReview={phase === "practice_review"}
+          gradingLocked={Boolean(paper.grading_locked)}
         />
       )}
       {paper.kind === "task" ? <TaskResultPanel sessionId={paper.session_id} /> : review && <ExamSubmissionReview review={review} onAttemptScore={updateScore(state)} />}

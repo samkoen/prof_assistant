@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import TaskReviewSource
-from app.models.exam import Exam, StudentExamAttempt
+from app.models.exam import Exam, ExamSession, StudentExamAttempt
 from app.models.task import TaskReview, TaskStep
 from app.models.user import User
 from app.schemas.task import TaskReviewOut, TaskReviewPatch
@@ -35,6 +35,9 @@ async def _reviews_by_step(attempt_id: int, db: AsyncSession) -> dict[int, TaskR
 
 
 async def refresh_attempt_score(attempt: StudentExamAttempt, exam_id: int, db: AsyncSession) -> None:
+    session = await db.get(ExamSession, attempt.exam_session_id)
+    if session and session.grading_locked:
+        return
     steps = await list_steps(exam_id, db)
     reviews = await _reviews_by_step(attempt.id, db)
     scores = {step_id: row.score for step_id, row in reviews.items()}

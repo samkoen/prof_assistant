@@ -73,6 +73,7 @@ from app.services.exam_lifecycle import (
     open_tirgoul_sessions_if_ready,
     session_allows_student_work,
 )
+from app.services.practice_release import block_session, deploy_exam_on_offering, deploy_session, should_record_score
 from app.services.option_shuffle import shuffled_options
 from app.services.personal_subject import prepare_student_create, student_may_edit_exam
 from app.services.exam_kind import (
@@ -198,6 +199,7 @@ def _session_response(session: ExamSession, question_count: int = 0) -> ExamSess
         activated_at=session.activated_at,
         closed_at=session.closed_at,
         results_published=session.results_published,
+        grading_locked=bool(session.grading_locked),
         integrity_mode_enabled=session.integrity_mode_enabled,
         is_tirgoul=is_tirgoul(session.exam),
         kind=exam_kind_value(session.exam),
@@ -226,6 +228,24 @@ async def _get_teacher_exam(exam_id: int, user: User, db: AsyncSession) -> Exam:
     if not teacher_can_edit_catalog_item(exam, user, catalog.teacher_id):
         raise HTTPException(status_code=403, detail="אין הרשאה")
     return exam
+
+
+async def _managed_offering(offering_id: int, exam: Exam, user: User, db: AsyncSession) -> CourseOffering:
+    row = await db.execute(
+        select(CourseOffering)
+        .options(selectinload(CourseOffering.catalog_course))
+        .where(
+            CourseOffering.id == offering_id,
+            offering_managed_by_clause(user.id),
+            CourseOffering.catalog_course_id == exam.catalog_course_id,
+        )
+    )
+    offering = row.scalar_one_or_none()
+    if not offering:
+        raise HTTPException(status_code=400, detail="הרצת קורס לא תואמת למטלה")
+    if not catalog_item_visible_to_teacher(exam, offering.teacher_id):
+        raise HTTPException(status_code=403, detail="אין הרשאה להפעיל מבחן זה")
+    return offering
 
 
 async def _get_teacher_session(session_id: int, user: User, db: AsyncSession) -> ExamSession:
@@ -300,7 +320,7 @@ async def _get_student_active_session(session_id: int, user: User, db: AsyncSess
         raise HTTPException(status_code=400, detail="המבחן לא פעיל")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
-    _refuse_private_exam(session.exam, user.id)
+    ensure_student_can_see_exam(session.exam, user.id)
     return session
 
 
@@ -316,12 +336,8 @@ async def _get_student_session(session_id: int, user: User, db: AsyncSession) ->
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if not await _student_approved_for_offering(session.offering_id, user, db):
         raise HTTPException(status_code=403, detail="אין גישה")
-    _refuse_private_exam(session.exam, user.id)
+    ensure_student_can_see_exam(session.exam, user.id)
     return session
-
-
-def _refuse_private_exam(exam: Exam, user_id: int) -> None:
-    ensure_student_can_see_exam(exam, user_id)
 
 
 async def _saved_answers_for_attempt(attempt_id: int, db: AsyncSession) -> list[SavedAnswerDraft]:
@@ -347,6 +363,7 @@ def _take_meta(session: ExamSession, exam: Exam) -> dict:
         "auto_submit_on_timeout": exam.auto_submit_on_timeout,
         "integrity_mode_enabled": session.integrity_mode_enabled,
         "results_published": session.results_published,
+        "grading_locked": bool(session.grading_locked),
         "questions_language": exam.questions_language,
         "is_tirgoul": is_tirgoul(exam),
         "kind": exam_kind_value(exam),
@@ -1132,8 +1149,7 @@ async def activate_exam(
     if not exam:
         raise HTTPException(status_code=404, detail="מטלה לא נמצאה")
     if is_tirgoul(exam) or is_task(exam):
-        detail = "משימה נפתחת אוטומטית אחרי הוספת תת-משימות" if is_task(exam) else "תרגול נפתח אוטומטית אחרי הוספת שאלות"
-        raise HTTPException(status_code=400, detail=detail)
+        raise HTTPException(status_code=400, detail="יש לשלוח תרגול או משימה לתלמידים מכפתור השליחה")
     offering = await db.execute(
         select(CourseOffering)
         .options(selectinload(CourseOffering.catalog_course))
@@ -1371,6 +1387,48 @@ async def reopen_exam_session(
         select(func.count()).select_from(Question).where(Question.exam_id == session.exam_id)
     )
     return _session_response(session, cnt or 0)
+
+
+async def _practice_session_response(session: ExamSession, db: AsyncSession) -> ExamSessionResponse:
+    await db.commit()
+    counts = await display_counts_by_exam([session.exam], db)
+    return _session_response(session, counts.get(session.exam_id, 0))
+
+
+@router.post("/sessions/{session_id}/deploy", response_model=ExamSessionResponse)
+async def deploy_exam_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER)),
+):
+    session = await _get_teacher_session(session_id, user, db)
+    await deploy_session(session, session.exam, db)
+    return await _practice_session_response(session, db)
+
+
+@router.post("/{exam_id}/deploy", response_model=ExamSessionResponse)
+async def deploy_exam_to_offering(
+    exam_id: int,
+    body: ExamSessionActivate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER)),
+):
+    exam = await _get_teacher_exam(exam_id, user, db)
+    offering = await _managed_offering(body.offering_id, exam, user, db)
+    session = await deploy_exam_on_offering(exam, offering, db)
+    session = await _get_teacher_session(session.id, user, db)
+    return await _practice_session_response(session, db)
+
+
+@router.post("/sessions/{session_id}/block-grading", response_model=ExamSessionResponse)
+async def block_exam_grading(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_roles(UserRole.TEACHER)),
+):
+    session = await _get_teacher_session(session_id, user, db)
+    await block_session(session, session.exam)
+    return await _practice_session_response(session, db)
 
 
 @router.post("/sessions/{session_id}/open", response_model=AttemptResponse)
@@ -1697,7 +1755,9 @@ async def submit_practice_session(
 ):
     session = await _get_student_session(session_id, user, db)
     attempt = await get_submitted_attempt(session_id, user.id, db)
-    attempt = await finalize_practice_submission(attempt, session.exam, body.answers, db)
+    attempt = await finalize_practice_submission(
+        attempt, session.exam, body.answers, db, record_score=should_record_score(session)
+    )
     await db.commit()
     await db.refresh(attempt)
     return _attempt_response(

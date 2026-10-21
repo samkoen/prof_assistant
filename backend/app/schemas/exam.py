@@ -139,6 +139,7 @@ class ExamSessionResponse(BaseModel):
     activated_at: datetime | None
     closed_at: datetime | None
     results_published: bool
+    grading_locked: bool = False
     integrity_mode_enabled: bool = False
     is_tirgoul: bool = False
     kind: ExamKind = ExamKind.OFFICIAL
@@ -331,6 +332,7 @@ class ExamTakeResponse(BaseModel):
     auto_submit_on_timeout: bool = True
     integrity_mode_enabled: bool = False
     results_published: bool = False
+    grading_locked: bool = False
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     is_tirgoul: bool = False
     kind: ExamKind = ExamKind.OFFICIAL

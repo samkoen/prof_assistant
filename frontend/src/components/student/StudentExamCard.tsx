@@ -78,6 +78,7 @@ export default function StudentExamCard({ session, showCourse = false, highlight
             <StatusChip label={view.label} tone={view.tone} />
             {session.kind === "task" && <StatusChip label={he.taskChip} tone="violet" />}
             {session.is_tirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
+            {session.grading_locked && <StatusChip label={he.gradingLocked} tone="warning" />}
           </Box>
           <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.35 }}>
             {session.exam_title}

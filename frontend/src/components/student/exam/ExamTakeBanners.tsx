@@ -27,6 +27,7 @@ export default function ExamTakeBanners({ state }: { state: ExamTakeState }) {
         </Alert>
       )}
       {success && <Alert severity="success" sx={successSx}>{success}</Alert>}
+      {paper.grading_locked && <Alert severity="info" sx={{ mb: 2 }}>{he.gradingLockedStudent}</Alert>}
       {phase === "exam" && !submitted && integrityActive && (
         <Alert severity="info" sx={{ mb: 2 }}>{he.examOfficialModeHint}</Alert>
       )}

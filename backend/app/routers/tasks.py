@@ -22,6 +22,7 @@ from app.schemas.task import (
 from app.services.ai_client import AiError
 from app.services.exam_kind import is_task
 from app.services.task_proofs import load_proof_bytes, proofs_by_step, save_proof, student_steps
+from app.services.practice_release import withhold_student_grade, without_grades
 from app.services.task_review import apply_teacher_review, load_board, verify_step
 from app.services.task_service import add_step, delete_step, list_steps, update_step
 
@@ -110,6 +111,15 @@ async def get_own_proof(session_id: int, step_id: int, db: AsyncSession = Depend
     return await _proof_response(attempt.id, step_id, db)
 
 
+async def _student_task_result(session: ExamSession, attempt: StudentExamAttempt, db: AsyncSession) -> TaskStudentResult:
+    if withhold_student_grade(session, attempt):
+        steps = without_grades(await load_board(attempt, session.exam, db))
+        return TaskStudentResult(published=True, grading_locked=True, steps=steps)
+    if not session.results_published:
+        return TaskStudentResult(published=False, steps=[])
+    return TaskStudentResult(published=True, steps=await load_board(attempt, session.exam, db))
+
+
 @router.get("/sessions/{session_id}/task-result", response_model=TaskStudentResult)
 async def get_task_result(session_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_roles(UserRole.STUDENT))):
     session = await _get_student_session(session_id, user, db)
@@ -117,9 +127,7 @@ async def get_task_result(session_id: int, db: AsyncSession = Depends(get_db), u
     attempt = await _student_attempt(session, user, db)
     if not attempt.submitted_at:
         raise HTTPException(status_code=400, detail="המשימה טרם הוגשה")
-    if not session.results_published:
-        return TaskStudentResult(published=False, steps=[])
-    return TaskStudentResult(published=True, steps=await load_board(attempt, session.exam, db))
+    return await _student_task_result(session, attempt, db)
 
 
 @router.get("/sessions/{session_id}/attempts/{attempt_id}/task", response_model=list[TaskReviewOut])

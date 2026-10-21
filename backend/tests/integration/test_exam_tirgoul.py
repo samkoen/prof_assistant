@@ -22,8 +22,9 @@ async def _prepared_tirgoul(client, student_id: int) -> dict:
     )
     qcm = await add_single_question(client, exam["id"])
     await enroll_student(client, offering_id, student_id)
-    sessions = await json_ok(await client.get(f"/api/exams/sessions/mine"))
+    sessions = await json_ok(await client.get("/api/exams/sessions/mine"))
     session = next(s for s in sessions if s["exam_id"] == exam["id"])
+    await json_ok(await client.post(f"/api/exams/sessions/{session['id']}/deploy"))
     await logout(client)
     return {
         "exam_id": exam["id"],
@@ -108,6 +109,33 @@ async def test_tirgoul_retry_keeps_the_grade_the_teacher_sees(it_env: ItEnv):
 
 
 @pytest.mark.integration
+async def test_blocked_tirgoul_stays_open_without_a_grade(it_env: ItEnv):
+    ctx = await _prepared_tirgoul(it_env.client, it_env.users.student_id)
+    await login(it_env.client, TEACHER_EMAIL)
+    blocked = await json_ok(await it_env.client.post(f"/api/exams/sessions/{ctx['session_id']}/block-grading"))
+    assert blocked["grading_locked"] is True
+    assert blocked["status"] == "active"
+    await logout(it_env.client)
+    await login(it_env.client, STUDENT_EMAIL)
+    await student_start_exam(it_env.client, ctx["session_id"])
+    submitted = await student_submit_qcm(
+        it_env.client, ctx["session_id"], ctx["question_id"], ctx["correct_option_id"]
+    )
+    assert submitted["score"] is None
+    review = await json_ok(await it_env.client.get(f"/api/exams/sessions/{ctx['session_id']}/review"))
+    assert review["show_correction"] is True
+    await json_ok(await it_env.client.post(f"/api/exams/sessions/{ctx['session_id']}/practice/start"))
+    retried = await json_ok(
+        await it_env.client.post(
+            f"/api/exams/sessions/{ctx['session_id']}/practice/submit",
+            json={"answers": [{"question_id": ctx["question_id"], "selected_option_ids": [ctx["correct_option_id"]], "text_answer": None}]},
+        )
+    )
+    assert retried["score"] is None
+    assert retried["practice_score"] is None
+
+
+@pytest.mark.integration
 async def test_tirgoul_opens_matching_offerings_without_offering_id(it_env: ItEnv):
     client = it_env.client
     await login(client, TEACHER_EMAIL)
@@ -117,8 +145,11 @@ async def test_tirgoul_opens_matching_offerings_without_offering_id(it_env: ItEn
     sessions = await json_ok(await client.get("/api/exams/sessions/mine"))
     session = next(s for s in sessions if s["exam_id"] == exam["id"])
     assert session["offering_id"] == offering_id
-    assert session["status"] == "active"
-    assert session["integrity_mode_enabled"] is False
+    assert session["status"] == "draft"
+    assert session["grading_locked"] is False
+    deployed = await json_ok(await client.post(f"/api/exams/sessions/{session['id']}/deploy"))
+    assert deployed["status"] == "active"
+    assert deployed["integrity_mode_enabled"] is False
 
 
 @pytest.mark.integration
@@ -135,5 +166,5 @@ async def test_duplicated_tirgoul_opens_for_matching_offerings(it_env: ItEnv):
     sessions = await json_ok(await client.get("/api/exams/sessions/mine"))
     copied = next(s for s in sessions if s["exam_id"] == copy["id"])
     assert copied["offering_id"] == offering_id
-    assert copied["status"] == "active"
-    assert copied["integrity_mode_enabled"] is False
+    assert copied["status"] == "draft"
+    assert copied["grading_locked"] is False
