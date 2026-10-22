@@ -47,6 +47,8 @@ frontend/dist/
 frontend/.vite/
 *.tsbuildinfo
 frontend/tsconfig.tsbuildinfo
+# Sortie tsc accidentelle (les sources sont en .ts/.tsx, tsconfig a noEmit)
+frontend/src/**/*.js
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
