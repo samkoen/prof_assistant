@@ -28,8 +28,15 @@ export default function CloseAccountDialog({ user, onClose, onDone, onError }: C
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setOrders([]);
     if (!user) return;
-    void loadOrders(user.id).then(setOrders).catch(() => setOrders([]));
+    let current = true;
+    void loadOrders(user.id)
+      .then((loaded) => current && setOrders(loaded))
+      .catch(() => current && setOrders([]));
+    return () => {
+      current = false;
+    };
   }, [user]);
 
   const run = async (path: string, done: string) => {

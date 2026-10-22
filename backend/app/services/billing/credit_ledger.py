@@ -6,16 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.billing import PaymentOrder
 from app.services.billing.constants import ORDER_PAID
 from app.services.billing.credit_policy import PackSlice, consume_paid, restore_paid
+from app.services.billing.wallet import lock_for_update
 
 
 def _slice(order: PaymentOrder) -> PackSlice:
     return PackSlice(order.id, order.credits, order.credits_remaining, order.paid_at)
-
-
-def _lock(stmt, db: AsyncSession):
-    if db.get_bind().dialect.name == "postgresql":
-        return stmt.with_for_update()
-    return stmt
 
 
 async def paid_orders(db: AsyncSession, user_id: int, product: str, *, lock: bool = False) -> list[PaymentOrder]:
@@ -29,7 +24,7 @@ async def paid_orders(db: AsyncSession, user_id: int, product: str, *, lock: boo
         .order_by(PaymentOrder.id.asc())
     )
     if lock:
-        stmt = _lock(stmt, db)
+        stmt = lock_for_update(stmt, db)
     return list((await db.execute(stmt)).scalars().all())
 
 

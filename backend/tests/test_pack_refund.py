@@ -153,6 +153,29 @@ async def test_refund_refused_after_fourteen_days_without_touching_payme(maker, 
 
 
 @pytest.mark.asyncio
+async def test_refund_rereads_the_order_under_lock(maker, monkeypatch):
+    """Un crédit consommé par une autre session après le chargement de la commande bloque le remboursement."""
+    await _paid_order(maker)
+
+    async def unexpected(_sale_id: str) -> dict:
+        raise AssertionError("PayMe ne doit pas être appelé")
+
+    monkeypatch.setattr("app.services.billing.account_closure.refund_sale", unexpected)
+    async with maker() as db:
+        order = (await db.execute(select(PaymentOrder))).scalar_one()
+        order.paid_at = NOW - timedelta(days=1)
+        await db.commit()
+        async with maker() as other:
+            concurrent = (await other.execute(select(PaymentOrder))).scalar_one()
+            concurrent.credits_remaining = 19
+            await other.commit()
+        assert order.credits_remaining == 20  # valeur périmée en identity map
+        with pytest.raises(HTTPException) as excinfo:
+            await refund_unused_pack(db, order)
+    assert excinfo.value.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_external_refund_of_a_legacy_pack_drops_the_whole_pack(maker):
     """Commande d'avant le suivi (credits_remaining NULL) : l'argent est rendu, les crédits partent."""
     await _paid_order(maker)

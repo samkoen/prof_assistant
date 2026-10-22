@@ -24,7 +24,7 @@ from app.services.billing.payme_client import (
     public_base,
     webhook_secret,
 )
-from app.services.billing.wallet import lock_wallet
+from app.services.billing.wallet import lock_for_update, lock_wallet
 
 
 def _return_url(transaction_id: str) -> str:
@@ -75,8 +75,8 @@ async def start_checkout(user: User, pack_code: str, db: AsyncSession) -> tuple[
 async def _find_order(db: AsyncSession, transaction_id: str, *, lock: bool = False) -> PaymentOrder | None:
     """`lock` sérialise les webhooks PayMe dupliqués : un seul crédite le portefeuille."""
     stmt = select(PaymentOrder).where(PaymentOrder.transaction_id == transaction_id)
-    if lock and db.get_bind().dialect.name == "postgresql":
-        stmt = stmt.with_for_update()
+    if lock:
+        stmt = lock_for_update(stmt, db)
     return (await db.execute(stmt)).scalar_one_or_none()
 
 

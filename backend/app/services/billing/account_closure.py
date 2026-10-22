@@ -14,7 +14,7 @@ from app.services.billing.context import role_name
 from app.services.billing.credit_ledger import void_paid_orders
 from app.services.billing.credit_policy import REFUND_REASONS, refund_block_reason
 from app.services.billing.payme_client import fetch_sale, refund_sale
-from app.services.billing.wallet import lock_wallet
+from app.services.billing.wallet import lock_for_update, lock_wallet
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +90,7 @@ async def note_external_refund(db: AsyncSession, order: PaymentOrder) -> None:
 
 
 async def _lock_order(db: AsyncSession, order_id: int) -> PaymentOrder:
-    stmt = select(PaymentOrder).where(PaymentOrder.id == order_id)
-    if db.get_bind().dialect.name == "postgresql":
-        stmt = stmt.with_for_update()
+    stmt = lock_for_update(select(PaymentOrder).where(PaymentOrder.id == order_id), db)
     return (await db.execute(stmt)).scalar_one()
 
 

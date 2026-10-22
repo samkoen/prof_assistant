@@ -8,14 +8,16 @@ from app.services.billing.constants import BUCKET_FREE, BUCKET_PAID
 from app.services.billing.settings_store import get_billing_config
 
 
-def _maybe_lock(stmt, db: AsyncSession):
+def lock_for_update(stmt, db: AsyncSession):
+    """`populate_existing` relit la ligne sous verrou même si elle est déjà en identity map."""
+    stmt = stmt.execution_options(populate_existing=True)
     if db.get_bind().dialect.name == "postgresql":
         return stmt.with_for_update()
     return stmt
 
 
 async def lock_wallet(db: AsyncSession, user_id: int, product: str) -> AiWallet:
-    stmt = _maybe_lock(
+    stmt = lock_for_update(
         select(AiWallet).where(AiWallet.user_id == user_id, AiWallet.product == product),
         db,
     )
