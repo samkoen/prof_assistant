@@ -1,4 +1,6 @@
 # --- Secrets & env (ne jamais committer) ---
+# Mémo local (compte admin, commandes perso)
+/exam.txt
 .env
 .env.*
 !.env.example

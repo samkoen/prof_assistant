@@ -1,31 +1,13 @@
 ---
-description: Standards du projet — taille des fonctions, RTL hébreu, modules OOP par entité
+description: Standards du projet — RTL hébreu et modules OOP par entité
 alwaysApply: true
 ---
 
 # Standards du projet exam
 
-## 1. Taille des fonctions (25–30 lignes max)
+Le plafond de **50 lignes** par fonction, le SOLID et le typage strict sont dans `architecture.mdc`.
 
-- Chaque fonction, méthode ou handler ne doit pas dépasser **30 lignes** (cible **25–30**).
-- Au-delà : extraire des sous-fonctions privées, des helpers ou des méthodes de classe dédiées.
-- Une page/composant volumineux reste acceptable si la logique est découpée en petites fonctions nommées explicitement.
-- Éviter les blocs imbriqués profonds ; préférer retours anticipés et early returns.
-
-```typescript
-// ❌ MAUVAIS — une seule fonction de 80 lignes
-async function handleSubmit() { /* tout le flux */ }
-
-// ✅ BON — orchestration courte
-async function handleSubmit() {
-  const payload = buildPayload(form);
-  await validatePayload(payload);
-  await api.submit(payload);
-  resetForm();
-}
-```
-
-## 2. RTL — tableaux, texte hébreu, UI
+## 1. RTL — tableaux, texte hébreu, UI
 
 - L’interface est en **hébreu** : respecter **RTL** partout (pas seulement les libellés).
 - **Global** : conserver `direction: "rtl"` dans le thème MUI et `stylis-plugin-rtl` dans `main.tsx`.
@@ -34,7 +16,7 @@ async function handleSubmit() {
 - **Exceptions LTR** : champs techniques (email, code, URLs, JSON) → `dir="ltr"` explicitement.
 - **CSS** : préférer propriétés logiques (`marginInlineStart`, `paddingInlineEnd`) plutôt que `left`/`right` fixes quand c’est pertinent.
 
-## 3. Architecture modulaire — OOP par entité (front + back)
+## 2. Architecture modulaire — OOP par entité (front + back)
 
 ### Principe
 

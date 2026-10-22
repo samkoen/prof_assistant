@@ -17,7 +17,7 @@ Toute **nouvelle feature** ou **correctif métier / sécurité** doit inclure de
 ## Contenu des tests
 
 - Préférer la **logique pure** (services, utils, helpers).
-- Si la logique est coincée dans un router ou un composant : l’**extraire** en helper testable (fonctions ≤ 30 lignes, cf. `project-standards.mdc`).
+- Si la logique est coincée dans un router ou un composant : l’**extraire** en helper testable (fonctions ≤ 50 lignes, cf. `architecture.mdc`).
 - Pas d’exigence e2e / DB pleine sauf impossibilité d’isoler ; utiliser mocks (`SimpleNamespace`, stubs sessionStorage, etc.) comme pour scoring / `session_token`.
 
 ## Avant de clôturer
