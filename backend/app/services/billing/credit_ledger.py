@@ -12,7 +12,13 @@ def _slice(order: PaymentOrder) -> PackSlice:
     return PackSlice(order.id, order.credits, order.credits_remaining, order.paid_at)
 
 
-async def paid_orders(db: AsyncSession, user_id: int, product: str) -> list[PaymentOrder]:
+def _lock(stmt, db: AsyncSession):
+    if db.get_bind().dialect.name == "postgresql":
+        return stmt.with_for_update()
+    return stmt
+
+
+async def paid_orders(db: AsyncSession, user_id: int, product: str, *, lock: bool = False) -> list[PaymentOrder]:
     stmt = (
         select(PaymentOrder)
         .where(
@@ -22,6 +28,8 @@ async def paid_orders(db: AsyncSession, user_id: int, product: str) -> list[Paym
         )
         .order_by(PaymentOrder.id.asc())
     )
+    if lock:
+        stmt = _lock(stmt, db)
     return list((await db.execute(stmt)).scalars().all())
 
 
@@ -34,12 +42,12 @@ def _apply(orders: list[PaymentOrder], chosen: PackSlice | None) -> None:
 
 
 async def consume_paid_credit(db: AsyncSession, user_id: int, product: str) -> None:
-    orders = await paid_orders(db, user_id, product)
+    orders = await paid_orders(db, user_id, product, lock=True)
     _apply(orders, consume_paid([_slice(order) for order in orders]))
 
 
 async def restore_paid_credit(db: AsyncSession, user_id: int, product: str) -> None:
-    orders = await paid_orders(db, user_id, product)
+    orders = await paid_orders(db, user_id, product, lock=True)
     _apply(orders, restore_paid([_slice(order) for order in orders]))
 
 
