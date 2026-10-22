@@ -1,0 +1,45 @@
+---
+description: Architecture — SoC front/back, SOLID, fonctions ≤ 50 lignes, typage strict
+alwaysApply: true
+---
+
+# Directives d'architecture et de développement
+
+## 1. Modularité et séparation des responsabilités
+
+- **Découplage front / back** : présentation dans le frontend ; métier et persistance dans le backend.
+- **Contrats d'API** : échanges via DTO typés (Pydantic `schemas/`, types TS). Pas de fuite du modèle ORM ni de la logique backend vers le client.
+- **Modules par domaine** : un domaine cohérent par dossier. Pas de dépendances circulaires.
+- Routers et pages restent minces ; la logique vit dans les services.
+
+## 2. OOP et SOLID
+
+- **SRP** : une classe ou un module, une raison de changer. **DIP** : dépendre d'abstractions, pas des détails concrets.
+- Encapsuler l'état interne. Exposer une interface minimale. Préférer la **composition** à l'héritage.
+- Factory, Strategy, Repository uniquement quand le problème le justifie.
+
+## 3. Taille des fonctions (50 lignes max)
+
+- Aucune fonction ou méthode ne dépasse **50 lignes**.
+- Une seule opération logique par fonction. Étapes multiples → méthodes privées ou utilitaires.
+- Un seul niveau d'abstraction par méthode : ne pas mêler I/O bas niveau et métier dans le même corps.
+
+```typescript
+// ❌ BAD — I/O, validation et mapping dans la même fonction
+async function saveExam(raw: unknown) { /* ... */ }
+
+// ✅ GOOD — un niveau d'abstraction
+async function saveExam(raw: unknown): Promise<Exam> {
+  const draft = parseExamDraft(raw);
+  assertExamDraft(draft);
+  return examRepository.save(draft);
+}
+```
+
+## 4. Lisibilité et maintenance
+
+- Noms de classes, méthodes et variables en **anglais**, auto-descriptifs.
+- Erreurs explicites : exceptions typées ou type `Result`. Jamais de `catch` / `except` vide.
+- Typage strict et exhaustif des arguments, retours et propriétés.
+
+Les règles projet (RTL hébreu, modules par entité, tests unitaires) restent en vigueur.
