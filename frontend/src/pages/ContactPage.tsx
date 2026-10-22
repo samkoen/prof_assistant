@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box } from "@mui/material";
 import { sendContactMessage } from "../api/contact";
 import { ApiError } from "../api/client";
@@ -7,12 +8,13 @@ import ContactSent from "../components/contact/ContactSent";
 import ListPageToolbar from "../components/ListPageToolbar";
 import { useAuth } from "../context/AuthContext";
 import { he } from "../i18n/he";
-import { canSubmitContact, EMPTY_CONTACT_FORM, validateContactForm } from "../utils/contactForm";
+import { canSubmitContact, closureContactForm, EMPTY_CONTACT_FORM, validateContactForm } from "../utils/contactForm";
 
 /** « צור קשר » : le message part par e-mail vers l'équipe, avec l'adresse du compte en reply-to. */
 export default function ContactPage() {
   const { user } = useAuth();
-  const [form, setForm] = useState(EMPTY_CONTACT_FORM);
+  const [params] = useSearchParams();
+  const [form, setForm] = useState(() => (params.get("topic") === "close" ? closureContactForm() : EMPTY_CONTACT_FORM));
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");

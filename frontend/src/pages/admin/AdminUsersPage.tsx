@@ -22,6 +22,8 @@ import ListPageToolbar from "../../components/ListPageToolbar";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import type { DataListColumnDef } from "../../components/DataListTable/types";
 import PaidIcon from "@mui/icons-material/Paid";
+import PersonOffIcon from "@mui/icons-material/PersonOff";
+import CloseAccountDialog from "../../components/admin/CloseAccountDialog";
 import SetCreditsDialog from "../../components/admin/SetCreditsDialog";
 import { api, ApiError, type User } from "../../api/client";
 import { he } from "../../i18n/he";
@@ -48,6 +50,7 @@ export default function AdminUsersPage() {
   const [open, setOpen] = useState(false);
   const [resetUser, setResetUser] = useState<AdminUser | null>(null);
   const [creditsUser, setCreditsUser] = useState<AdminUser | null>(null);
+  const [closeUser, setCloseUser] = useState<AdminUser | null>(null);
   const [resetting, setResetting] = useState(false);
   const [savingCredits, setSavingCredits] = useState(false);
   const [success, setSuccess] = useState("");
@@ -237,6 +240,7 @@ export default function AdminUsersPage() {
               onReset={() => setResetUser(u)}
               onCredits={() => setCreditsUser(u)}
               onToggleBlock={() => toggleBlock(u, !u.is_blocked)}
+              onCloseAccount={() => setCloseUser(u)}
             />
           )}
         />
@@ -305,6 +309,12 @@ export default function AdminUsersPage() {
         onClose={() => setCreditsUser(null)}
         onSave={(credits) => void saveCredits(credits)}
       />
+      <CloseAccountDialog
+        user={closeUser}
+        onClose={() => setCloseUser(null)}
+        onDone={(message) => { setSuccess(message); void load(); }}
+        onError={setError}
+      />
     </Box>
   );
 }
@@ -314,11 +324,13 @@ function UserRowActions({
   onReset,
   onCredits,
   onToggleBlock,
+  onCloseAccount,
 }: {
   user: AdminUser;
   onReset: () => void;
   onCredits: () => void;
   onToggleBlock: () => void;
+  onCloseAccount: () => void;
 }) {
   return (
     <>
@@ -334,6 +346,13 @@ function UserRowActions({
           <LockResetIcon fontSize="small" />
         </IconButton>
       </Tooltip>
+      {user.role !== "admin" && (
+        <Tooltip title={he.closeAccount}>
+          <IconButton size="small" color="error" onClick={onCloseAccount} aria-label={he.closeAccount}>
+            <PersonOffIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
       <Tooltip title={user.is_blocked ? he.unblockUser : he.blockUser}>
         <IconButton
           size="small"

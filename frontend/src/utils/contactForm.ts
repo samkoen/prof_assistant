@@ -11,6 +11,15 @@ export type ContactForm = { category: ContactCategory; subject: string; message:
 export type PublicContactForm = ContactForm & { name: string; email: string; website: string };
 
 export const EMPTY_CONTACT_FORM: ContactForm = { category: "question", subject: "", message: "" };
+
+/** Demande de clôture, préremplie depuis le profil. */
+export function closureContactForm(): ContactForm {
+  return {
+    category: "billing",
+    subject: he.closeAccountRequest,
+    message: he.closeAccountRequestMessage,
+  };
+}
 export const EMPTY_PUBLIC_CONTACT_FORM: PublicContactForm = { ...EMPTY_CONTACT_FORM, name: "", email: "", website: "" };
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

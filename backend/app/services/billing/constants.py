@@ -14,6 +14,8 @@ USAGE_RELEASED = "released"
 ORDER_PENDING = "pending"
 ORDER_PAID = "paid"
 ORDER_FAILED = "failed"
+ORDER_REFUNDED = "refunded"
+REFUND_WINDOW_DAYS = 14
 
 BUCKET_FREE = "free"
 BUCKET_PAID = "paid"

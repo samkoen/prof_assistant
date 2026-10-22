@@ -8,6 +8,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_roles
+from app.models.billing import PaymentOrder
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import QuestionAiExplanation, StudentExamAttempt
 from app.models.enums import UserRole
@@ -19,6 +20,7 @@ from app.schemas.admin_user import (
     AdminUserResponse,
 )
 from app.schemas.auth import UserResponse
+from app.services.billing.account_closure import close_account, refund_unused_pack, refundable_orders
 from app.services.billing.admin_credits import set_user_credits, views_for_users
 from app.schemas.course import CourseOfferingCreate, CourseOfferingResponse
 from app.security import hash_password
@@ -99,6 +101,56 @@ async def patch_user_credits(
     result = await set_user_credits(db, actor, target, body.credits)
     await db.commit()
     return result
+
+
+@router.get("/users/{user_id}/refundable-orders")
+async def list_refundable_orders(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    orders = await refundable_orders(db, target.id)
+    return [
+        {
+            "id": order.id,
+            "credits": order.credits,
+            "price_ils": order.amount_agorot // 100,
+            "paid_at": order.paid_at,
+        }
+        for order in orders
+    ]
+
+
+@router.post("/users/{user_id}/orders/{order_id}/refund")
+async def refund_user_order(
+    user_id: int,
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    order = await db.get(PaymentOrder, order_id)
+    if order is None or order.user_id != user_id:
+        raise HTTPException(status_code=404, detail="הזמנה לא נמצאה")
+    await refund_unused_pack(db, order)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/close")
+async def close_user_account(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+):
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    await close_account(db, target)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/users", response_model=UserResponse)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.billing import PaymentOrder
 from app.models.user import User
+from app.services.billing.account_closure import note_external_refund
 from app.services.billing.constants import ORDER_FAILED, ORDER_PAID, ORDER_PENDING
 from app.services.billing.context import role_name
 from app.services.billing.packs import CreditPack, pack_label, require_pack_for_role
@@ -87,6 +88,7 @@ async def _mark_paid(db: AsyncSession, order: PaymentOrder, payload: dict) -> No
         order.payme_transaction_id = txn
     wallet = await lock_wallet(db, order.user_id, order.product)
     wallet.paid_remaining += order.credits
+    order.credits_remaining = order.credits
 
 
 def _signed(payload: dict) -> bool:
@@ -116,6 +118,10 @@ def _paid_payload(item: dict) -> dict:
 async def _apply_signed(payload: dict, order: PaymentOrder, db: AsyncSession) -> str:
     if order.status == ORDER_PAID:
         return "already_paid"
+    if _notified_status(payload) == "refunded":
+        await note_external_refund(db, order)
+        await db.commit()
+        return "refunded"
     if _notified_status(payload) not in COMPLETED_STATUSES:
         order.status = ORDER_FAILED
         await db.commit()
@@ -131,7 +137,11 @@ async def _fail_if_terminal(order: PaymentOrder, db: AsyncSession, item: dict | 
     if not isinstance(item, dict):
         return "pending"
     status = str(item.get("sale_status") or "").strip().lower()
-    if status not in {"failed", "canceled", "voided", "refunded"}:
+    if status == "refunded":
+        await note_external_refund(db, order)
+        await db.commit()
+        return "refunded"
+    if status not in {"failed", "canceled", "voided"}:
         return "pending"
     order.status = ORDER_FAILED
     await db.commit()
