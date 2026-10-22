@@ -772,6 +772,7 @@ export const he = {
   closeAccountDone: "החשבון נסגר",
   refundPack: "החזר חבילה",
   refundPackDone: "ההחזר בוצע והקרדיטים ירדו מהחשבון",
+  closeAccountRefundFirst: "יש להחזיר קודם את החבילה שעומדת בתנאי ההחזר",
   noRefundablePack: "אין חבילה שעומדת בתנאי ההחזר",
   closeAccountRequest: "בקשה לסגירת חשבון",
   closeAccountRequestMessage: "אבקש לסגור את החשבון ולבטל את יתרת הקרדיטים שנותרה.",

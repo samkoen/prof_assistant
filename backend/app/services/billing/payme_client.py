@@ -75,11 +75,12 @@ async def refund_sale(payme_sale_id: str) -> dict:
     if not payme_ready() or not payme_sale_id.strip():
         raise HTTPException(status_code=503, detail=NOT_CONFIGURED)
     body = {"seller_payme_id": settings.payme_seller_id.strip(), "payme_sale_id": payme_sale_id.strip(), "language": "he"}
-    async with httpx.AsyncClient(timeout=20) as client:
-        response = await client.post(refund_endpoint(), json=body, headers=sale_headers())
     try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(refund_endpoint(), json=body, headers=sale_headers())
         data = response.json()
-    except ValueError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
+        # Un timeout doit rester une HTTPException : l'appelant vérifie PayMe puis rend les crédits.
         raise HTTPException(status_code=502, detail=SALE_REJECTED) from exc
     if not isinstance(data, dict) or not _refund_ok(data):
         detail = str(data.get("status_error_details") or SALE_REJECTED) if isinstance(data, dict) else SALE_REJECTED

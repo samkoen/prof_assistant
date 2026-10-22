@@ -11,7 +11,7 @@ from app.config import settings
 from app.models.billing import PaymentOrder
 from app.models.user import User
 from app.services.billing.account_closure import note_external_refund
-from app.services.billing.constants import ORDER_FAILED, ORDER_PAID, ORDER_PENDING
+from app.services.billing.constants import ORDER_FAILED, ORDER_PAID, ORDER_PENDING, ORDER_REFUNDED
 from app.services.billing.context import role_name
 from app.services.billing.packs import CreditPack, pack_label, require_pack_for_role
 from app.services.billing.settings_store import get_billing_config
@@ -72,12 +72,25 @@ async def start_checkout(user: User, pack_code: str, db: AsyncSession) -> tuple[
     return order, url
 
 
-async def _find_order(db: AsyncSession, transaction_id: str) -> PaymentOrder | None:
+async def _find_order(db: AsyncSession, transaction_id: str, *, lock: bool = False) -> PaymentOrder | None:
+    """`lock` sérialise les webhooks PayMe dupliqués : un seul crédite le portefeuille."""
     stmt = select(PaymentOrder).where(PaymentOrder.transaction_id == transaction_id)
+    if lock and db.get_bind().dialect.name == "postgresql":
+        stmt = stmt.with_for_update()
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
+def _settled(order: PaymentOrder) -> str | None:
+    if order.status == ORDER_REFUNDED:
+        return "refunded"
+    if order.status == ORDER_PAID:
+        return "already_paid"
+    return None
+
+
 async def _mark_paid(db: AsyncSession, order: PaymentOrder, payload: dict) -> None:
+    if _settled(order):
+        return
     order.status = ORDER_PAID
     order.paid_at = datetime.now(timezone.utc)
     sale_id = str(payload.get("payme_sale_id") or "").strip()
@@ -116,12 +129,13 @@ def _paid_payload(item: dict) -> dict:
 
 
 async def _apply_signed(payload: dict, order: PaymentOrder, db: AsyncSession) -> str:
-    if order.status == ORDER_PAID:
-        return "already_paid"
     if _notified_status(payload) == "refunded":
         await note_external_refund(db, order)
         await db.commit()
         return "refunded"
+    settled = _settled(order)
+    if settled:
+        return settled
     if _notified_status(payload) not in COMPLETED_STATUSES:
         order.status = ORDER_FAILED
         await db.commit()
@@ -158,9 +172,15 @@ async def refresh_public_order(transaction_id: str, db: AsyncSession) -> Payment
 
 
 async def confirm_order_with_payme(order: PaymentOrder, db: AsyncSession) -> str:
+    if order.status == ORDER_REFUNDED:
+        return "refunded"
+    item = await fetch_sale(order.transaction_id)
+    if str((item or {}).get("sale_status") or "").strip().lower() == "refunded":
+        await note_external_refund(db, order)
+        await db.commit()
+        return "refunded"
     if order.status == ORDER_PAID:
         return "already_paid"
-    item = await fetch_sale(order.transaction_id)
     if not _sale_is_paid(item, order.amount_agorot):
         return await _fail_if_terminal(order, db, item)
     await _mark_paid(db, order, _paid_payload(item or {}))
@@ -169,7 +189,7 @@ async def confirm_order_with_payme(order: PaymentOrder, db: AsyncSession) -> str
 
 
 async def apply_webhook(payload: dict, db: AsyncSession) -> str:
-    order = await _find_order(db, str(payload.get("transaction_id") or ""))
+    order = await _find_order(db, str(payload.get("transaction_id") or ""), lock=True)
     if order is None:
         return "ignored"
     if _signed(payload):

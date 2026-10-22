@@ -58,10 +58,13 @@ export default function CloseAccountDialog({ user, onClose, onDone, onError }: C
             {packLabel(order)}
           </Button>
         ))}
+        {orders.length > 0 && (
+          <Typography variant="body2" color="warning.main" sx={{ mt: 2 }}>{he.closeAccountRefundFirst}</Typography>
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={busy}>{he.cancel}</Button>
-        <Button color="error" variant="contained" disabled={busy || user?.role === "admin"} onClick={() => void run(`/api/admin/users/${user?.id}/close`, he.closeAccountDone)}>
+        <Button color="error" variant="contained" disabled={busy || orders.length > 0 || user?.role === "admin"} onClick={() => void run(`/api/admin/users/${user?.id}/close`, he.closeAccountDone)}>
           {he.closeAccount}
         </Button>
       </DialogActions>
