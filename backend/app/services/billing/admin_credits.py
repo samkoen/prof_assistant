@@ -13,6 +13,7 @@ from app.models.user import User
 from app.services.billing.balance import product_for_role
 from app.services.billing.context import role_name
 from app.services.billing.settings_store import BillingConfig, get_billing_config
+from app.services.billing.credit_ledger import void_paid_orders
 from app.services.billing.wallet import lock_wallet, wallet_total
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ async def set_user_credits(db: AsyncSession, actor: User, target: User, credits:
     previous = wallet_total(wallet)
     wallet.free_remaining = 0
     wallet.paid_remaining = credits
+    await void_paid_orders(db, target.id, product)
     logger.info(
         "admin_set_credits actor=%s target=%s product=%s %s->%s",
         actor.id, target.id, product, previous, credits,

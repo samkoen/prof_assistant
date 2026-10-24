@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.billing import AiUsage
 from app.services.billing.constants import (
+    BUCKET_PAID,
     TEACHER_GENERATION,
     USAGE_CONFIRMED,
     USAGE_PENDING,
     USAGE_RELEASED,
 )
 from app.services.billing.context import AiBilling, current_billing
+from app.services.billing.credit_ledger import consume_paid_credit, restore_paid_credit
 from app.services.billing.settings_store import BillingConfig, get_billing_config
 from app.services.billing.wallet import lock_wallet, refund_one, take_one
 
@@ -62,6 +64,8 @@ async def _open_credit(db: AsyncSession, billing: AiBilling, config: BillingConf
     bucket = take_one(wallet)
     if bucket is None:
         raise_credits_required(billing.product, config.payloads_for(billing.product))
+    if bucket == BUCKET_PAID:
+        await consume_paid_credit(db, billing.user_id, billing.product)
     usage = AiUsage(
         user_id=billing.user_id,
         product=billing.product,
@@ -121,5 +125,7 @@ async def release_hold(hold: CreditHold | None) -> None:
             return
         wallet = await lock_wallet(db, usage.user_id, usage.product)
         refund_one(wallet, usage.charged_bucket)
+        if usage.charged_bucket == BUCKET_PAID:
+            await restore_paid_credit(db, usage.user_id, usage.product)
         usage.status = USAGE_RELEASED
         await db.commit()

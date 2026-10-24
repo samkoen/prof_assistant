@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, Typography } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
+import { Alert, Box, Button, Card, CardContent, Link, Typography } from "@mui/material";
 import {
   fetchBillingBalance,
   fetchBillingPacks,
@@ -116,6 +117,10 @@ export default function AiCreditsProfileCard({ role }: { role: string }) {
         {wallets === null && !error && <Spinner size={22} sx={{ mt: 1 }} />}
         {wallets && <WalletLines wallets={wallets} />}
         <CreditCostNotes audience={creditAudience(role)} callsPerCredit={callsPerCredit} />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, ...hebrewAlignRightSx }}>
+          {he.unusedCreditsStay}{" "}
+          <Link component={RouterLink} to="/contact?topic=close" fontWeight={700}>{he.closeAccountRequest}</Link>
+        </Typography>
         <PackBuyRow packs={packs} paying={paying} onBuy={(code) => buyPack(code, setPaying, setPayError)} />
       </CardContent>
     </Card>

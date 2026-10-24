@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canSubmitContact,
+  closureContactForm,
   canSubmitPublicContact,
   contactCategoryLabel,
   EMPTY_CONTACT_FORM,
@@ -10,6 +11,14 @@ import {
 } from "../contactForm";
 
 const valid = { ...EMPTY_CONTACT_FORM, subject: "שאלה על קרדיטים", message: "איך אפשר לרכוש חבילה נוספת?" };
+
+describe("closureContactForm", () => {
+  it("prépare une demande de clôture envoyable", () => {
+    const form = closureContactForm();
+    expect(form.category).toBe("billing");
+    expect(canSubmitContact(form)).toBe(true);
+  });
+});
 
 describe("validateContactForm", () => {
   it("accepts a complete form", () => {
