@@ -1,1 +1,1 @@
-"""Intégrations externes (Brevo, etc.)."""
+"""Intégrations externes (Brevo, Moodle, etc.)."""

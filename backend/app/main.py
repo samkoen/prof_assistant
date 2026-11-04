@@ -24,6 +24,7 @@ from app.routers import (
     exam_gemini_generation,
     exam_gemini_sources,
     exams,
+    moodle,
     notifications,
     open_answers,
     question_media,
@@ -73,6 +74,7 @@ app.include_router(ai_explanations.router, prefix="/api")
 app.include_router(open_answers.router, prefix="/api")
 app.include_router(ai_prompts.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(moodle.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(students_router.router, prefix="/api")
 app.include_router(teacher_shares.router, prefix="/api")

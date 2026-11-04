@@ -18,6 +18,7 @@ from app.models.exam_gemini_generation import (
 )
 from app.models.exam_gemini_source import ExamGeminiSource
 from app.models.exercise import Exercise
+from app.models.moodle import MoodleConnection, MoodleCourseLink, MoodleGradeLink, MoodleUserLink
 from app.models.notification import Notification
 from app.models.offering_teacher import OfferingTeacher, OfferingTeacherInvite
 from app.models.task import TaskProof, TaskReview, TaskStep
@@ -44,6 +45,10 @@ __all__ = [
     "QuestionAiExplanation",
     "StudentExamAttempt",
     "Answer",
+    "MoodleConnection",
+    "MoodleCourseLink",
+    "MoodleGradeLink",
+    "MoodleUserLink",
     "Notification",
     "ExamGeminiGenerationSession",
     "ExamGeminiGenerationMessage",

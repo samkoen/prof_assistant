@@ -16,6 +16,7 @@ import TaskReviewDialog from "../../components/exams/TaskReviewDialog";
 import { api } from "../../api/client";
 import { useResultsView } from "../../hooks/useResultsView";
 import { useSessionResults } from "../../hooks/useSessionResults";
+import MoodleGradePanel from "../../components/moodle/MoodleGradePanel";
 import { he } from "../../i18n/he";
 import { computeResultsStats, scoreDistribution } from "../../utils/resultsStats";
 
@@ -55,6 +56,7 @@ export default function TeacherExamResultsPage() {
       {data.integrity_mode_enabled && <Alert severity="info" sx={{ mb: 2 }}>{he.integrityMode}: {he.integrityModeHint}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
+      <MoodleGradePanel sessionId={Number(sessionId)} onSuccess={setSuccess} />
       <ResultsStatGrid stats={stats} />
       <ScoreDistribution buckets={scoreDistribution(results)} graded={stats.graded} />
       <ResultsToolbar query={view.query} status={view.status} stats={stats} onQueryChange={view.setQuery} onStatusChange={view.setStatus} />

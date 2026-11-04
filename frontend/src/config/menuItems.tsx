@@ -5,6 +5,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AutoDeleteIcon from "@mui/icons-material/AutoDelete";
 import PaidIcon from "@mui/icons-material/Paid";
 import DescriptionIcon from "@mui/icons-material/Description";
+import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import ShareIcon from "@mui/icons-material/Share";
 import QuizIcon from "@mui/icons-material/Quiz";
 import NotificationsIcon from "@mui/icons-material/Notifications";
@@ -58,6 +59,7 @@ export function getMenuItems(role: UserRole): MenuItemDef[] {
       { text: he.students, icon: <PeopleIcon />, path: "/teacher/students" },
       { text: he.catalogCourses, icon: <MenuBookIcon />, path: "/teacher/catalog-courses" },
       { text: he.myCourses, icon: <SchoolIcon />, path: "/teacher/courses" },
+      { text: he.moodleMenu, icon: <HubOutlinedIcon />, path: "/teacher/moodle" },
       { text: he.exams, icon: <QuizIcon />, path: "/teacher/exams" },
       {
         text: he.pendingApprovals,

@@ -10,6 +10,7 @@ const PATH_LABELS: Record<string, string> = {
   "/teacher": he.dashboard,
   "/teacher/students": he.students,
   "/teacher/courses": he.myCourses,
+  "/teacher/moodle": he.moodleMenu,
   "/teacher/courses/:id/students": he.students,
   "/teacher/courses/:id/exams": he.exams,
   "/teacher/courses/:id/exams/sessions/:id/results": he.examResults,

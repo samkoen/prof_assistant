@@ -29,6 +29,7 @@ const AdminAiBillingPage = lazy(() => import("./pages/admin/AdminAiBillingPage")
 const TeacherOverviewPage = lazy(() => import("./pages/teacher/TeacherOverviewPage"));
 const TeacherStudentsPage = lazy(() => import("./pages/teacher/TeacherStudentsPage"));
 const TeacherCoursesPage = lazy(() => import("./pages/teacher/TeacherCoursesPage"));
+const TeacherMoodlePage = lazy(() => import("./pages/teacher/TeacherMoodlePage"));
 const TeacherCourseStudentsPage = lazy(() => import("./pages/teacher/TeacherCourseStudentsPage"));
 const TeacherCourseExamsPage = lazy(() => import("./pages/teacher/TeacherCourseExamsPage"));
 const TeacherExamResultsPage = lazy(() => import("./pages/teacher/TeacherExamResultsPage"));
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="/teacher" element={<TeacherOverviewPage />} />
             <Route path="/teacher/students" element={<TeacherStudentsPage />} />
             <Route path="/teacher/courses" element={<TeacherCoursesPage />} />
+            <Route path="/teacher/moodle" element={<TeacherMoodlePage />} />
             <Route path="/teacher/courses/:courseId/students" element={<TeacherCourseStudentsPage />} />
             <Route path="/teacher/courses/:courseId/exams" element={<TeacherCourseExamsPage />} />
             <Route
