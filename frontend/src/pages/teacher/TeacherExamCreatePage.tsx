@@ -2,7 +2,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { Alert, Box, Button } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
-import { AudienceSection, BasicsSection, ScopeSection, TypeSection } from "../../components/exams/ExamCreateSections";
+import { BasicsSection, StartSection, TypeSection } from "../../components/exams/ExamCreateSections";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import { offeringLabel, type CatalogCourse } from "../../api/client";
 import { OPEN_CREATE_PARAM } from "../../config/createActions";
@@ -54,7 +54,7 @@ export default function TeacherExamCreatePage({ forceTirgoul = false }: { forceT
         {forceTirgoul && <Alert severity="info" sx={{ mb: 2 }}>{he.ownMatalaPrivate}</Alert>}
         <BasicsSection step={forceTirgoul ? undefined : 1} form={c.form} onChange={c.patch} catalogs={catalogs} lockCatalog={Boolean(c.params.catalogId)} />
         {!forceTirgoul && <TypeSection step={2} form={c.form} onChange={c.patch} />}
-        {!forceTirgoul && (c.offering ? <AudienceSection step={3} form={c.form} onChange={c.patch} /> : <ScopeSection step={3} form={c.form} onChange={c.patch} />)}
+        {c.form.kind !== "task" && <StartSection step={forceTirgoul ? undefined : 3} form={c.form} onChange={c.patch} />}
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1, flexDirection: { xs: "column-reverse", sm: "row" } }}>
           <DisabledActionTooltip disabled={c.saving || noCatalogs} disabledReason={noCatalogs ? he.noCatalogCourses : undefined}>
             <Button variant="contained" size="large" endIcon={<ArrowBackIcon />} onClick={c.submit} sx={{ width: { xs: "100%", sm: "auto" } }}>

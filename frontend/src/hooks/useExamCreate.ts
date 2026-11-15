@@ -52,7 +52,8 @@ async function sendCreatedExam(
   try {
     const body = buildCreatePayload(form, offering, userId);
     const exam = await api<{ id: number }>("/api/exams", { method: "POST", body: JSON.stringify(body) });
-    navigate(editorPathAfterCreate(exam.id, returnTo, editorBase));
+    const start = form.kind === "task" ? null : form.start;
+    navigate(editorPathAfterCreate(exam.id, returnTo, editorBase, start));
   } catch (e) {
     setError(e instanceof ApiError ? e.message : he.errorGeneric);
     setSaving(false);
@@ -69,7 +70,6 @@ export function useExamCreate(mode: ExamCreateMode = {}) {
   const initial: ExamCreateForm = {
     ...EMPTY_EXAM_FORM,
     catalog_course_id: params.catalogId,
-    audience: "all",
     is_tirgoul: mode.forceTirgoul ? true : EMPTY_EXAM_FORM.is_tirgoul,
   };
   const [form, setForm] = useState(initial);

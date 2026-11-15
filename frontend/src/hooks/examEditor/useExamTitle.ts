@@ -4,39 +4,37 @@ import { he } from "../../i18n/he";
 import type { EditorFeedback } from "./useEditorFeedback";
 import type { ExamData } from "./useExamData";
 
-/** Titre de l'examen : brouillon, validation et sauvegarde. */
+/** Titre de l'examen, édité dans l'en-tête : enregistré automatiquement à la validation (Entrée / perte du focus). */
 export function useExamTitle(id: number, data: ExamData, fb: EditorFeedback) {
-  const { exam, baseline, titleDraft, setExam, setTitleDraft, setBaseline } = data;
+  const { exam, titleDraft, setExam, setTitleDraft } = data;
   const [savingTitle, setSavingTitle] = useState(false);
-  const titleValid = titleDraft.trim().length > 0;
-  const titleChanged = titleDraft.trim() !== (baseline?.title ?? exam?.title ?? "");
+  const saved = exam?.title ?? "";
 
-  const applySaved = (title: string) => {
-    setExam((prev) => (prev ? { ...prev, title } : prev));
-    setTitleDraft(title);
-    setBaseline((prev) => (prev ? { ...prev, title } : prev));
-  };
-
-  const saveTitle = async (): Promise<boolean> => {
-    if (!titleValid) {
-      fb.setError(he.examTitle);
-      return false;
-    }
-    if (!titleChanged) return true;
+  const persist = async (title: string) => {
     setSavingTitle(true);
     fb.setError("");
-    fb.setSuccess("");
     try {
-      const body = JSON.stringify({ title: titleDraft.trim() });
-      applySaved((await api<Exam>(`/api/exams/${id}`, { method: "PATCH", body })).title);
-      return true;
+      const body = JSON.stringify({ title });
+      const next = (await api<Exam>(`/api/exams/${id}`, { method: "PATCH", body })).title;
+      setExam((prev) => (prev ? { ...prev, title: next } : prev));
+      setTitleDraft(next);
+      fb.setSuccess(he.examTitleSaved);
     } catch (e) {
+      setTitleDraft(saved);
       fb.setError(e instanceof ApiError ? e.message : he.errorGeneric);
-      return false;
     } finally {
       setSavingTitle(false);
     }
   };
 
-  return { titleValid, titleChanged, savingTitle, saveTitle };
+  /** Valide le brouillon : vide ou inchangé → on revient au titre enregistré, sinon on enregistre. */
+  const commitTitle = async () => {
+    const title = titleDraft.trim();
+    if (!title || title === saved) return setTitleDraft(saved);
+    await persist(title);
+  };
+
+  const cancelTitle = () => setTitleDraft(saved);
+
+  return { savingTitle, commitTitle, cancelTitle };
 }
