@@ -33,7 +33,10 @@ from app.services.question_media import copy_image_url_for_duplicate
 
 
 async def delete_attempt_records(attempt: StudentExamAttempt, db: AsyncSession) -> None:
+    from app.services.ai_tutor_store import delete_tutor_rows
+
     await _delete_attempt_task_rows(attempt.id, db)
+    await delete_tutor_rows(db, attempt_id=attempt.id)
     for answer in (
         await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
     ).scalars():
@@ -248,6 +251,7 @@ async def duplicate_exam_to_catalog(
         shuffle_questions=source.shuffle_questions,
         shuffle_options=source.shuffle_options,
         show_detailed_correction=source.show_detailed_correction,
+        ai_tutor_enabled=source.ai_tutor_enabled,
         warning_minutes=source.warning_minutes,
         auto_submit_on_timeout=source.auto_submit_on_timeout,
         default_multiple_scoring=source.default_multiple_scoring,
@@ -271,6 +275,7 @@ async def duplicate_exam_to_catalog(
             multiple_scoring_mode=q.multiple_scoring_mode,
             model_answer=q.model_answer,
             model_answer_source=q.model_answer_source,
+            ai_notes=q.ai_notes,
         )
         db.add(new_q)
         await db.flush()

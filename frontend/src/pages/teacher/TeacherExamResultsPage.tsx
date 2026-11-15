@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Alert, Box, Button } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import KeyIcon from "@mui/icons-material/Key";
 import DisabledActionTooltip from "../../components/DisabledActionTooltip";
 import ExamAnswerKeyDialog from "../../components/ExamAnswerKeyDialog";
@@ -11,7 +10,7 @@ import ResultsToolbar from "../../components/results/ResultsToolbar";
 import ScoreDistribution from "../../components/results/ScoreDistribution";
 import BrandPageLoader from "../../components/ui/BrandPageLoader";
 import EmptyState from "../../components/ui/EmptyState";
-import PageHeroBanner from "../../components/ui/PageHeroBanner";
+import AppPageHeader from "../../components/ui/AppPageHeader";
 import TaskReviewDialog from "../../components/exams/TaskReviewDialog";
 import { api } from "../../api/client";
 import { useResultsView } from "../../hooks/useResultsView";
@@ -36,15 +35,14 @@ export default function TeacherExamResultsPage() {
 
   return (
     <Box dir="rtl" sx={{ width: "100%", minWidth: 0 }}>
-      <Button component={RouterLink} to={`/teacher/courses/${courseId}/exams`} startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1 }}>
-        {he.backToExams}
-      </Button>
-      <PageHeroBanner
+      <AppPageHeader
+        back={{ to: `/teacher/courses/${courseId}/exams`, label: he.backToExams }}
+        size="medium"
         title={data.exam_title}
         subtitle={`${he.examResults} · ${data.offering_label}`}
         actions={
           task ? (
-            <Button variant="contained" disabled={data.results_published} onClick={() => void publish(Number(sessionId), setSuccess, reload)} sx={{ bgcolor: "#fff", color: "primary.dark" }}>
+            <Button variant="contained" disabled={data.results_published} onClick={() => void publish(Number(sessionId), setSuccess, reload)}>
               {data.results_published ? he.taskPublished : he.taskPublish}
             </Button>
           ) : (
@@ -98,7 +96,7 @@ async function publish(sessionId: number, setSuccess: (msg: string) => void, rel
 function AnswerKeyButton({ allowed, onClick }: { allowed: boolean; onClick: () => void }) {
   return (
     <DisabledActionTooltip disabled={!allowed} disabledReason={allowed ? undefined : he.correctAnswerKeyBlocked}>
-      <Button variant="contained" startIcon={<KeyIcon />} onClick={onClick} disabled={!allowed} sx={{ bgcolor: "#fff", color: "primary.dark", background: "#fff", "&:hover": { background: "#f5f3ff" } }}>
+      <Button variant="outlined" startIcon={<KeyIcon />} onClick={onClick} disabled={!allowed}>
         {he.correctAnswerKey}
       </Button>
     </DisabledActionTooltip>

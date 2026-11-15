@@ -65,7 +65,7 @@ function ReviewCard({ sessionId, attemptId, row, onChanged, onError }: { session
 
   return (
     <Box sx={{ p: 2, mb: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-      <Typography fontWeight={800}>{row.title}</Typography>
+      <Typography fontWeight={700}>{row.title}</Typography>
       <Typography sx={{ whiteSpace: "pre-wrap", my: 1 }}>{row.instructions}</Typography>
       <Typography variant="body2">{row.has_proof ? row.proof_filename : he.taskProofMissing} · {verdictLabel(row.verdict)}</Typography>
       {row.has_proof && <Button size="small" onClick={() => void showProof()}>{he.taskProofReady}</Button>}

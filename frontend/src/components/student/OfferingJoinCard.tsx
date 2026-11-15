@@ -26,7 +26,7 @@ export default function OfferingJoinCard(props: OfferingJoinCardProps) {
   const { offering } = props;
   return (
     <Paper dir="rtl" sx={{ p: 2.5, borderRadius: 3, boxShadow: softCardShadow, height: "100%", display: "flex", flexDirection: "column", gap: 1 }}>
-      <Typography variant="subtitle1" fontWeight={800}>
+      <Typography variant="subtitle1" fontWeight={700}>
         {offeringLabel(offering)}
       </Typography>
       <Typography variant="body2" color="text.secondary">

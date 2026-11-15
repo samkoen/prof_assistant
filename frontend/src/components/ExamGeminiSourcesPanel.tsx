@@ -17,7 +17,7 @@ export default function ExamGeminiSourcesPanel({ examId, disabled, onSourcesChan
   const { sources, loading, uploading, upload, setRoles, remove } = useGeminiSources({ examId, onSourcesChange, onError });
   return (
     <Box sx={{ mb: 3 }} dir="rtl">
-      <Typography variant="h6" fontWeight={800} sx={{ textAlign: "right" }}>
+      <Typography variant="h6" fontWeight={700} sx={{ textAlign: "right" }}>
         {he.geminiBriefSourcesTitle}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, textAlign: "right" }}>

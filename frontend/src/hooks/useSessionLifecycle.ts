@@ -10,10 +10,11 @@ type Options = {
   reload: () => Promise<void>;
   onError: (message: string) => void;
   onReopened: () => void;
+  onSuccess?: (message: string) => void;
 };
 
 /** Clôturer / annuler la mise en ligne / rouvrir : confirmation puis appel API. */
-export function useSessionLifecycle({ reload, onError, onReopened }: Options) {
+export function useSessionLifecycle({ reload, onError, onReopened, onSuccess }: Options) {
   const [pending, setPending] = useState<PendingSessionAction | null>(null);
   const [busy, setBusy] = useState<SessionBusy>(null);
 
@@ -27,6 +28,7 @@ export function useSessionLifecycle({ reload, onError, onReopened }: Options) {
     try {
       await api(`/api/exams/sessions/${session.id}/${SESSION_ACTION_COPY[kind].endpoint}`, { method: "POST" });
       setPending(null);
+      onSuccess?.(`${SESSION_ACTION_COPY[kind].done}: ${session.exam_title}`);
       if (kind === "reopen") onReopened();
       await reload();
     } catch (e) {

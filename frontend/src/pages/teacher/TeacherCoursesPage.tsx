@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Alert, Box, Skeleton } from "@mui/material";
+import { Alert, Box, Button, Skeleton } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import SchoolOutlinedIcon from "@mui/icons-material/SchoolOutlined";
 import { OfferingCardGrid } from "../../components/CourseCardGrid/CourseCardGrid";
 import CreateOfferingDialog from "../../components/courses/CreateOfferingDialog";
@@ -14,6 +15,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import { offeringLabel, type CourseOffering } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
 import { useCreateOffering } from "../../hooks/useCreateOffering";
+import { useOpenCreateFromUrl } from "../../hooks/useOpenCreateFromUrl";
 import { useOfferingMutations } from "../../hooks/useOfferingMutations";
 import { useTeacherOfferings } from "../../hooks/useTeacherOfferings";
 import { he } from "../../i18n/he";
@@ -55,17 +57,23 @@ export default function TeacherCoursesPage() {
   const [semester, setSemester] = useState<SemesterFilter>("all");
   const [inviteOffering, setInviteOffering] = useState<CourseOffering | null>(null);
   const [manageOffering, setManageOffering] = useState<CourseOffering | null>(null);
+  useOpenCreateFromUrl(create.openDialog);
   const visible = useMemo(() => sortOfferings(filterOfferings(data.offerings, query, semester)), [data.offerings, query, semester]);
 
   return (
     <Box dir="rtl" sx={{ width: "100%", minWidth: 0 }}>
-      <ListPageToolbar title={he.myCourses} subtitle={he.offeringSubtitle} addLabel={he.createOffering} onAdd={create.openDialog} />
+      <ListPageToolbar title={he.myCourses} subtitle={he.offeringSubtitle} addLabel={he.createOffering} onAdd={() => void create.openDialog()} />
       {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
       {data.offerings.length > 0 && <OfferingFilters query={query} semester={semester} onQueryChange={setQuery} onSemesterChange={setSemester} />}
       {data.loading ? (
         <Skeleton variant="rounded" height={220} />
       ) : data.offerings.length === 0 ? (
-        <EmptyState title={he.coursesEmptyTitle} description={he.coursesEmptyHint} icon={<SchoolOutlinedIcon />} />
+        <EmptyState
+          title={he.coursesEmptyTitle}
+          description={he.coursesEmptyHint}
+          icon={<SchoolOutlinedIcon />}
+          action={<Button variant="contained" startIcon={<AddIcon />} onClick={() => void create.openDialog()}>{he.createOffering}</Button>}
+        />
       ) : (
         <OfferingCardGrid
           offerings={visible}

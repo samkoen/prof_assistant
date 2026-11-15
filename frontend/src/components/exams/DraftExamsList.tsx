@@ -8,6 +8,7 @@ import { api, formatScopeSummary, type CatalogCourse, type Exam } from "../../ap
 import { he } from "../../i18n/he";
 import { filterTemplates, hasActiveFilters, type ExamFilters } from "../../utils/examFilters";
 import ExamListCard from "./ExamListCard";
+import ExamPrimaryButton from "./ExamPrimaryButton";
 
 type DraftExamsListProps = {
   catalogs: CatalogCourse[];
@@ -52,17 +53,16 @@ function TemplateCard({ row, onActivate, onChanged, onError }: {
     <ExamListCard
       title={exam.title}
       chip={exam.is_tirgoul ? <StatusChip label={he.tirgoulChip} tone="info" /> : <StatusChip label={he.examDraftStatus} tone="neutral" />}
+      hint={exam.question_count > 0 ? he.statusHintTemplateReady : he.statusHintTemplateEmpty}
       meta={meta}
       tone={exam.is_tirgoul ? "info" : "neutral"}
       actions={
-        <Box sx={{ display: "flex", gap: 1, flexShrink: 0, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <ExamEditLink examId={exam.id} viewOnly={exam.can_delete === false} />
-          <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} />
           {!exam.is_tirgoul && (
-            <Button size="small" variant="contained" onClick={() => onActivate(exam)}>
-              {he.activateExam}
-            </Button>
+            <ExamPrimaryButton kind={exam.question_count > 0 ? "activate" : "activateBlocked"} onActivate={() => onActivate(exam)} />
           )}
+          <ExamActionButtons exam={exam} onChanged={onChanged} onError={onError} />
         </Box>
       }
     />

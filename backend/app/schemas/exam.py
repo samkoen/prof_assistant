@@ -73,6 +73,7 @@ class ExamCreate(CatalogItemScopeFields):
     shuffle_questions: bool
     shuffle_options: bool
     show_detailed_correction: bool = True
+    ai_tutor_enabled: bool = True
     warning_minutes: int = Field(default=10, ge=1, le=60)
     auto_submit_on_timeout: bool = True
     default_multiple_scoring: MultipleScoringMode = MultipleScoringMode.PROPORTIONAL
@@ -87,6 +88,7 @@ class ExamUpdate(BaseModel):
     shuffle_questions: bool | None = None
     shuffle_options: bool | None = None
     show_detailed_correction: bool | None = None
+    ai_tutor_enabled: bool | None = None
     warning_minutes: int | None = None
     auto_submit_on_timeout: bool | None = None
     default_multiple_scoring: MultipleScoringMode | None = None
@@ -113,6 +115,7 @@ class ExamResponse(CatalogItemScopeResponse):
     shuffle_questions: bool
     shuffle_options: bool
     show_detailed_correction: bool
+    ai_tutor_enabled: bool = True
     warning_minutes: int
     auto_submit_on_timeout: bool
     default_multiple_scoring: MultipleScoringMode
@@ -372,6 +375,7 @@ class ExamReviewResponse(BaseModel):
     attempt: AttemptResponse
     questions: list[ExamReviewQuestion]
     for_practice: bool = False
+    ai_tutor_enabled: bool = False
 
 
 class PracticeResultResponse(BaseModel):

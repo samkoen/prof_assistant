@@ -36,8 +36,8 @@ export default function IncomingShareCard({ share, declining, onAccept, onDeclin
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: alpha(brand.violet600, 0.1),
-          color: brand.violet600,
+          bgcolor: alpha(brand.primary600, 0.1),
+          color: brand.primary600,
         }}
       >
         <InboxIcon />

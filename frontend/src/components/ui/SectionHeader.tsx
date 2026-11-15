@@ -12,7 +12,7 @@ type SectionHeaderProps = {
 export default function SectionHeader({ title, linkLabel, linkTo }: SectionHeaderProps) {
   return (
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1.5 }}>
-      <Typography variant="h6" fontWeight={800}>
+      <Typography variant="h6" fontWeight={700}>
         {title}
       </Typography>
       {linkLabel && linkTo && (

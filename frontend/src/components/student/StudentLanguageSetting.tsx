@@ -22,7 +22,7 @@ export default function StudentLanguageSetting() {
   return (
     <Tooltip title={he.aiExplanationLanguageHelper} placement="bottom-end">
       <Box dir="rtl" sx={{ display: "inline-flex", alignItems: "center", gap: 1, mb: 2.5 }}>
-        <TranslateIcon fontSize="small" sx={{ color: brand.violet600 }} />
+        <TranslateIcon fontSize="small" sx={{ color: brand.primary600 }} />
         <Typography variant="body2" fontWeight={700}>
           {he.studentAiLanguageInline}
         </Typography>

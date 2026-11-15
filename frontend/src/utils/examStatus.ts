@@ -31,11 +31,27 @@ export function sessionStatusView(session: SessionLike): SessionStatusView {
   if (!session.results_published) {
     return { key: "awaiting_publish", label: he.examStatusAwaitingPublish, tone: "warning" };
   }
-  return { key: "finished", label: he.examStatusFinished, tone: "violet" };
+  return { key: "finished", label: he.examStatusFinished, tone: "primary" };
 }
 
 /** Page où agir sur la session : édition si brouillon, sinon résultats. */
 export function sessionTargetPath(session: Pick<ExamSession, "id" | "exam_id" | "offering_id" | "status">): string {
   if (session.status === "draft") return `/teacher/exams/${session.exam_id}/edit`;
   return `/teacher/courses/${session.offering_id}/exams/sessions/${session.id}/results`;
+}
+
+const STATUS_HINTS: Record<SessionStatusView["key"], string> = {
+  practice: he.statusHintPractice,
+  draft: he.statusHintDraft,
+  active: he.statusHintActive,
+  awaiting_publish: he.statusHintAwaitingPublish,
+  finished: he.statusHintFinished,
+  grading_locked: he.statusHintGradingLocked,
+};
+
+/** Phrase courte qui dit au prof ce que voient les élèves dans cet état. */
+export function sessionStatusHint(session: SessionLike): string {
+  const view = sessionStatusView(session);
+  if (view.key === "draft" && isPracticeSession(session)) return he.statusHintDraftPractice;
+  return STATUS_HINTS[view.key];
 }

@@ -22,7 +22,7 @@ function filterOptions(stats: ResultsStats): Array<{ value: ResultsStatusFilter;
 }
 
 function StatusFilterChip({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) {
-  const tone = statusTones.violet;
+  const tone = statusTones.primary;
   return (
     <Chip
       clickable

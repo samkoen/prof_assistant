@@ -31,7 +31,7 @@ export function studentExamView(session: SessionLike, attempt: AttemptLike): Stu
     return {
       key: graded ? "graded" : "submitted",
       label: graded ? he.studentStateGraded : he.studentStateSubmitted,
-      tone: graded ? "violet" : "info",
+      tone: graded ? "primary" : "info",
       actionLabel: he.viewExamResult,
       openable: true,
       pending: false,

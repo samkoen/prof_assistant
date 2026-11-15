@@ -22,8 +22,8 @@ export default function PublicHomePage() {
 function HomeLead() {
   return (
     <Box component="header">
-      <Typography sx={{ color: brand.violet700, fontWeight: 700, mb: 1 }}>{he.publicHome.eyebrow}</Typography>
-      <Typography variant="h3" fontWeight={800} sx={{ mb: 2, fontSize: { xs: "2rem", sm: "2.6rem" } }}>
+      <Typography sx={{ color: brand.primary700, fontWeight: 700, mb: 1 }}>{he.publicHome.eyebrow}</Typography>
+      <Typography variant="h3" fontWeight={700} sx={{ mb: 2, fontSize: { xs: "2rem", sm: "2.6rem" } }}>
         {he.publicHome.title}
       </Typography>
       <Typography sx={{ maxWidth: 720, color: brand.slate700, fontSize: "1.05rem", lineHeight: 1.7 }}>

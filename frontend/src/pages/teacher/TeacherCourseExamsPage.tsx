@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Box, Button, Skeleton } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import AddExistingExamDialog from "../../components/AddExistingExamDialog";
+import EmptyState from "../../components/ui/EmptyState";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import CourseSectionTabs from "../../components/courses/CourseSectionTabs";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import ExamsStatusTabs, { type ExamsStatusTab } from "../../components/ExamsStatusTabs";
 import ExamOfferingRowActions from "../../components/ExamOfferingRowActions";
@@ -37,30 +39,35 @@ export default function TeacherCourseExamsPage() {
 
   return (
     <Box sx={{ width: "100%", minWidth: 0, maxWidth: "100%" }} dir="rtl">
-      <Button component={RouterLink} to="/teacher/courses" startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1 }}>
-        {he.backToCourses}
-      </Button>
       <ListPageToolbar
         titleVariant="h5"
-        title={he.manageCourseExams}
-        subtitle={offering ? offeringLabel(offering) : undefined}
+        back={{ to: "/teacher/courses", label: he.backToCourses }}
+        title={offering ? offeringLabel(offering) : he.manageCourseExams}
         actions={
           offering && (
             <>
-              <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => navigate(createExamPath(offering))}>
-                {he.createExam}
-              </Button>
-              <Button variant="outlined" startIcon={<PlaylistAddIcon />} size="small" onClick={() => setAddExistingOpen(true)}>
+              <Button variant="outlined" startIcon={<PlaylistAddIcon />} onClick={() => setAddExistingOpen(true)}>
                 {he.addExistingExam}
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate(createExamPath(offering))}>
+                {he.createMenuExam}
               </Button>
             </>
           )
         }
       />
+      <CourseSectionTabs courseId={id} value="exams" />
       {board.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => board.setError("")}>{board.error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
       {board.loading ? (
         <Skeleton variant="rounded" height={260} />
+      ) : board.openRows.length + board.closedRows.length === 0 ? (
+        <EmptyState
+          title={he.courseExamsEmptyTitle}
+          description={he.courseExamsEmptyHint}
+          icon={<AssignmentOutlinedIcon />}
+          action={offering && <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate(createExamPath(offering))}>{he.createMenuExam}</Button>}
+        />
       ) : (
         <>
           <ExamsStatusTabs value={tab} onChange={setTab} openCount={board.openRows.length} closedCount={board.closedRows.length} />
@@ -73,7 +80,7 @@ export default function TeacherCourseExamsPage() {
             getRowId={(row) => row.exam.id}
             defaultSort={COURSE_EXAMS_DEFAULT_SORT}
             getRowSx={courseExamRowSx}
-            actionsColumnPx={320}
+            actionsColumnPx={300}
             renderActions={(row) => (
               <ExamOfferingRowActions
                 exam={row.exam}

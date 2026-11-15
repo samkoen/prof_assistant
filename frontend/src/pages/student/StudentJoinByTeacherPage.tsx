@@ -14,7 +14,7 @@ function TeacherHeader({ result, onChange }: { result: TeacherOpenOfferings; onC
   return (
     <Box sx={{ mb: 2.5, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
       <Box>
-        <Typography variant="h6" fontWeight={800}>
+        <Typography variant="h6" fontWeight={700}>
           {he.teacherCoursesFor(result.teacher_name)}
         </Typography>
         <Typography variant="body2" color="text.secondary" dir="ltr" sx={{ textAlign: "right" }}>

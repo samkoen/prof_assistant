@@ -1,4 +1,5 @@
 from app.models.ai_prompt import AiPromptTemplate
+from app.models.ai_tutor import TutorConversation, TutorMessage
 from app.models.billing import AiBillingSettings, AiUsage, AiWallet, PaymentOrder
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.exam import (
@@ -26,6 +27,8 @@ from app.models.user import User
 
 __all__ = [
     "AiPromptTemplate",
+    "TutorConversation",
+    "TutorMessage",
     "AiBillingSettings",
     "AiWallet",
     "AiUsage",

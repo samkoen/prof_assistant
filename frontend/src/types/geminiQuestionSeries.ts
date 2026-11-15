@@ -57,6 +57,22 @@ export interface GeminiGenerationSession {
   messages: GeminiGenerationMessage[];
   generation_progress?: GeminiGenerationProgress | null;
   generation_warnings?: string[];
+  answer_checks?: GeminiAnswerCheck[];
+}
+
+/** Double vérification d'une question à choix (résolution indépendante par l'AI). */
+export interface GeminiAnswerCheck {
+  q_num: number;
+  status: "verified" | "mismatch" | "unchecked";
+  /** Lettres marquées par la génération (A, B…). */
+  generated: string[];
+  /** Lettres trouvées par la vérification ; vide = aucune option jugée correcte. */
+  checked: string[];
+  reason: string;
+  /** Raisonnement écrit par le générateur avant de marquer la réponse. */
+  solution: string;
+  /** Vérifiée en exécutant du code (questions de code / calcul). */
+  computed: boolean;
 }
 
 export interface GeminiGenerationMessage {

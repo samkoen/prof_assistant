@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.exam import ExamSession, Question, QuestionAiExplanation, StudentExamAttempt
 from app.schemas.exam import AnswerKeyQuestionPatch, AnswerKeyUpdateResponse
+from app.services.ai_tutor_store import delete_tutor_rows
 from app.services.exam_answer_key import apply_option_correct_flags, validate_question_key
 from app.services.open_answer_evaluation import recalculate_attempt_score
 
@@ -34,6 +35,7 @@ async def _patch_question_keys(
         if not question:
             raise HTTPException(status_code=404, detail="שאלה לא נמצאה")
         if _apply_one_question_key(question, set(item.correct_option_ids)):
+            question.ai_notes = None  # la solution du générateur ne correspond plus à la clé
             changed.append(question.id)
     return changed
 
@@ -63,6 +65,7 @@ async def _drop_explanations(question_ids: list[int], db: AsyncSession) -> None:
     await db.execute(
         delete(QuestionAiExplanation).where(QuestionAiExplanation.question_id.in_(question_ids))
     )
+    await delete_tutor_rows(db, question_ids=question_ids)
 
 
 async def apply_answer_key_and_regrade(

@@ -54,7 +54,7 @@ function Halo() {
         position: "absolute",
         inset: "-12%",
         borderRadius: "50%",
-        background: `radial-gradient(circle, ${alpha(brand.violet500, 0.35)} 0%, transparent 68%)`,
+        background: `radial-gradient(circle, ${alpha(brand.primary500, 0.35)} 0%, transparent 68%)`,
         animation: "orbitHalo 2.2s ease-in-out infinite",
       }}
     />
@@ -75,7 +75,7 @@ function Core({ metrics }: { metrics: BrandSpinnerMetrics }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: `0 4px 14px ${alpha(brand.violet600, 0.35)}`,
+          boxShadow: `0 4px 14px ${alpha(brand.primary600, 0.35)}`,
           animation: "orbitCore 1.6s ease-in-out infinite",
         }}
       >
@@ -85,7 +85,7 @@ function Core({ metrics }: { metrics: BrandSpinnerMetrics }) {
   );
 }
 
-const OUTER = `conic-gradient(from 200deg, transparent 0%, ${brand.violet700} 18%, ${brand.sky500} 52%, transparent 78%)`;
+const OUTER = `conic-gradient(from 200deg, transparent 0%, ${brand.primary700} 18%, ${brand.sky500} 52%, transparent 78%)`;
 const INNER = `conic-gradient(from 20deg, transparent 0%, ${brand.amber500} 25%, ${brand.mint500} 58%, transparent 80%)`;
 
 /** Spinner « orbite » : deux anneaux contrarotatifs autour d'un cœur qui pulse. */

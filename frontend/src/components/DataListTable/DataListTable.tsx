@@ -22,6 +22,7 @@ import {
   Typography,
   type SxProps,
   type Theme,
+  useMediaQuery,
 } from "@mui/material";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import {
@@ -41,6 +42,7 @@ import {
 import { AlignedTableCell, ResizableHeaderCell } from "../ResizableTableColumns/ResizableHeaderCell";
 import { loadTableSort, saveTableSort, type TableSort } from "../../utils/tableSortStorage";
 import ColumnPickerDialog from "./ColumnPickerDialog";
+import DataListMobileList from "./DataListMobileList";
 import type { DataListColumnDef } from "./types";
 
 const headerSx = { fontSize: "0.75rem", fontWeight: 600 };
@@ -93,6 +95,7 @@ export default function DataListTable<T>({
   defaultSort,
   getRowSx,
 }: DataListTableProps<T>) {
+  const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
   const widthsStorageKey = `assistant.table.${viewKey}.widths`;
   const columnsStorageKey = `assistant.table.${viewKey}.columns`;
 
@@ -320,6 +323,18 @@ export default function DataListTable<T>({
     ...hebrewDataListTableSx,
   };
 
+  if (isMobile) {
+    return (
+      <DataListMobileList
+        rows={filteredSorted}
+        columns={visibleColumns}
+        emptyMessage={emptyMessage}
+        getRowId={getRowId}
+        renderActions={renderActions}
+      />
+    );
+  }
+
   const syncBodyScrollLeft = () => {
     const body = bodyScrollRef.current;
     const header = headerScrollRef.current;
@@ -360,7 +375,8 @@ export default function DataListTable<T>({
       </Box>
 
       <Paper
-        elevation={2}
+        elevation={0}
+        variant="outlined"
         sx={{
           display: "flex",
           flexDirection: "column",

@@ -1,8 +1,8 @@
 import { Grid } from "@mui/material";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import GradingIcon from "@mui/icons-material/Grading";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import GradingIcon from "@mui/icons-material/GradingOutlined";
 import HowToRegOutlinedIcon from "@mui/icons-material/HowToRegOutlined";
-import QuizIcon from "@mui/icons-material/Quiz";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
 import type { WalletBalance } from "../../api/billing";
 import StatCard from "../ui/StatCard";
 import { he } from "../../i18n/he";
@@ -20,17 +20,17 @@ type TeacherStatGridProps = {
 export default function TeacherStatGrid({ counts, pending, wallet, loading }: TeacherStatGridProps) {
   const low = wallet ? creditsAreLow(wallet.total, wallet.unlimited) : false;
   return (
-    <Grid container spacing={2} sx={{ mb: 3.5 }}>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard label={he.statActiveExams} value={counts.active} icon={<QuizIcon />} tone="success" to="/teacher/exams" loading={loading} />
+    <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: 3.5 }}>
+      <Grid item xs={6} md={3}>
+        <StatCard label={he.statActiveExams} value={counts.active} icon={<AssignmentOutlinedIcon />} tone="success" to="/teacher/exams" loading={loading} />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid item xs={6} md={3}>
         <StatCard label={he.statAwaitingPublish} value={counts.awaitingPublish} icon={<GradingIcon />} tone="warning" to="/teacher/exams" loading={loading} />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard label={he.statPendingRequests} value={pending} icon={<HowToRegOutlinedIcon />} tone="violet" to="/teacher/enrollments" loading={loading} />
+      <Grid item xs={6} md={3}>
+        <StatCard label={he.statPendingRequests} value={pending} icon={<HowToRegOutlinedIcon />} tone="primary" to="/teacher/enrollments" loading={loading} />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
+      <Grid item xs={6} md={3}>
         <StatCard
           label={he.statAiCredits}
           value={creditsValue(wallet)}

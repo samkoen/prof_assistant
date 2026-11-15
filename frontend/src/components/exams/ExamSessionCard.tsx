@@ -2,7 +2,7 @@ import { semesterLabel, type ExamSession } from "../../api/client";
 import StatusChip from "../ui/StatusChip";
 import { he } from "../../i18n/he";
 import type { SessionBusy } from "../../hooks/useSessionLifecycle";
-import { sessionStatusView } from "../../utils/examStatus";
+import { sessionStatusHint, sessionStatusView } from "../../utils/examStatus";
 import ExamListCard from "./ExamListCard";
 import SessionCardActions, { type SessionCardHandlers } from "./SessionCardActions";
 
@@ -26,6 +26,7 @@ export default function ExamSessionCard({ session, closedTab = false, busy, hand
     <ExamListCard
       title={session.exam_title}
       chip={<StatusChip label={status.label} tone={status.tone} />}
+      hint={sessionStatusHint(session)}
       meta={sessionMeta(session)}
       tone={status.tone}
       actions={<SessionCardActions session={session} closedTab={closedTab} busy={busy} handlers={handlers} />}

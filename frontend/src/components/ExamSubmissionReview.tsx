@@ -5,6 +5,7 @@ import { OptionDisplay } from "./MultilineOptionLayout";
 import QuestionImageDisplay from "./QuestionImageDisplay";
 import QuestionAiExplanation from "./QuestionAiExplanation";
 import QuestionOpenEvaluation from "./QuestionOpenEvaluation";
+import AiTutorButton from "./tutor/AiTutorButton";
 import AiExplanationMarkdown from "./AiExplanationMarkdown";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import QuestionTextWithIndex from "./QuestionTextWithIndex";
@@ -65,6 +66,7 @@ function ReviewQuestionCard({
   sessionId,
   language,
   forPractice = false,
+  tutorEnabled = false,
   onAttemptScore,
 }: {
   q: ExamReviewQuestion;
@@ -72,6 +74,7 @@ function ReviewQuestionCard({
   sessionId: number;
   language: ExplanationLanguage;
   forPractice?: boolean;
+  tutorEnabled?: boolean;
   onAttemptScore?: (score: number | null, maxScore: number | null) => void;
 }) {
   if (q.question_type === "open") {
@@ -82,6 +85,7 @@ function ReviewQuestionCard({
         sessionId={sessionId}
         language={language}
         forPractice={forPractice}
+        tutorEnabled={tutorEnabled}
         onAttemptScore={onAttemptScore}
       />
     );
@@ -157,6 +161,9 @@ function ReviewQuestionCard({
           language={language}
           forPractice={forPractice}
         />
+        {tutorEnabled && (
+          <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={q.is_correct} forPractice={forPractice} dir={language === "he" ? "rtl" : "ltr"} />
+        )}
       </CardContent>
     </Card>
   );
@@ -177,6 +184,7 @@ function OpenReviewQuestionCard({
   sessionId,
   language,
   forPractice = false,
+  tutorEnabled = false,
   onAttemptScore,
 }: {
   q: ExamReviewQuestion;
@@ -184,6 +192,7 @@ function OpenReviewQuestionCard({
   sessionId: number;
   language: ExplanationLanguage;
   forPractice?: boolean;
+  tutorEnabled?: boolean;
   onAttemptScore?: (score: number | null, maxScore: number | null) => void;
 }) {
   const qDir = contentDirForQuestionText(q.text);
@@ -220,6 +229,9 @@ function OpenReviewQuestionCard({
           forPractice={forPractice}
           onAttemptScore={onAttemptScore}
         />
+        {tutorEnabled && (
+          <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={null} forPractice={forPractice} dir={language === "he" ? "rtl" : "ltr"} />
+        )}
       </CardContent>
     </Card>
   );
@@ -250,6 +262,7 @@ export default function ExamSubmissionReview({
           sessionId={review.session_id}
           language={language}
           forPractice={review.for_practice}
+          tutorEnabled={Boolean(review.ai_tutor_enabled)}
           onAttemptScore={onAttemptScore}
         />
       ))}

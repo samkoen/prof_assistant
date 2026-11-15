@@ -16,6 +16,7 @@ from app.routers import (
     ai_billing_admin,
     ai_explanations,
     ai_prompts,
+    ai_tutor,
     auth,
     billing,
     catalog_courses,
@@ -70,6 +71,7 @@ app.include_router(exam_gemini_generation.router, prefix="/api")
 app.include_router(exam_gemini_sources.router, prefix="/api")
 app.include_router(question_media.router, prefix="/api")
 app.include_router(ai_explanations.router, prefix="/api")
+app.include_router(ai_tutor.router, prefix="/api")
 app.include_router(open_answers.router, prefix="/api")
 app.include_router(ai_prompts.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")

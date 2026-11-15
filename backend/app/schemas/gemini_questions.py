@@ -88,6 +88,18 @@ class GeminiGenerationProgress(BaseModel):
     complete: bool
 
 
+class GeminiAnswerCheck(BaseModel):
+    """Verdict de la double vérification d'une question à choix (clé = numéro Q du brut)."""
+
+    q_num: int
+    status: Literal["verified", "mismatch", "unchecked"]
+    generated: list[str] = Field(default_factory=list)
+    checked: list[str] = Field(default_factory=list)
+    reason: str = ""
+    solution: str = ""
+    computed: bool = False
+
+
 class GeminiSessionResponse(BaseModel):
     id: int
     exam_id: int
@@ -96,6 +108,7 @@ class GeminiSessionResponse(BaseModel):
     messages: list[GeminiSessionMessageResponse]
     generation_progress: GeminiGenerationProgress | None = None
     generation_warnings: list[str] = Field(default_factory=list)
+    answer_checks: list[GeminiAnswerCheck] = Field(default_factory=list)
 
 
 class GeminiSessionAcceptResponse(BaseModel):

@@ -42,12 +42,11 @@ export default function BrandMark({
           sx={{
             width: s.icon,
             height: s.icon,
-            borderRadius: "50%",
-            background: brandTextGradient,
+            borderRadius: "28%",
+            background: brand.primary600,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: `0 6px 20px ${alpha(brand.violet600, 0.28)}`,
             flexShrink: 0,
           }}
         >
@@ -57,8 +56,8 @@ export default function BrandMark({
           component="span"
           sx={{
             fontSize: s.title,
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
             lineHeight: 1.1,
             background: inverted ? "none" : brandTextGradient,
             color: inverted ? brand.white : undefined,

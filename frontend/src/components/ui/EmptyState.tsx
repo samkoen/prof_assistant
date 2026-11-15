@@ -19,8 +19,8 @@ export default function EmptyState({ title, description, action, icon }: EmptySt
         py: { xs: 4, sm: 5 },
         px: 2,
         borderRadius: 3,
-        border: `1px dashed ${alpha(brand.violet600, 0.22)}`,
-        bgcolor: alpha(brand.violet600, 0.03),
+        border: `1px dashed ${alpha(brand.primary600, 0.22)}`,
+        bgcolor: alpha(brand.primary600, 0.03),
       }}
     >
       <Box
@@ -33,8 +33,8 @@ export default function EmptyState({ title, description, action, icon }: EmptySt
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: alpha(brand.violet600, 0.1),
-          color: brand.violet600,
+          bgcolor: alpha(brand.primary600, 0.1),
+          color: brand.primary600,
           "& .MuiSvgIcon-root": { fontSize: 28 },
         }}
       >

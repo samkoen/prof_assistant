@@ -20,13 +20,15 @@ export default function TeacherExamsPage() {
   const [filters, setFilters] = useState(NO_FILTERS);
   const [tab, setTab] = useState<ExamsStatusTab>("open");
   const [refreshKey, setRefreshKey] = useState(0);
-  const lifecycle = useSessionLifecycle({ reload: data.load, onError: data.setError, onReopened: () => setTab("open") });
-  const activation = useActivateExam({ offerings: data.offerings, reload: data.load, onError: data.setError });
+  const [success, setSuccess] = useState("");
+  const lifecycle = useSessionLifecycle({ reload: data.load, onError: data.setError, onSuccess: setSuccess, onReopened: () => setTab("open") });
+  const activation = useActivateExam({ offerings: data.offerings, reload: data.load, onError: data.setError, onSuccess: setSuccess });
   const handlers = {
     onRequest: lifecycle.request,
     onActivateSession: activation.startFromSession,
     onChanged: data.load,
     onError: data.setError,
+    onSuccess: setSuccess,
   };
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -36,8 +38,9 @@ export default function TeacherExamsPage() {
 
   return (
     <Box sx={{ width: "100%" }} dir="rtl">
-      <ListPageToolbar title={he.exams} subtitle={he.examsDraftsSubtitle} addLabel={he.createExam} onAdd={() => navigate("/teacher/exams/new")} />
+      <ListPageToolbar title={he.exams} subtitle={he.examsDraftsSubtitle} addLabel={he.createMenuExam} onAdd={() => navigate("/teacher/exams/new")} />
       {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
       <ExamsFilterBar filters={filters} catalogs={names} onChange={setFilters} />
       <ExamsPageBody
         sessions={data.sessions}

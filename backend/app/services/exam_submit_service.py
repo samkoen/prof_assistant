@@ -22,6 +22,7 @@ from app.models.exam import (
 )
 from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
+from app.services.ai_tutor_store import delete_tutor_rows
 from app.services.exam_kind import is_task, is_tirgoul
 from app.services.practice_release import should_record_score, write_official_score
 from app.services.scoring import score_exam_answers
@@ -107,6 +108,7 @@ async def restart_resubmit_attempt(attempt: StudentExamAttempt, db: AsyncSession
     await _delete_attempt_rows(Answer, attempt.id, db)
     await _delete_attempt_rows(QuestionAiExplanation, attempt.id, db)
     await _delete_attempt_rows(OpenAnswerEvaluation, attempt.id, db)
+    await delete_tutor_rows(db, attempt_id=attempt.id)
     attempt.submitted_at = None
     attempt.score = None
     attempt.max_score = None

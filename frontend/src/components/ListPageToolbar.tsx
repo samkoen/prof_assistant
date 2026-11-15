@@ -1,61 +1,39 @@
 import type { ReactNode } from "react";
-import { Box, Button, Typography } from "@mui/material";
+import { Button } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import {
-  hebrewPageToolbarSx,
-  hebrewToolbarActionsSx,
-  hebrewToolbarTitleSx,
-} from "../styles/hebrewAlign";
+import AppPageHeader from "./ui/AppPageHeader";
 
 interface ListPageToolbarProps {
   title: ReactNode;
   subtitle?: string;
   addLabel?: string;
   onAdd?: () => void;
-  /** Boutons à gauche physique (remplace addLabel/onAdd si fourni). */
+  /** Actions personnalisées (remplace addLabel/onAdd si fourni). */
   actions?: ReactNode;
   titleVariant?: "h4" | "h5";
+  back?: { to: string; label: string };
+  meta?: ReactNode;
 }
 
-function renderActions(actions: ReactNode | undefined, addLabel?: string, onAdd?: () => void) {
-  if (actions) {
-    return <Box sx={hebrewToolbarActionsSx}>{actions}</Box>;
-  }
-  if (addLabel && onAdd) {
-    return (
-      <Box sx={hebrewToolbarActionsSx}>
-        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={onAdd}>
-          {addLabel}
-        </Button>
-      </Box>
-    );
-  }
-  return null;
-}
-
-export default function ListPageToolbar({
-  title,
-  subtitle,
-  addLabel,
-  onAdd,
-  actions,
-  titleVariant = "h4",
-}: ListPageToolbarProps) {
-  const actionSlot = renderActions(actions, addLabel, onAdd);
-
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <Box sx={hebrewPageToolbarSx}>
-      <Box sx={hebrewToolbarTitleSx}>
-        <Typography variant={titleVariant} component="h1" fontWeight={700}>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      {actionSlot}
-    </Box>
+    <Button variant="contained" startIcon={<AddIcon />} onClick={onClick}>
+      {label}
+    </Button>
+  );
+}
+
+/** En-tête des pages de liste : titre, sous-titre et action principale « ajouter ». */
+export default function ListPageToolbar({ title, subtitle, addLabel, onAdd, actions, titleVariant = "h4", back, meta }: ListPageToolbarProps) {
+  const resolved = actions ?? (addLabel && onAdd ? <AddButton label={addLabel} onClick={onAdd} /> : undefined);
+  return (
+    <AppPageHeader
+      title={title}
+      subtitle={subtitle}
+      actions={resolved}
+      back={back}
+      meta={meta}
+      size={titleVariant === "h5" ? "medium" : "large"}
+    />
   );
 }

@@ -21,7 +21,7 @@ const dotKeyframes = {
   "@media (prefers-reduced-motion: reduce)": { "& span": { animationDuration: "4s !important" } },
 } as const;
 
-const BRAND_DOTS = [brand.violet600, brand.sky500, brand.amber500];
+const BRAND_DOTS = [brand.primary600, brand.sky500, brand.amber500];
 
 function Dots({ size, color, sx, hidden }: { size: number; color: "inherit" | "primary"; sx?: SxProps<Theme>; hidden?: boolean }) {
   const d = dotSize(size);

@@ -22,7 +22,7 @@ export default function ExamPracticeHistory({ results }: { results: PracticeResu
   if (results.length === 0) return null;
   return (
     <Box dir="rtl" sx={{ mb: 3, p: 2, borderRadius: 3, bgcolor: "background.paper", boxShadow: softCardShadow }}>
-      <Typography variant="subtitle1" fontWeight={800}>{he.practiceScoresHistory}</Typography>
+      <Typography variant="subtitle1" fontWeight={700}>{he.practiceScoresHistory}</Typography>
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
         {he.practiceScoreHint}
       </Typography>

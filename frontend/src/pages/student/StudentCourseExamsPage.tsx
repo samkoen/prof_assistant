@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Box, Button, Skeleton } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import ShareIcon from "@mui/icons-material/Share";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
@@ -45,12 +44,9 @@ export default function StudentCourseExamsPage() {
 
   return (
     <Box sx={{ width: "100%" }} dir="rtl">
-      <Button component={RouterLink} to="/student/courses" startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1 }}>
-        {he.backToCourses}
-      </Button>
       <ListPageToolbar
-        title={he.courseExams}
-        subtitle={data.offering ? offeringLabel(data.offering) : undefined}
+        back={{ to: "/student/courses", label: he.backToCourses }}
+        title={data.offering ? offeringLabel(data.offering) : he.courseExams}
         titleVariant="h5"
         actions={<CourseExamActions offering={data.offering} onShareSubject={shares.shareSubject} />}
       />

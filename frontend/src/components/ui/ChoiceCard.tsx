@@ -17,6 +17,7 @@ export default function ChoiceCard({ title, description, selected, onSelect, dis
     <ButtonBase
       role="radio"
       aria-checked={selected}
+      aria-label={title}
       disabled={disabled}
       onClick={onSelect}
       sx={{
@@ -27,16 +28,16 @@ export default function ChoiceCard({ title, description, selected, onSelect, dis
         gap: 1.25,
         p: 2,
         textAlign: "right",
-        borderRadius: 3,
-        border: `2px solid ${selected ? brand.violet600 : brand.slate200}`,
-        bgcolor: selected ? alpha(brand.violet600, 0.06) : brand.white,
+        borderRadius: 2,
+        border: `1.5px solid ${selected ? brand.primary600 : brand.slate200}`,
+        bgcolor: selected ? alpha(brand.primary600, 0.05) : brand.white,
         transition: "border-color 0.15s ease, background-color 0.15s ease",
-        "&:hover": { borderColor: selected ? brand.violet600 : brand.violet400 },
+        "&:hover": { borderColor: selected ? brand.primary600 : brand.primary400 },
       }}
     >
-      {selected ? <CheckCircleIcon sx={{ color: brand.violet600 }} /> : <RadioButtonUncheckedIcon sx={{ color: brand.slate400 }} />}
+      {selected ? <CheckCircleIcon sx={{ color: brand.primary600 }} /> : <RadioButtonUncheckedIcon sx={{ color: brand.slate400 }} />}
       <Box>
-        <Typography fontWeight={800}>{title}</Typography>
+        <Typography fontWeight={600}>{title}</Typography>
         {description && (
           <Typography variant="body2" color="text.secondary">
             {description}

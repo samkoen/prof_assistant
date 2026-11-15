@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { alpha, Box } from "@mui/material";
+import { Box } from "@mui/material";
 import { hebrewAlignRightSx } from "../../styles/hebrewAlign";
-import { brand, softCardShadow } from "../../theme/brand";
+import { surface } from "../../theme/brand";
+import { MOBILE_NAV_HEIGHT } from "./MobileBottomNav";
 
 type ShellMainProps = {
   topBar: ReactNode;
@@ -13,31 +14,28 @@ const scrollAreaSx = {
   minWidth: 0,
   width: 0,
   order: 1,
-  height: "100vh",
+  height: "100dvh",
   overflowY: "auto",
   overflowX: "hidden",
+  bgcolor: { xs: surface.card, sm: surface.page },
 } as const;
 
-const surfaceSx = {
+const contentSx = {
   ...hebrewAlignRightSx,
   minWidth: 0,
-  maxWidth: "100%",
-  bgcolor: brand.white,
-  borderRadius: { xs: 3, sm: 4 },
-  p: { xs: 2, sm: 3, md: 4 },
-  border: `1px solid ${alpha(brand.violet600, 0.1)}`,
-  boxShadow: softCardShadow,
-  minHeight: { xs: "auto", sm: "calc(100vh - 60px - 48px)" },
+  maxWidth: 1320,
+  mx: "auto",
+  px: { xs: 2, sm: 3, md: 4 },
+  pt: { xs: 2, sm: 3 },
+  pb: { xs: `calc(${MOBILE_NAV_HEIGHT + 24}px + env(safe-area-inset-bottom))`, sm: 5 },
 } as const;
 
-/** Zone principale : barre supérieure collante + surface blanche centrée. */
+/** Zone principale : barre supérieure collante, puis le contenu de la page sur fond neutre. */
 export default function ShellMain({ topBar, children }: ShellMainProps) {
   return (
     <Box component="main" sx={scrollAreaSx}>
       {topBar}
-      <Box sx={{ maxWidth: 1480, mx: "auto", px: { xs: 1.5, sm: 2.5, md: 3.5 }, py: { xs: 2, sm: 3 } }}>
-        <Box sx={surfaceSx}>{children}</Box>
-      </Box>
+      <Box sx={contentSx}>{children}</Box>
     </Box>
   );
 }

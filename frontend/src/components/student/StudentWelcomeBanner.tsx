@@ -5,7 +5,6 @@ import SchoolIcon from "@mui/icons-material/School";
 import PageHeroBanner from "../ui/PageHeroBanner";
 import type { StudentExamSessionWithAttempt } from "../../api/client";
 import { he } from "../../i18n/he";
-import { brand } from "../../theme/brand";
 import { greetingFor } from "../../utils/teacherDashboard";
 import { studentExamView } from "../../utils/studentExams";
 
@@ -16,25 +15,18 @@ type StudentWelcomeBannerProps = {
   hour?: number;
 };
 
-const ctaSx = {
-  bgcolor: brand.white,
-  color: brand.violet800,
-  fontWeight: 800,
-  background: brand.white,
-  "&:hover": { background: brand.violet50 },
-} as const;
 
 function Cta({ next }: { next: StudentExamSessionWithAttempt | null }) {
   if (next) {
     const label = studentExamView(next, next.attempt).actionLabel;
     return (
-      <Button component={Link} to={`/student/exams/${next.id}`} variant="contained" size="large" startIcon={<PlayArrowIcon />} sx={ctaSx}>
+      <Button component={Link} to={`/student/exams/${next.id}`} variant="contained" startIcon={<PlayArrowIcon />}>
         {label}
       </Button>
     );
   }
   return (
-    <Button component={Link} to="/student/join-course" variant="contained" size="large" startIcon={<SchoolIcon />} sx={ctaSx}>
+    <Button component={Link} to="/student/join-course" variant="contained" startIcon={<SchoolIcon />}>
       {he.joinByTeacherTitle}
     </Button>
   );

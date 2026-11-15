@@ -10,12 +10,12 @@ import { generationCostView } from "../../../utils/generationCost";
 export default function GeminiCostEstimate({ preview }: { preview: GeminiGenerationPreview }) {
   const { wallet } = useRoleCredits("teacher");
   const view = generationCostView(preview, wallet);
-  const tone = view.insufficient ? statusTones.warning : statusTones.violet;
+  const tone = view.insufficient ? statusTones.warning : statusTones.primary;
   return (
     <Box dir="rtl" sx={{ mb: 2, p: 2, borderRadius: 3, bgcolor: tone.bg, color: tone.fg }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
         <PaidIcon sx={{ fontSize: 22 }} />
-        <Typography variant="subtitle2" fontWeight={800}>
+        <Typography variant="subtitle2" fontWeight={700}>
           {view.title}: {view.cost}
         </Typography>
         {view.balance && (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Tooltip, Typography } from "@mui/material";
@@ -20,14 +20,7 @@ async function saveVisibility(examId: number, hidden: boolean): Promise<void> {
   });
 }
 
-function HideExamDialog({
-  open,
-  hidden,
-  title,
-  busy,
-  onClose,
-  onConfirm,
-}: {
+function HideExamDialog({ open, hidden, title, busy, onClose, onConfirm }: {
   open: boolean;
   hidden: boolean;
   title: string;
@@ -52,12 +45,11 @@ function HideExamDialog({
   );
 }
 
-export default function HideExamButton({ exam, iconOnly = false, size = "small", onChanged, onError }: Props) {
+/** Masquer / ré-afficher une מטלה aux élèves : état + dialogue de confirmation. */
+export function useHideExam(exam: Exam, onChanged: () => void, onError: (message: string) => void) {
   const hidden = Boolean(exam.hidden_from_students);
-  const label = hidden ? he.showExam : he.hideExam;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-
   const confirm = async () => {
     setBusy(true);
     try {
@@ -70,31 +62,30 @@ export default function HideExamButton({ exam, iconOnly = false, size = "small",
       setBusy(false);
     }
   };
+  const icon: ReactNode = hidden ? <VisibilityOutlinedIcon fontSize="small" /> : <VisibilityOffOutlinedIcon fontSize="small" />;
+  const dialog = (
+    <HideExamDialog open={open} hidden={hidden} title={exam.title} busy={busy} onClose={() => setOpen(false)} onConfirm={() => void confirm()} />
+  );
+  return { hidden, label: hidden ? he.showExam : he.hideExam, icon, openDialog: () => setOpen(true), dialog };
+}
 
-  const icon = hidden ? <VisibilityOutlinedIcon fontSize="small" /> : <VisibilityOffOutlinedIcon fontSize="small" />;
+export default function HideExamButton({ exam, iconOnly = false, size = "small", onChanged, onError }: Props) {
+  const hide = useHideExam(exam, onChanged, onError);
   const trigger = iconOnly ? (
-    <Tooltip title={label}>
-      <IconButton size="small" color={hidden ? "warning" : "default"} aria-label={label} onClick={() => setOpen(true)}>
-        {icon}
+    <Tooltip title={hide.label}>
+      <IconButton size="small" color={hide.hidden ? "warning" : "default"} aria-label={hide.label} onClick={hide.openDialog}>
+        {hide.icon}
       </IconButton>
     </Tooltip>
   ) : (
-    <Button size={size} variant="outlined" color={hidden ? "warning" : "inherit"} startIcon={icon} onClick={() => setOpen(true)}>
-      {label}
+    <Button size={size} variant="outlined" color={hide.hidden ? "warning" : "inherit"} startIcon={hide.icon} onClick={hide.openDialog}>
+      {hide.label}
     </Button>
   );
-
   return (
     <>
       {trigger}
-      <HideExamDialog
-        open={open}
-        hidden={hidden}
-        title={exam.title}
-        busy={busy}
-        onClose={() => setOpen(false)}
-        onConfirm={() => void confirm()}
-      />
+      {hide.dialog}
     </>
   );
 }

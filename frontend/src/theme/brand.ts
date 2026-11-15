@@ -1,68 +1,73 @@
-/** Palette EdTech — violet vif et contrasté, accents cyan / ambre / menthe. */
+/**
+ * Palette « bleu encre » — sobre, lisible, professionnelle.
+ * Une seule couleur d'action (primary600) ; les accents servent uniquement aux états.
+ */
 export const brand = {
-  violet900: "#2b2170",
-  violet800: "#3c2fa0",
-  violet700: "#4c38d4",
-  violet600: "#5b44e8",
-  violet500: "#8271f2",
-  violet400: "#b7acfa",
-  violet100: "#ebe8ff",
-  violet50: "#f5f3ff",
-  sky500: "#22b8f0",
-  mint500: "#16c79a",
-  amber500: "#f59e0b",
-  amber400: "#fbbf24",
-  slate900: "#0f172a",
-  slate700: "#334155",
-  slate600: "#475569",
-  slate400: "#94a3b8",
-  slate200: "#e2e8f0",
+  primary900: "#0f2550",
+  primary800: "#163372",
+  primary700: "#1c4192",
+  primary600: "#2451b3",
+  primary500: "#4b73cc",
+  primary400: "#93abe2",
+  primary100: "#e2e9f8",
+  primary50: "#f1f4fb",
+  sky500: "#0e7fa8",
+  mint500: "#0f8a68",
+  amber500: "#c76a05",
+  amber400: "#e39a1c",
+  slate900: "#111827",
+  slate700: "#374151",
+  slate600: "#4b5563",
+  slate400: "#9ca3af",
+  slate200: "#e5e7eb",
   white: "#ffffff",
 } as const;
 
-/** Fond page — nuance lavande très claire, halos discrets. */
-export const pageMeshBackground = `
-  radial-gradient(ellipse 60% 40% at 90% 0%, rgba(91, 68, 232, 0.10) 0%, transparent 60%),
-  radial-gradient(ellipse 45% 35% at 0% 100%, rgba(34, 184, 240, 0.08) 0%, transparent 60%),
-  linear-gradient(180deg, #f3f1fd 0%, #f7f6fc 55%, #f8fafc 100%)
-`;
+/** Surfaces neutres. */
+export const surface = {
+  page: "#f5f6f8",
+  card: brand.white,
+  subtle: "#f9fafb",
+  border: "#e4e7ec",
+  borderStrong: "#d0d5dd",
+  hover: "#f2f4f7",
+} as const;
 
-export const authMeshBackground = `
-  radial-gradient(circle 280px at 12% 18%, rgba(91, 68, 232, 0.22) 0%, transparent 70%),
-  radial-gradient(circle 320px at 88% 22%, rgba(34, 184, 240, 0.18) 0%, transparent 65%),
-  radial-gradient(circle 260px at 75% 88%, rgba(245, 158, 11, 0.12) 0%, transparent 60%),
-  radial-gradient(circle 200px at 20% 85%, rgba(22, 199, 154, 0.12) 0%, transparent 60%),
-  linear-gradient(160deg, #e8eafc 0%, #f3f0ff 45%, #f8fafc 100%)
-`;
+/** Fond de page : uni, neutre. */
+export const pageMeshBackground = surface.page;
 
-/** Dégradé marque (logo / titres). */
-export const brandTextGradient = `linear-gradient(100deg, ${brand.violet700} 0%, ${brand.sky500} 45%, ${brand.amber500} 72%, ${brand.mint500} 100%)`;
+/** Fond des pages d'authentification : discret, une seule nuance. */
+export const authMeshBackground = `linear-gradient(180deg, ${brand.primary50} 0%, ${surface.page} 100%)`;
 
-/** Barre latérale — violet profond, texte clair. */
-export const sidebarGradient = `linear-gradient(190deg, ${brand.violet900} 0%, #261c78 55%, #1d1659 100%)`;
+/** Ancien dégradé de marque : désormais une couleur pleine (titres, logo). */
+export const brandTextGradient = `linear-gradient(0deg, ${brand.primary700} 0%, ${brand.primary700} 100%)`;
 
-/** Bannière d'accueil — violet profond vers cyan. */
-export const heroGradient = `linear-gradient(125deg, ${brand.violet900} 0%, ${brand.violet700} 48%, ${brand.violet500} 82%, ${brand.sky500} 130%)`;
+/** Barre latérale : claire. */
+export const sidebarGradient = brand.white;
 
-export const softCardShadow = `0 2px 12px rgba(43, 33, 112, 0.06), 0 1px 3px rgba(43, 33, 112, 0.05)`;
-export const elevatedCardShadow = `0 24px 64px rgba(43, 33, 112, 0.14), 0 8px 24px rgba(43, 33, 112, 0.07)`;
+/** Bandeaux : couleur pleine sobre. */
+export const heroGradient = brand.primary700;
 
+export const softCardShadow = "0 1px 2px rgba(16, 24, 40, 0.05)";
+export const elevatedCardShadow = "0 12px 32px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.06)";
+
+/** Fonds d'icônes / pastilles : couleurs pleines (plus de dégradés). */
 export const cardGradients = {
-  primary: `linear-gradient(135deg, ${brand.violet700} 0%, ${brand.violet500} 100%)`,
-  secondary: `linear-gradient(135deg, #0e8fbf 0%, ${brand.sky500} 100%)`,
-  warning: `linear-gradient(135deg, #d97706 0%, ${brand.amber400} 100%)`,
-  success: `linear-gradient(135deg, #0f9f7a 0%, ${brand.mint500} 100%)`,
-  error: `linear-gradient(135deg, #dc2626 0%, #f87171 100%)`,
+  primary: brand.primary600,
+  secondary: brand.sky500,
+  warning: brand.amber500,
+  success: brand.mint500,
+  error: "#c62828",
 } as const;
 
 /** Couleurs d'état (texte sur fond clair) — contraste AA. */
 export const statusTones = {
-  success: { fg: "#047857", bg: "#d1fae5" },
-  warning: { fg: "#b45309", bg: "#fef3c7" },
-  info: { fg: "#0369a1", bg: "#e0f2fe" },
-  neutral: { fg: "#475569", bg: "#eef2f7" },
-  violet: { fg: brand.violet700, bg: brand.violet100 },
-  danger: { fg: "#b91c1c", bg: "#fee2e2" },
+  success: { fg: "#067647", bg: "#e7f6ee" },
+  warning: { fg: "#a65a00", bg: "#fdf3e1" },
+  info: { fg: "#075985", bg: "#e6f2fa" },
+  neutral: { fg: "#475467", bg: "#f2f4f7" },
+  primary: { fg: brand.primary700, bg: brand.primary100 },
+  danger: { fg: "#b42318", bg: "#fdecea" },
 } as const;
 
 export type StatusTone = keyof typeof statusTones;

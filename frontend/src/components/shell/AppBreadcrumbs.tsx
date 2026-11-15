@@ -1,5 +1,5 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Breadcrumbs, Link, Typography } from "@mui/material";
+import { Breadcrumbs, Link, Typography, useMediaQuery, type Theme } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import type { Crumb } from "../../utils/pageCrumbs";
 import { he } from "../../i18n/he";
@@ -8,7 +8,7 @@ import { brand } from "../../theme/brand";
 function CrumbItem({ crumb }: { crumb: Crumb }) {
   if (!crumb.path) {
     return (
-      <Typography variant="body2" fontWeight={700} color={brand.slate900} noWrap aria-current="page">
+      <Typography variant="body2" fontWeight={600} color={brand.slate900} noWrap aria-current="page">
         {crumb.label}
       </Typography>
     );
@@ -30,8 +30,12 @@ function CrumbItem({ crumb }: { crumb: Crumb }) {
 
 /** Fil d'Ariane : où je suis, et retour en un clic aux niveaux supérieurs. */
 export default function AppBreadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
+  const compact = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
   return (
     <Breadcrumbs
+      maxItems={compact ? 2 : 8}
+      itemsBeforeCollapse={compact ? 0 : 1}
+      itemsAfterCollapse={compact ? 2 : 1}
       aria-label={he.breadcrumbsLabel}
       separator={<ChevronLeftIcon sx={{ fontSize: 18, color: brand.slate400 }} />}
       sx={{ minWidth: 0, "& .MuiBreadcrumbs-ol": { flexWrap: "nowrap" } }}

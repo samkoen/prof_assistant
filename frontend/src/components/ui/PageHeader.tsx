@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { alpha, Box, Typography } from "@mui/material";
-import { hebrewPageToolbarSx, hebrewToolbarActionsSx, hebrewToolbarTitleSx } from "../../styles/hebrewAlign";
-import { brand, brandTextGradient } from "../../theme/brand";
+import AppPageHeader from "./AppPageHeader";
 
 type PageHeaderProps = {
   title: string;
@@ -9,35 +7,7 @@ type PageHeaderProps = {
   actions?: ReactNode;
 };
 
+/** Alias historique de l'en-tête de page unifié. */
 export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
-  return (
-    <Box
-      sx={{
-        ...hebrewPageToolbarSx,
-        pb: 2.5,
-        mb: 3,
-        borderBottom: `1px solid ${alpha(brand.violet600, 0.1)}`,
-      }}
-    >
-      <Box sx={hebrewToolbarTitleSx}>
-        <Typography
-          variant="h4"
-          sx={{
-            background: brandTextGradient,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.75, maxWidth: 640, lineHeight: 1.65 }}>
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      {actions && <Box sx={hebrewToolbarActionsSx}>{actions}</Box>}
-    </Box>
-  );
+  return <AppPageHeader title={title} subtitle={subtitle} actions={actions} />;
 }

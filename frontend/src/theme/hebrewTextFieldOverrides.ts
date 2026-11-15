@@ -19,7 +19,7 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
       },
       outlined: {
         "&:not(.MuiInputLabel-shrink)": {
-          transform: "translate(-14px, 16px) scale(1) !important",
+          transform: "translate(-14px, 14px) scale(1) !important",
           maxWidth: "calc(100% - 24px)",
         },
         "&.MuiInputLabel-sizeSmall:not(.MuiInputLabel-shrink)": {
@@ -36,21 +36,17 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
   MuiOutlinedInput: {
     styleOverrides: {
       root: ({ theme }) => ({
-        borderRadius: 14,
-        bgcolor: alpha(theme.palette.primary.main, 0.03),
-        transition: "background-color 0.2s ease, box-shadow 0.2s ease",
-        "&:hover": {
-          bgcolor: alpha(theme.palette.primary.main, 0.05),
-        },
+        borderRadius: 8,
+        backgroundColor: theme.palette.background.paper,
+        transition: "box-shadow 0.15s ease",
         "&.Mui-focused": {
-          bgcolor: theme.palette.background.paper,
-          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}`,
+          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.14)}`,
         },
         "& .MuiOutlinedInput-notchedOutline": {
-          borderColor: alpha(theme.palette.primary.main, 0.14),
+          borderColor: "#d0d5dd",
         },
         "&:hover .MuiOutlinedInput-notchedOutline": {
-          borderColor: alpha(theme.palette.primary.main, 0.28),
+          borderColor: "#98a2b3",
         },
         "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
           borderColor: theme.palette.primary.main,
@@ -63,7 +59,7 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
       input: {
         textAlign: "right",
         direction: "rtl",
-        paddingBlock: 14,
+        paddingBlock: 12,
       },
       inputMultiline: {
         textAlign: "right",
@@ -80,7 +76,7 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
     styleOverrides: {
       root: ({ theme }) => ({
         "& .MuiOutlinedInput-root": {
-          bgcolor: alpha(theme.palette.primary.main, 0.03),
+          backgroundColor: theme.palette.background.paper,
         },
         '&[dir="ltr"]': {
           "& .MuiInputLabel-root": {
@@ -90,7 +86,7 @@ export const hebrewTextFieldOverrides: Components<Theme> = {
             right: "auto !important",
           },
           "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
-            transform: "translate(14px, 16px) scale(1) !important",
+            transform: "translate(14px, 14px) scale(1) !important",
           },
           "& .MuiInputLabel-outlined.MuiInputLabel-sizeSmall:not(.MuiInputLabel-shrink)": {
             transform: "translate(14px, 9px) scale(1) !important",

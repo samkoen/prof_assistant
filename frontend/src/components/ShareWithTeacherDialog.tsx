@@ -66,7 +66,7 @@ export default function ShareWithTeacherDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" dir="rtl">
-      <DialogTitle>{kind === "exam" ? he.shareExam : he.shareCatalog}</DialogTitle>
+      <DialogTitle>{kind === "exam" ? he.shareExam : he.shareCatalogTitle}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
         <Alert severity="info">{itemLabel}</Alert>
         <TextField

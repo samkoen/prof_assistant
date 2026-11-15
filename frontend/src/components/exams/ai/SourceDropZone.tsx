@@ -44,11 +44,11 @@ export default function SourceDropZone({ disabled, uploading, onFiles }: SourceD
         py: 3,
         borderRadius: 3,
         cursor: inactive ? "default" : "pointer",
-        border: `2px dashed ${alpha(brand.violet600, dragging ? 0.8 : 0.3)}`,
-        bgcolor: alpha(brand.violet600, dragging ? 0.1 : 0.03),
+        border: `2px dashed ${alpha(brand.primary600, dragging ? 0.8 : 0.3)}`,
+        bgcolor: alpha(brand.primary600, dragging ? 0.1 : 0.03),
         opacity: disabled ? 0.6 : 1,
         transition: "background-color 0.15s, border-color 0.15s",
-        "&:hover": inactive ? undefined : { bgcolor: alpha(brand.violet600, 0.07) },
+        "&:hover": inactive ? undefined : { bgcolor: alpha(brand.primary600, 0.07) },
       }}
     >
       <input
@@ -61,7 +61,7 @@ export default function SourceDropZone({ disabled, uploading, onFiles }: SourceD
           e.target.value = "";
         }}
       />
-      {uploading ? <Spinner size={28} /> : <CloudUploadOutlinedIcon sx={{ fontSize: 32, color: brand.violet600 }} />}
+      {uploading ? <Spinner size={28} /> : <CloudUploadOutlinedIcon sx={{ fontSize: 32, color: brand.primary600 }} />}
       <Typography fontWeight={700} sx={{ mt: 0.5 }}>
         {uploading ? he.geminiDropUploading : dragging ? he.geminiDropActive : he.geminiDropTitle}
       </Typography>

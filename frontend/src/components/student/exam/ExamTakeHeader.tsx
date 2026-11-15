@@ -17,7 +17,7 @@ export default function ExamTakeHeader({ paper, sessionId, showTitle }: ExamTake
       </Button>
       {showTitle && (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1.5, flexWrap: "wrap" }}>
-          <Typography variant="h5" fontWeight={800}>{paper.exam_title}</Typography>
+          <Typography variant="h5" fontWeight={700}>{paper.exam_title}</Typography>
           {paper.is_tirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
         </Box>
       )}

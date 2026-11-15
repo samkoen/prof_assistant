@@ -92,6 +92,14 @@ _TREE_OPTION_RULES = """
 """
 
 
+SOLUTION_RULE = (
+    "For single/multiple/true_false: right after the question text and before A), write one line "
+    "starting with \"Solution:\" — a short worked solution (compute the value, trace the code, apply the rule) "
+    "in at most 3 short sentences. Decide the correct option from this solution, then mark it with *. "
+    "No Solution line for open questions"
+)
+
+
 def is_refine_prompt(content: str) -> bool:
     return REFINE_USER_MARKER in content or _LEGACY_REFINE in content
 
@@ -126,6 +134,7 @@ def _format_rules(lang: GeminiSeriesLanguage, *, include_tree: bool) -> str:
     return f"""Required format:
 - Separate questions with a --- line only
 - Header: Q<num> [single|multiple|true_false|open] (1 pt) — global running number
+- {SOLUTION_RULE}
 - {_write_rule(lang)}
 - Options: A) B) C) D) — only for single/multiple/true_false
 - For open questions: question text only, no A) B) and no correct-answer mark

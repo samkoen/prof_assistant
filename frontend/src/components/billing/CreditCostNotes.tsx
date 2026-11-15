@@ -37,7 +37,7 @@ function StudentNote() {
 function Note({ title, lines }: { title: string; lines: string[] }) {
   return (
     <Box sx={{ p: 2.5, borderRadius: 3, bgcolor: brand.white, boxShadow: softCardShadow }}>
-      <Typography fontWeight={800} sx={{ mb: 1 }}>{title}</Typography>
+      <Typography fontWeight={700} sx={{ mb: 1 }}>{title}</Typography>
       <Stack sx={{ gap: 1 }}>
         {lines.map((line) => (
           <Typography key={line} color="text.secondary" sx={{ lineHeight: 1.7 }}>{line}</Typography>

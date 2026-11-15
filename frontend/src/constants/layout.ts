@@ -1,9 +1,8 @@
-/** Largeur du menu latéral (aligné sur digestic `sidebarWidth`) */
-export const SIDEBAR_WIDTH = 268;
+/** Largeur du menu latéral. */
+export const SIDEBAR_WIDTH = 256;
 
 /**
  * Hauteur max des listes tabulaires — scroll interne, barre horizontale visible.
- * Même logique que digestic `listTableLayout.js`.
  */
 export const LIST_TABLE_SCROLL_MAX_HEIGHT = "calc(100vh - 232px)";
 

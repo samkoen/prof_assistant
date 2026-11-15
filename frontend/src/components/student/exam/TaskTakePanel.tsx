@@ -45,7 +45,7 @@ function ProofCard({ sessionId, step, onUploaded, onError }: { sessionId: number
   };
   return (
     <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-      <Typography fontWeight={800}>{step.title}</Typography>
+      <Typography fontWeight={700}>{step.title}</Typography>
       <Typography sx={{ whiteSpace: "pre-wrap", my: 1 }}>{step.instructions}</Typography>
       <Typography variant="body2" color="text.secondary" dir="ltr">{step.proof_filename || he.taskNoProof}</Typography>
       <Button component="label" variant="outlined" sx={{ mt: 1 }}>

@@ -18,10 +18,13 @@ const LABELS: Record<string, string> = {
   "generation.refine": he.aiPromptGenerationRefine,
   "generation.batch": he.aiPromptGenerationBatch,
   "generation.prior": he.aiPromptGenerationPrior,
+  "generation.verify": he.aiPromptGenerationVerify,
   "generation.preview": he.aiPromptGenerationPreview,
   "generation.sources_intro": he.aiPromptGenerationSources,
   "task_verify.system": he.aiPromptTaskVerifySystem,
   "task_verify.user": he.aiPromptTaskVerifyUser,
+  "tutor.system": he.aiPromptTutorSystem,
+  "tutor.context": he.aiPromptTutorContext,
 };
 
 export function aiPromptLabel(key: string): string {

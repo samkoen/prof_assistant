@@ -33,6 +33,8 @@ from app.services.gemini_source_prompt import SourcesPackage, build_sources_pack
 from app.services.exam_gemini_source_service import load_sources_for_generation
 from app.services.ai_attachments import AiAttachment
 from app.services.ai_client import AiError, generate_text
+from app.services.gemini_answer_check import check_answers, checks_to_params
+from app.services.qcm_solutions import strip_solutions
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +125,7 @@ async def _generate_batch_raw(
     sources: SourcesPackage,
     accumulated_raw: str,
     plan: list[GeminiBatchSlice],
-) -> BatchValidationResult:
+) -> tuple[BatchValidationResult, dict[int, str]]:
     prior_stems = stems_from_accumulated(accumulated_raw)
     plan_total = total_questions_from_plan(plan)
     retry_hint: str | None = None
@@ -137,14 +139,15 @@ async def _generate_batch_raw(
             accumulated_raw=accumulated_raw,
             retry_hint=retry_hint,
         )
-        raw = await _call_batch_model(prompt, sources.attachments)
+        raw, solutions = strip_solutions(await _call_batch_model(prompt, sources.attachments))
         try:
-            return validate_batch_raw(
+            result = validate_batch_raw(
                 raw,
                 batch,
                 prior_stems=prior_stems,
                 plan_total=plan_total,
             )
+            return result, solutions
         except HTTPException as exc:
             last_error = exc
             if exc.status_code != 502 or attempt >= MAX_BATCH_RETRIES:
@@ -200,7 +203,7 @@ async def run_generation_batch(
         batch.from_q + batch.count - 1,
     )
     try:
-        result = await _generate_batch_raw(
+        result, solutions = await _generate_batch_raw(
             series,
             batch,
             exam_title=exam.title,
@@ -227,6 +230,7 @@ async def run_generation_batch(
             batch.count,
             session.id,
         )
+    await _store_answer_checks(params, result.normalized_raw, solutions, replace=False)
     params["accumulated_raw"] = merge_accumulated_raw(accumulated, result.normalized_raw)
     params["completed_batches"] = completed_batches_after_accept(plan, completed, result.accepted_count)
     _append_generation_warnings(params, result.warnings)
@@ -247,6 +251,24 @@ async def run_generation_batch(
     )
 
 
+def _series_language(params: dict) -> str:
+    series = params.get("series") or []
+    return str((series[0] or {}).get("language") or "he") if series else "he"
+
+
+async def _store_answer_checks(params: dict, raw: str, solutions: dict[int, str], *, replace: bool) -> None:
+    """Résout à nouveau les questions sans la clé et garde le verdict par numéro de question."""
+    checks = checks_to_params(await check_answers(raw, solutions, _series_language(params)))
+    params["answer_checks"] = checks if replace else {**(params.get("answer_checks") or {}), **checks}
+
+
+async def refresh_answer_checks(session: ExamGeminiGenerationSession, solutions: dict[int, str]) -> None:
+    """Après une demande de modification : tout le jeu est revérifié."""
+    params = _params(session)
+    await _store_answer_checks(params, str(params.get("accumulated_raw") or ""), solutions, replace=True)
+    _save_params(session, params)
+
+
 def init_batch_params(
     series: list[GeminiSeriesInput],
     source_ids: list[int],
@@ -261,6 +283,7 @@ def init_batch_params(
         "generation_warnings": [],
         "manual_refine": False,
         "chunked_fallback": False,
+        "answer_checks": {},
     }
 
 

@@ -7,7 +7,7 @@ import type { RequestSummary } from "../../../utils/geminiFlow";
 export default function GeminiRequestSummary({ summary }: { summary: RequestSummary }) {
   return (
     <Box dir="rtl" sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-      <StatusChip label={he.geminiSummaryQuestions(summary.questions)} tone="violet" />
+      <StatusChip label={he.geminiSummaryQuestions(summary.questions)} tone="primary" />
       {summary.series > 1 && <StatusChip label={he.geminiSummarySeries(summary.series)} tone="neutral" />}
       <StatusChip
         label={summary.files > 0 ? he.geminiSummaryFiles(summary.files) : he.geminiSummaryNoFiles}

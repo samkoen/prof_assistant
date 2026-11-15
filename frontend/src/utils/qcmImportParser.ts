@@ -13,6 +13,8 @@ export interface ParsedQuestion {
   points: number;
   options: ParsedQuestionOption[];
   model_answer?: string;
+  /** Numéro de l'en-tête « Q<n> » (sert à rattacher la vérification AI). */
+  q_num?: number;
 }
 
 export interface ParseError {
@@ -383,6 +385,14 @@ function parseBlock(block: string, blockIndex: number): { q?: ParsedQuestion; er
   return parseChoiceBlock(rawLines, header, optionStart, blockIndex);
 }
 
+const Q_NUM_RE = /^\s*Q(\d+)\b/i;
+
+function withHeaderNumber(q: ParsedQuestion, block: string): ParsedQuestion {
+  const first = block.split("\n").find((l) => l.trim()) ?? "";
+  const match = Q_NUM_RE.exec(first);
+  return match ? { ...q, q_num: Number(match[1]) } : q;
+}
+
 export function parseQcmText(raw: string): ParseResult {
   const trimmed = normalizeGeminiQcmText(raw);
   if (!trimmed) {
@@ -407,7 +417,7 @@ export function parseQcmText(raw: string): ParseResult {
   blocks.forEach((block, i) => {
     const { q, error } = parseBlock(block, i + 1);
     if (error) errors.push(error);
-    else if (q) questions.push(q);
+    else if (q) questions.push(withHeaderNumber(q, block));
   });
 
   return { questions, errors };

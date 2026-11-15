@@ -150,6 +150,43 @@ Write the pedagogical explanation now.""",
         placeholders=("language_rule", "type_label", "question", "options", "correct", "student"),
     ),
     PromptSpec(
+        key="tutor.system",
+        body="""You are a patient tutor helping a student understand ONE exam question after the exam was graded.
+Write in {language_rule}. Keep every reply short (2 to 5 sentences), friendly, at the student's level.
+Teaching method (Socratic by default):
+1. On the first turn, unless the student already explained, ask why they chose their answer.
+2. Find the precise confusion behind their choice.
+3. Give progressive hints and short questions; let the student find the answer.
+4. When the student asks for the full explanation, give it completely and clearly.
+Similar example or quiz: invent a new, close question; when quizzing, wait for the student's answer, then correct it.
+Stay strictly on this question and its subject. Politely refuse anything else (other questions, homework, chat).
+Never invent facts. Text only, no tools.
+If you believe the official answer is wrong, do not contradict it bluntly: say carefully that it may deserve a check by the teacher.
+
+Context (the student does not need to repeat it):
+{context}""",
+        required=("{language_rule}", "{context}", "Stay strictly on this question"),
+        placeholders=("language_rule", "context"),
+    ),
+    PromptSpec(
+        key="tutor.context",
+        body="""Subject / course: {course}
+Question type: {type_label}
+
+Question:
+{question}
+
+Options:
+{options}
+
+Official correct answer: {correct}
+Student's answer: {student}
+Student result: {result}
+{notes_block}""",
+        required=("{question}", "{correct}", "{student}"),
+        placeholders=("course", "type_label", "question", "options", "correct", "student", "result", "notes_block"),
+    ),
+    PromptSpec(
         key="generation.system",
         body=(
             "You generate exam questions in the exact format requested. "
@@ -223,6 +260,21 @@ Questions already generated — do not repeat topics, wording, or examples:
 """,
         required=("{prior_text}",),
         placeholders=("prior_text",),
+    ),
+    PromptSpec(
+        key="generation.verify",
+        body="""You are checking an exam answer key. Solve every question below yourself, independently.
+The answers marked by the author are hidden on purpose: do not guess them, work each question out.
+{tool_rule}
+Then write exactly one line per question, and nothing else after them:
+Q<number>: <letters of ALL correct options, comma-separated> | <one short sentence why, written in {language}>
+For true/false questions, A is the first line and B the second.
+If no option is correct or the question is ambiguous, write: Q<number>: ? | <why>
+
+Questions:
+{questions}""",
+        required=("{questions}", "Q<number>:", "independently"),
+        placeholders=("questions", "tool_rule", "language"),
     ),
     PromptSpec(
         key="generation.preview",

@@ -1,4 +1,6 @@
-import { Box, Chip, Typography, alpha, type SxProps, type Theme } from "@mui/material";
+import { Box, Typography, alpha, type SxProps, type Theme } from "@mui/material";
+import StatusChip from "../components/ui/StatusChip";
+import type { StatusTone } from "../theme/brand";
 import type { DataListColumnDef } from "../components/DataListTable/types";
 import StudentVisibilityIcon from "../components/exams/StudentVisibilityIcon";
 import HebrewCountPhrase from "../components/ui/HebrewCountPhrase";
@@ -31,27 +33,27 @@ export function courseExamRowSx(row: CourseExamRow): SxProps<Theme> {
   };
 }
 
-function statusProps(row: CourseExamRow) {
+function statusProps(row: CourseExamRow): { tone: StatusTone; label: string } {
   const practice = row.exam.kind === "task" || row.exam.kind === "tirgoul" || row.exam.is_tirgoul;
   if (practice && row.session?.grading_locked) {
-    return { color: "warning" as const, label: he.gradingLocked };
+    return { tone: "warning", label: he.gradingLocked };
   }
   if (practice && row.session?.status !== "active" && row.session?.status !== "closed") {
-    return { color: "default" as const, label: he.practiceNotDeployed };
+    return { tone: "neutral", label: he.practiceNotDeployed };
   }
   if (row.exam.kind === "task") {
-    return { color: "secondary" as const, label: he.taskChip };
+    return { tone: "primary", label: he.taskChip };
   }
   if (row.exam.is_tirgoul) {
-    return { color: "info" as const, label: he.tirgoulChip };
+    return { tone: "info", label: he.tirgoulChip };
   }
   if (row.session?.status === "active") {
-    return { color: "success" as const, label: he.examAlreadyActive };
+    return { tone: "success", label: he.examAlreadyActive };
   }
   if (row.session?.status === "closed") {
-    return { color: "default" as const, label: he.examClosed };
+    return { tone: "primary", label: he.examClosed };
   }
-  return { color: "warning" as const, label: he.examDraftStatus };
+  return { tone: "neutral", label: he.examDraftStatus };
 }
 
 export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] {
@@ -78,7 +80,7 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
       getValue: (r) => statusProps(r).label,
       renderCell: (r) => {
         const s = statusProps(r);
-        return <Chip size="small" color={s.color} label={s.label} />;
+        return <StatusChip label={s.label} tone={s.tone} />;
       },
     },
     {
@@ -95,7 +97,7 @@ export function getCourseExamTableColumns(): DataListColumnDef<CourseExamRow>[] 
         const iso = examSessionDisplayIso(r.session);
         if (iso) return formatExamDateTime(iso);
         return (
-          <Typography component="span" dir="rtl" variant="body2" fontWeight={700} color="warning.main">
+          <Typography component="span" dir="rtl" variant="body2" color="text.secondary">
             {he.notSentYet}
           </Typography>
         );

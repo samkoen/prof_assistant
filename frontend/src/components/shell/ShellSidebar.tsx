@@ -16,8 +16,8 @@ type ShellSidebarProps = {
 const paperSx = {
   boxSizing: "border-box",
   width: SIDEBAR_WIDTH,
-  height: "100vh",
-  maxHeight: "100vh",
+  height: "100dvh",
+  maxHeight: "100dvh",
   overflow: "hidden",
   border: "none",
   bgcolor: "transparent",
@@ -37,7 +37,7 @@ function MobileDrawer({ content, open, onClose }: { content: ContentProps; open:
       open={open}
       onClose={onClose}
       ModalProps={{ keepMounted: true }}
-      sx={{ display: { xs: "block", sm: "none" }, "& .MuiDrawer-paper": { ...paperSx, position: "fixed" } }}
+      sx={{ display: { xs: "block", sm: "none" }, "& .MuiDrawer-paper": { ...paperSx, position: "fixed", width: "min(300px, 85vw)" } }}
     >
       <SidebarDrawerContent {...content} />
     </Drawer>
@@ -55,7 +55,7 @@ function DesktopDrawer({ content, visible, onHide }: { content: ContentProps; vi
         flexShrink: 0,
         order: 0,
         ...widthTransition(visible),
-        "&.MuiDrawer-docked": { position: "relative", height: "100vh" },
+        "&.MuiDrawer-docked": { position: "relative", height: "100dvh" },
         "& .MuiDrawer-paper": { ...paperSx, position: "relative", ...widthTransition(visible) },
       }}
     >

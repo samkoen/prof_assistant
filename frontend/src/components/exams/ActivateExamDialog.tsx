@@ -40,18 +40,21 @@ export default function ActivateExamDialog(props: ActivateExamDialogProps) {
       <DialogTitle>{he.activateExam}</DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         {exam && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {exam.title}
-          </Typography>
+          <>
+            <Typography fontWeight={600}>{exam.title}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {he.startExamNowHint}
+            </Typography>
+          </>
         )}
-        <OfferingSelect offerings={offerings} offeringId={offeringId} onChange={onOfferingChange} />
+        {offerings.length > 0 && <OfferingSelect offerings={offerings} offeringId={offeringId} onChange={onOfferingChange} />}
         <ExamActivateTimingFields value={timing} onChange={onTimingChange} />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{he.cancel}</Button>
         <DisabledActionTooltip disabled={!offeringId} disabledReason={!offeringId ? he.selectOfferingToActivate : undefined}>
           <Button variant="contained" onClick={onActivate}>
-            {he.activateExam}
+            {he.startExamNow}
           </Button>
         </DisabledActionTooltip>
       </DialogActions>

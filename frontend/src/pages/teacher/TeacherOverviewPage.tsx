@@ -28,6 +28,9 @@ export default function TeacherOverviewPage() {
   const counts = countSessions(data.sessions);
   const pendingCount = data.pending.length;
   const progress = { catalogs: data.catalogs, offerings: data.offerings, sessions: data.sessions.length };
+  const onboarding = !loading && needsOnboarding(progress);
+  /** Prof tout neuf : seulement la mise en route, sans chiffres à zéro. */
+  const firstSteps = onboarding && data.sessions.length === 0 && pendingCount === 0;
   const headline = loading
     ? ""
     : dashboardHeadline({ pending: pendingCount, active: counts.active, awaitingPublish: counts.awaitingPublish });
@@ -44,9 +47,9 @@ export default function TeacherOverviewPage() {
           {he.dashboardLoadPartial}
         </Alert>
       )}
-      {!loading && needsOnboarding(progress) && <TeacherOnboarding steps={onboardingSteps(progress)} />}
-      <TeacherStatGrid counts={counts} pending={pendingCount} wallet={wallet} loading={loading} />
-      <Grid container spacing={3}>
+      {onboarding && <TeacherOnboarding steps={onboardingSteps(progress)} />}
+      {!firstSteps && <TeacherStatGrid counts={counts} pending={pendingCount} wallet={wallet} loading={loading} />}
+      <Grid container spacing={3} sx={{ display: firstSteps ? "none" : undefined }}>
         <Grid item xs={12} md={7}>
           <TeacherTodoPanel pending={data.pending} sessions={data.sessions} loading={loading} reviewing={reviewing} onReview={review} />
         </Grid>

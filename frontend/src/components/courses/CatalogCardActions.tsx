@@ -1,6 +1,6 @@
-import { Box, IconButton, Tooltip } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ActionsMenu from "../ui/ActionsMenu";
 import type { CatalogCourse } from "../../api/client";
 import { he } from "../../i18n/he";
 
@@ -10,20 +10,15 @@ type CatalogHeaderActionsProps = {
   onDelete: (catalog: CatalogCourse) => void;
 };
 
-/** Icônes d'en-tête d'une carte catalogue : édition puis suppression. */
+/** Menu « ⋮ » d'une carte מקצוע : édition puis suppression. */
 export function CatalogHeaderActions({ catalog, onEdit, onDelete }: CatalogHeaderActionsProps) {
   return (
-    <Box sx={{ display: "flex", gap: 0.25, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-      <Tooltip title={he.editCatalogCourse}>
-        <IconButton size="small" aria-label={he.editCatalogCourse} sx={{ color: "text.secondary" }} onClick={() => onEdit(catalog)}>
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip title={he.deleteCatalogCourse}>
-        <IconButton size="small" color="error" aria-label={he.deleteCatalogCourse} onClick={() => onDelete(catalog)}>
-          <DeleteOutlineIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </Box>
+    <ActionsMenu
+      label={he.actions}
+      actions={[
+        { key: "edit", label: he.editCatalogCourse, icon: <EditOutlinedIcon fontSize="small" />, onClick: () => onEdit(catalog) },
+        { key: "delete", label: he.deleteCatalogCourse, icon: <DeleteOutlineIcon fontSize="small" />, danger: true, onClick: () => onDelete(catalog) },
+      ]}
+    />
   );
 }

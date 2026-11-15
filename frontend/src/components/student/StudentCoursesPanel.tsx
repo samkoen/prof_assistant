@@ -28,7 +28,7 @@ const rowSx = {
   borderRadius: 2.5,
   border: `1px solid ${brand.slate200}`,
   transition: "border-color 0.15s ease, background-color 0.15s ease",
-  "&:hover": { borderColor: brand.violet400, bgcolor: brand.violet50 },
+  "&:hover": { borderColor: brand.primary400, bgcolor: brand.primary50 },
 } as const;
 
 function CourseRow({ offering, active }: { offering: CourseOffering; active: number }) {
