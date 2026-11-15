@@ -1,48 +1,41 @@
-import { Box, Button, TextField, Typography } from "@mui/material";
-import SaveIcon from "@mui/icons-material/Save";
+import { Box, Divider, Drawer, IconButton, Typography } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import ExamScopeEditor from "../ExamScopeEditor";
 import ExamAiTutorSetting from "./ExamAiTutorSetting";
 import type { ExamDetail } from "../../api/client";
 import { he } from "../../i18n/he";
-import { surface } from "../../theme/brand";
 
 type ExamEditorSettingsProps = {
+  open: boolean;
   exam: ExamDetail;
-  titleDraft: string;
-  titleChanged: boolean;
-  titleValid: boolean;
-  savingTitle: boolean;
-  onTitleChange: (value: string) => void;
-  onSaveTitle: () => void;
+  onClose: () => void;
   onExamUpdated: (patch: Partial<ExamDetail>) => void;
   onError: (message: string) => void;
 };
 
-/** Onglet « הגדרות » : titre + portée (année, semestre, groupe). */
-export default function ExamEditorSettings(props: ExamEditorSettingsProps) {
-  const { exam, titleDraft, titleChanged, titleValid, savingTitle } = props;
-  const showSave = titleChanged && titleValid;
+/** Panneau latéral « הגדרות » : tuteur AI et portée. Le titre se modifie directement dans l'en-tête. */
+export default function ExamEditorSettings({ open, exam, onClose, onExamUpdated, onError }: ExamEditorSettingsProps) {
   return (
-    <Box dir="rtl" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, bgcolor: "background.paper", border: `1px solid ${surface.border}` }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        {he.examSettings}
-      </Typography>
-      <TextField
-        label={he.examTitle}
-        value={titleDraft}
-        onChange={(e) => props.onTitleChange(e.target.value)}
-        fullWidth
-        dir="rtl"
-        inputProps={{ maxLength: 255 }}
-        sx={{ mb: showSave ? 2 : 3 }}
-      />
-      {showSave && (
-        <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={props.onSaveTitle} disabled={savingTitle} sx={{ mb: 3 }}>
-          {savingTitle ? he.loading : he.saveExamTitle}
-        </Button>
-      )}
-      {exam.kind !== "task" && <ExamAiTutorSetting exam={exam} onSaved={props.onExamUpdated} onError={props.onError} />}
-      <ExamScopeEditor exam={exam} editable={exam.is_editable} embedded onSaved={props.onExamUpdated} onError={props.onError} />
-    </Box>
+    // Avec le thème RTL + stylis-plugin-rtl de l'app, anchor="right" s'affiche bien à droite (côté de début en hébreu).
+    <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: { xs: "100%", sm: 420 } } }}>
+      <Box dir="rtl" sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+          <Typography variant="h6">{he.examSettings}</Typography>
+          <IconButton onClick={onClose} aria-label={he.addQuestionsClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        {exam.kind !== "task" && (
+          <>
+            <ExamAiTutorSetting exam={exam} onSaved={onExamUpdated} onError={onError} />
+            <Divider sx={{ my: 3 }} />
+          </>
+        )}
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+          {he.examScope}
+        </Typography>
+        <ExamScopeEditor exam={exam} editable={exam.is_editable} embedded onSaved={onExamUpdated} onError={onError} />
+      </Box>
+    </Drawer>
   );
 }

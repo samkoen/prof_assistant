@@ -303,7 +303,7 @@ export const he = {
   noChangesToSave: "אין שינויים לשמירה",
   geminiGenerateQuestions: "יצירת שאלות עם AI",
   geminiGenerateIntro:
-    "העלו קובץ קורס (מה שנלמד) ו/או קובץ תרגילים לדוגמה, כתבו מה ליצור, ואז בקשו מ-AI. ניתן לבקש שינויים בצ'אט. לאחר אישור השאלות יתווספו למטלה.",
+    "הוסיפו קבצים (לא חובה), כתבו מה ליצור — ואשרו את השאלות לפני שהן נכנסות למטלה.",
   geminiSourcesTitle: "מקורות",
   geminiSourcesIntro:
     "קובץ קורס — בסיס למה שהתלמיד למד (תוכן השאלות). קובץ תרגילים — דוגמאות לשאלות (סגנון, מבנה ורמה). ניתן לסמן את שני השימושים לכל קובץ.",
@@ -1105,6 +1105,14 @@ export const he = {
   examAudienceAllHint: "אפשר להפעיל את המטלה בכל קורס של המקצוע",
   examAudienceGroupHint: "המטלה תהיה זמינה רק בקורס שממנו יצרתם אותה",
   createExamContinue: "יצירה והמשך להוספת שאלות",
+  createExamStart: "איך מתחילים?",
+  createExamStartHint: "אפשר לשנות ולשלב שיטות גם אחר כך",
+  createExamTitleOptional: "אפשר להשאיר ריק ולתת שם אחר כך",
+  examSettingsOpen: "הגדרות",
+  examTitleInlineHint: "לחצו כדי לשנות את השם",
+  examAutoSaved: "כל שינוי נשמר אוטומטית",
+  addQuestionsMore: "הוספת שאלות",
+  addQuestionsClose: "סגירה",
   enrollmentStatusApproved: "מאושר",
   enrollmentStatusRejected: "נדחה",
   courseStudentsApproved: "תלמידים מאושרים",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -20,13 +20,15 @@ import type { ExamDetail } from "../api/client";
 import type { ParseResult } from "../utils/qcmImportParser";
 import { he } from "../i18n/he";
 
-export type QuestionAddMethod = "manual" | "gemini" | "paste";
+import { ADD_METHODS, type QuestionAddMethod } from "../utils/examStartMethod";
 
-const ADD_METHODS: QuestionAddMethod[] = ["manual", "gemini", "paste"];
+export type { QuestionAddMethod };
 
 type ExamEditorAddQuestionsSectionProps = {
   examId: number;
   exam: ExamDetail;
+  /** Méthode choisie à la création : on ouvre directement l'outil, sans redemander. */
+  initialMethod?: QuestionAddMethod | null;
   onAddManual: () => void;
   paste: string;
   onPasteChange: (value: string) => void;
@@ -133,7 +135,11 @@ function AddMethodTabs({
       sx={{ mb: 3, direction: "rtl" }}
     >
       {ADD_METHODS.map((m) => (
-        <ToggleButton key={m} value={m} sx={{ py: 1.25, gap: 1, fontWeight: 700 }}>
+        <ToggleButton
+          key={m}
+          value={m}
+          sx={{ py: 1.25, px: { xs: 0.5, sm: 1.5 }, gap: 1, fontWeight: 700, fontSize: { xs: "0.8rem", sm: "0.875rem" }, whiteSpace: "nowrap", "& > svg": { display: { xs: "none", sm: "inline-block" } } }}
+        >
           {METHOD_ICONS[m]}
           {methodLabel(m)}
         </ToggleButton>
@@ -251,13 +257,9 @@ function AddQuestionsWorkspace({
 }
 
 export default function ExamEditorAddQuestionsSection(props: ExamEditorAddQuestionsSectionProps) {
-  const hasQuestions = props.exam.questions.length > 0;
-  const [addMethod, setAddMethod] = useState<QuestionAddMethod>("manual");
-  const [emptyPicker, setEmptyPicker] = useState(!hasQuestions);
-
-  useEffect(() => {
-    setEmptyPicker(!hasQuestions);
-  }, [hasQuestions]);
+  // Un seul choix de méthode : soit à la création (initialMethod), soit ici via les cartes, puis on bascule avec les onglets.
+  const [addMethod, setAddMethod] = useState<QuestionAddMethod>(props.initialMethod ?? "gemini");
+  const [emptyPicker, setEmptyPicker] = useState(!props.initialMethod && props.exam.questions.length === 0);
 
   if (emptyPicker) {
     return (

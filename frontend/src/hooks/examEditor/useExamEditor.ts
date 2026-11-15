@@ -1,8 +1,6 @@
 import { useState } from "react";
 import type { Question } from "../../api/client";
-import { he } from "../../i18n/he";
 import { useEditorFeedback } from "./useEditorFeedback";
-import { useExamChanges } from "./useExamChanges";
 import { useExamData } from "./useExamData";
 import { useExamTitle } from "./useExamTitle";
 import { useQcmImport } from "./useQcmImport";
@@ -35,16 +33,11 @@ export function useExamEditor(id: number, offeringId: number | null) {
   const fb = useEditorFeedback();
   const data = useExamData(id, offeringId, fb.setError);
   const title = useExamTitle(id, data, fb);
-  const changes = useExamChanges(id, data, title, fb);
   const ops = useQuestionOps(id, data, fb);
   const importer = useQcmImport(id, data.load, fb);
   const dialog = useQuestionDialog();
 
-  const saveTitleOnly = async () => {
-    if (await title.saveTitle()) fb.setSuccess(he.examTitleSaved);
-  };
-
-  return { fb, data, title, changes, ops, importer, dialog, saveTitleOnly };
+  return { fb, data, title, ops, importer, dialog };
 }
 
 export type ExamEditor = ReturnType<typeof useExamEditor>;

@@ -101,6 +101,10 @@ export default function ExamEditorGeminiGenerationSection({
     !!session && (generating || !!rawText || (!!batchProgress && !batchProgress.complete));
   const showBatchProgress =
     !!batchProgress && !batchProgress.complete && (generating || !!batchError);
+  // Pendant l'aperçu ou le lancement, on masque le formulaire : la bannière d'attente reste
+  // en haut du bloc, à l'endroit où l'utilisateur regarde, au lieu d'apparaître sous le formulaire.
+  const showRequestForm = !generationStarted && !previewStep && !loadingPreview && !generating;
+  const showBusyBanner = loadingPreview || (generating && !showBatchProgress);
   const canContinueGeneration =
     !!session &&
     !!batchProgress &&
@@ -126,6 +130,11 @@ export default function ExamEditorGeminiGenerationSection({
   useEffect(() => {
     setResolutions({});
   }, [rawText]);
+
+  const busyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (showBusyBanner) busyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [showBusyBanner]);
   const showDuplicateWarnings =
     generationWarnings.length > 0 && (showPartialPreview || showFullPreview);
 
@@ -355,13 +364,17 @@ export default function ExamEditorGeminiGenerationSection({
         {he.geminiGenerateIntro}
       </Typography>
       <GeminiFlowStepper step={geminiFlowStep({ previewStep, generationStarted, generationComplete })} />
-      {loadingPreview && <GeminiAiWorkingBanner />}
+      {showBusyBanner && (
+        <Box ref={busyRef} sx={{ scrollMarginTop: 96 }}>
+          <GeminiAiWorkingBanner />
+        </Box>
+      )}
       {!editable && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {he.examNotEditable}
         </Alert>
       )}
-      {!generationStarted && !previewStep && (
+      {showRequestForm && (
         <ExamGeminiSourcesPanel
           examId={examId}
           disabled={!editable || generating || autoFixing}
@@ -369,12 +382,12 @@ export default function ExamEditorGeminiGenerationSection({
           onError={onError}
         />
       )}
-      {!generationStarted && !previewStep && (
+      {showRequestForm && (
         <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, ...hebrewAlignRightSx }}>
           {he.geminiBriefRequestTitle}
         </Typography>
       )}
-      {!generationStarted && !previewStep &&
+      {showRequestForm &&
         seriesList.map((series, index) => (
           <GeminiQuestionSeriesCard
             key={series.id}
@@ -386,7 +399,7 @@ export default function ExamEditorGeminiGenerationSection({
             onRemove={() => removeSeries(series.id)}
           />
         ))}
-      {!generationStarted && !previewStep && (
+      {showRequestForm && (
         <>
           <Box sx={{ ...hebrewActionsBarRtlSx, mb: 2 }}>
             <Button
@@ -538,7 +551,6 @@ export default function ExamEditorGeminiGenerationSection({
         </Box>
       )}
 
-      {generating && !showBatchProgress && <GeminiAiWorkingBanner />}
 
       {showPartialPreview && (
         <GeminiGeneratedQuestionsPreview

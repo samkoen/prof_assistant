@@ -4,7 +4,8 @@ import { brand } from "../../theme/brand";
 import ChoiceCard from "../ui/ChoiceCard";
 import type { CatalogCourse } from "../../api/client";
 import { he } from "../../i18n/he";
-import type { ExamAudience, ExamCreateForm } from "../../utils/examCreatePayload";
+import type { ExamCreateForm } from "../../utils/examCreatePayload";
+import type { QuestionAddMethod } from "../../utils/examStartMethod";
 
 type FormProps = {
   form: ExamCreateForm;
@@ -60,7 +61,7 @@ export function BasicsSection({ form, onChange, catalogs, lockCatalog, step }: F
             </MenuItem>
           ))}
         </TextField>
-        <TextField fullWidth required label={he.examTitle} placeholder={he.createExamTitlePlaceholder} value={form.title} onChange={(e) => onChange({ title: e.target.value })} inputProps={{ maxLength: 255 }} />
+        <TextField fullWidth label={he.examTitle} placeholder={he.createExamTitlePlaceholder} helperText={he.createExamTitleOptional} value={form.title} onChange={(e) => onChange({ title: e.target.value })} inputProps={{ maxLength: 255 }} />
       </Box>
     </FormSection>
   );
@@ -78,29 +79,23 @@ export function TypeSection({ form, onChange, step }: FormProps & { step?: numbe
   );
 }
 
-export function AudienceSection({ form, onChange, step }: FormProps & { step?: number }) {
-  const choose = (audience: ExamAudience) => () => onChange({ audience });
-  return (
-    <FormSection title={he.examAudience} step={step}>
-      <Box role="radiogroup" sx={cardsRowSx}>
-        <ChoiceCard title={he.examAudienceAllGroups} description={he.examAudienceAllHint} selected={form.audience === "all"} onSelect={choose("all")} />
-        <ChoiceCard title={he.examAudienceThisGroup} description={he.examAudienceGroupHint} selected={form.audience === "this_group"} onSelect={choose("this_group")} />
-      </Box>
-    </FormSection>
-  );
-}
+const START_CHOICES: { method: QuestionAddMethod; title: string; description: string }[] = [
+  { method: "gemini", title: he.addQuestionEmptyGemini, description: he.addQuestionEmptyGeminiDesc },
+  { method: "paste", title: he.addQuestionEmptyPaste, description: he.addQuestionEmptyPasteDesc },
+  { method: "manual", title: he.addQuestionEmptyManual, description: he.addQuestionManualHint },
+];
 
-export function ScopeSection({ form, onChange, step }: FormProps & { step?: number }) {
+/** Choix unique de la méthode de départ : l'éditeur s'ouvre directement sur cet outil. */
+export function StartSection({ form, onChange, step }: FormProps & { step?: number }) {
   return (
-    <FormSection title={he.scopeRestriction} step={step}>
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <TextField fullWidth label={he.academicYear} value={form.scope_academic_year} placeholder={he.scopeAny} onChange={(e) => onChange({ scope_academic_year: e.target.value })} />
-        <TextField select fullWidth label={he.semester} value={form.scope_semester} onChange={(e) => onChange({ scope_semester: e.target.value })}>
-          <MenuItem value="">{he.scopeAny}</MenuItem>
-          <MenuItem value="1">סמסטר א</MenuItem>
-          <MenuItem value="2">סמסטר ב</MenuItem>
-        </TextField>
-        <TextField fullWidth label={he.groupName} value={form.scope_group_name} placeholder={he.scopeAny} onChange={(e) => onChange({ scope_group_name: e.target.value })} />
+    <FormSection title={he.createExamStart} step={step}>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: -1, mb: 1.5 }}>
+        {he.createExamStartHint}
+      </Typography>
+      <Box role="radiogroup" sx={cardsRowSx}>
+        {START_CHOICES.map((c) => (
+          <ChoiceCard key={c.method} title={c.title} description={c.description} selected={form.start === c.method} onSelect={() => onChange({ start: c.method })} />
+        ))}
       </Box>
     </FormSection>
   );
