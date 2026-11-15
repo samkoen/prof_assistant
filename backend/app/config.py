@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     answer_check_thinking_budget: int = 4096
     answer_check_code_execution: bool = True
     answer_check_max_output_tokens: int = 16384
+    # Tuteur IA élève : un crédit élève par question discutée, puis messages inclus jusqu'aux plafonds.
+    ai_tutor_enabled: bool = True
+    ai_tutor_max_messages_per_question: int = 10
+    ai_tutor_max_messages_per_exam: int = 60
+    ai_tutor_max_message_chars: int = 1000
     gemini_timeout_seconds: float = 45.0
     gemini_generation_timeout_seconds: float = 120.0
     gemini_fallback_models: str = "gemini-2.5-flash"

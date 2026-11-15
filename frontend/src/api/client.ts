@@ -279,6 +279,7 @@ export interface Exam extends CatalogItemScope {
   shuffle_questions: boolean;
   shuffle_options: boolean;
   show_detailed_correction: boolean;
+  ai_tutor_enabled?: boolean;
   warning_minutes: number;
   auto_submit_on_timeout: boolean;
   default_multiple_scoring: string;
@@ -473,6 +474,7 @@ export interface ExamReview {
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];
   for_practice?: boolean;
+  ai_tutor_enabled?: boolean;
 }
 
 export interface PracticeResult {

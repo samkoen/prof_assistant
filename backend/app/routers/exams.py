@@ -76,6 +76,7 @@ from app.services.exam_lifecycle import (
 from app.services.practice_release import block_session, deploy_exam_on_offering, deploy_session, should_record_score
 from app.services.option_shuffle import shuffled_options
 from app.services.personal_subject import prepare_student_create, student_may_edit_exam
+from app.services.ai_tutor_access import tutor_enabled_for
 from app.services.exam_kind import (
     apply_exam_kind,
     apply_task_kind,
@@ -171,6 +172,7 @@ def _exam_response(
         shuffle_questions=exam.shuffle_questions,
         shuffle_options=exam.shuffle_options,
         show_detailed_correction=exam.show_detailed_correction,
+        ai_tutor_enabled=bool(exam.ai_tutor_enabled),
         warning_minutes=exam.warning_minutes,
         auto_submit_on_timeout=exam.auto_submit_on_timeout,
         default_multiple_scoring=exam.default_multiple_scoring,
@@ -544,6 +546,7 @@ async def create_exam(
         shuffle_questions=body.shuffle_questions,
         shuffle_options=body.shuffle_options,
         show_detailed_correction=body.show_detailed_correction,
+        ai_tutor_enabled=body.ai_tutor_enabled,
         warning_minutes=body.warning_minutes,
         auto_submit_on_timeout=body.auto_submit_on_timeout,
         default_multiple_scoring=body.default_multiple_scoring,
@@ -797,7 +800,8 @@ async def update_exam(
     if not data:
         raise HTTPException(status_code=400, detail="אין שדות לעדכון")
     scope_keys = {"scope_teacher_id", "scope_academic_year", "scope_semester", "scope_group_name"}
-    non_title = [k for k in data if k != "title"]
+    # Titre et tuteur IA (affecte seulement l'après-correction) restent modifiables sur une מטלה active.
+    non_title = [k for k in data if k not in ("title", "ai_tutor_enabled")]
     if non_title and await exam_has_active_sessions(exam_id, db):
         raise HTTPException(status_code=400, detail="לא ניתן לערוך מבחן פעיל")
     if "scope_teacher_id" in data:
@@ -1678,6 +1682,7 @@ async def get_session_review(
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
+        ai_tutor_enabled=tutor_enabled_for(exam),
     )
 
 
@@ -1823,6 +1828,7 @@ async def get_practice_review(
         attempt=attempt_resp,
         questions=review_rows,
         for_practice=True,
+        ai_tutor_enabled=tutor_enabled_for(exam),
     )
 
 

@@ -32,6 +32,9 @@ class Exam(Base):
     shuffle_questions: Mapped[bool] = mapped_column(Boolean, nullable=False)
     shuffle_options: Mapped[bool] = mapped_column(Boolean, nullable=False)
     show_detailed_correction: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_tutor_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     warning_minutes: Mapped[int] = mapped_column(Integer, default=10)
     auto_submit_on_timeout: Mapped[bool] = mapped_column(Boolean, default=True)
     default_multiple_scoring: Mapped[MultipleScoringMode] = mapped_column(
@@ -106,6 +109,8 @@ class Question(Base):
     multiple_scoring_mode: Mapped[MultipleScoringMode | None] = mapped_column(String(30), nullable=True)
     model_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_answer_source: Mapped[ModelAnswerSource | None] = mapped_column(String(20), nullable=True)
+    # Solution du générateur + raisonnement de la double vérification : contexte du tuteur, jamais montré tel quel.
+    ai_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     exam = relationship("Exam", back_populates="questions")
     options = relationship("QuestionOption", back_populates="question", order_by="QuestionOption.order_index")

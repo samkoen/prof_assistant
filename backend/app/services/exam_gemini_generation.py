@@ -41,6 +41,7 @@ from app.services.gemini_batch_runner import (
     refresh_answer_checks,
     run_generation_batch,
 )
+from app.services.ai_tutor_notes import match_notes, notes_by_stem
 from app.services.qcm_solutions import strip_solutions
 from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
@@ -341,8 +342,10 @@ async def accept_generation_session(
     for i, q in enumerate(import_body.questions):
         validate_question_body(q, i)
     shuffle_generated_questions(import_body.questions)
+    notes = notes_by_stem(session.initial_params or {})
     for i, q in enumerate(import_body.questions):
-        await persist_question(exam.id, q, start_idx + i, db)
+        saved = await persist_question(exam.id, q, start_idx + i, db)
+        saved.ai_notes = match_notes(q.text, notes)
     session.status = ExamGeminiSessionStatus.ACCEPTED
     await db.commit()
     return len(import_body.questions)

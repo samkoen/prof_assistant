@@ -198,9 +198,19 @@ async def update_question(
         options=body.options,
     )
     validate_question_body(create_body, 0)
+    before = answer_signature(question.text, [(o.text, o.is_correct) for o in question.options])
     _apply_question_fields(question, body)
     await _replace_options(question, body, db)
+    after = answer_signature(question.text, [(o.text, o.is_correct) for o in body.options])
+    if before != after:
+        question.ai_notes = None  # les notes du générateur ne décrivent plus cette question
     return question
+
+
+def answer_signature(text: str, options: list[tuple[str, bool]]) -> tuple[str, tuple[str, ...]]:
+    """Énoncé + textes des bonnes options, normalisés : change seulement si le fond change."""
+    correct = sorted(normalize_question_text(t).strip() for t, ok in options if ok)
+    return normalize_question_text(text).strip(), tuple(correct)
 
 
 def _apply_question_fields(question: Question, body: QuestionUpdate) -> None:

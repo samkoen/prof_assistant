@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.exam import Exam, ExamPracticeResult, ExamSession, OpenAnswerEvaluation, PracticeAnswer, Question, QuestionAiExplanation, StudentExamAttempt
 from app.schemas.exam import SubmitAnswerItem
+from app.services.ai_tutor_store import delete_tutor_rows
 from app.services.exam_submit_service import persist_fields_for_answer
 from app.services.practice_release import write_practice_score
 from app.services.scoring import score_exam_answers
@@ -36,6 +37,7 @@ async def clear_practice_data(attempt_id: int, db: AsyncSession) -> None:
     await db.execute(delete(PracticeAnswer).where(PracticeAnswer.attempt_id == attempt_id))
     await _delete_practice_rows(QuestionAiExplanation, attempt_id, db)
     await _delete_practice_rows(OpenAnswerEvaluation, attempt_id, db)
+    await delete_tutor_rows(db, attempt_id=attempt_id, for_practice=True)
 
 
 async def get_submitted_attempt(

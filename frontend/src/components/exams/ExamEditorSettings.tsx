@@ -1,6 +1,7 @@
 import { Box, Button, TextField, Typography } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ExamScopeEditor from "../ExamScopeEditor";
+import ExamAiTutorSetting from "./ExamAiTutorSetting";
 import type { ExamDetail } from "../../api/client";
 import { he } from "../../i18n/he";
 import { surface } from "../../theme/brand";
@@ -40,6 +41,7 @@ export default function ExamEditorSettings(props: ExamEditorSettingsProps) {
           {savingTitle ? he.loading : he.saveExamTitle}
         </Button>
       )}
+      {exam.kind !== "task" && <ExamAiTutorSetting exam={exam} onSaved={props.onExamUpdated} onError={props.onError} />}
       <ExamScopeEditor exam={exam} editable={exam.is_editable} embedded onSaved={props.onExamUpdated} onError={props.onError} />
     </Box>
   );

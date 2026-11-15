@@ -23,6 +23,8 @@ const LABELS: Record<string, string> = {
   "generation.sources_intro": he.aiPromptGenerationSources,
   "task_verify.system": he.aiPromptTaskVerifySystem,
   "task_verify.user": he.aiPromptTaskVerifyUser,
+  "tutor.system": he.aiPromptTutorSystem,
+  "tutor.context": he.aiPromptTutorContext,
 };
 
 export function aiPromptLabel(key: string): string {
