@@ -29,7 +29,7 @@ function questionHint(question: StudentQuestion): string {
 }
 
 function QuestionMeta({ question, dir, answered }: { question: StudentQuestion; dir: "ltr" | "rtl"; answered: boolean }) {
-  const tone = statusTones.violet;
+  const tone = statusTones.primary;
   return (
     <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
       <Box component="span" sx={{ px: 1.25, py: 0.25, borderRadius: 999, bgcolor: tone.bg, color: tone.fg, fontSize: "0.75rem", fontWeight: 700 }}>

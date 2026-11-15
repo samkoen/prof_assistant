@@ -22,11 +22,11 @@ function pillSx(answered: boolean, active: boolean) {
     fontSize: "0.78rem",
     fontWeight: active ? 800 : 600,
     border: "1.5px solid",
-    borderColor: active ? brand.violet600 : answered ? done.fg : brand.slate200,
+    borderColor: active ? brand.primary600 : answered ? done.fg : brand.slate200,
     bgcolor: answered ? done.bg : "background.paper",
-    color: active ? brand.violet700 : answered ? done.fg : brand.slate600,
-    boxShadow: active ? `0 0 0 2px ${brand.violet100}` : "none",
-    "&:hover": { borderColor: brand.violet500 },
+    color: active ? brand.primary700 : answered ? done.fg : brand.slate600,
+    boxShadow: active ? `0 0 0 2px ${brand.primary100}` : "none",
+    "&:hover": { borderColor: brand.primary500 },
   } as const;
 }
 

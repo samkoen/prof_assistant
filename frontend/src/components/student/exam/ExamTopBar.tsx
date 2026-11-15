@@ -40,7 +40,7 @@ function TitleRow({ title, isTirgoul, timer }: Pick<ExamTopBarProps, "title" | "
   return (
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-        <Typography variant="subtitle1" fontWeight={800} noWrap>{title}</Typography>
+        <Typography variant="subtitle1" fontWeight={700} noWrap>{title}</Typography>
         {isTirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
       </Box>
       {timer.visible && <ExamTimerChip timeLeft={timer.timeLeft} level={timer.level} />}

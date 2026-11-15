@@ -10,7 +10,7 @@ export default function DemoSlide({ id }: { id: PublicOfferId }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, height: "100%", justifyContent: "center" }}>
       <SlideMock id={id} />
-      <Typography variant="h6" fontWeight={800} sx={{ color: brand.white }}>{offer.title}</Typography>
+      <Typography variant="h6" fontWeight={700} sx={{ color: brand.white }}>{offer.title}</Typography>
       <Typography sx={{ color: "rgba(255,255,255,0.78)" }}>{offer.text}</Typography>
     </Box>
   );
@@ -37,7 +37,7 @@ function ChoiceMock() {
   return (
     <MockCard>
       <Typography fontWeight={700}>שאלה 1 מתוך 4</Typography>
-      <Typography variant="body2" sx={{ mt: 1, px: 1.5, py: 0.75, borderRadius: 2, bgcolor: brand.violet100 }}>
+      <Typography variant="body2" sx={{ mt: 1, px: 1.5, py: 0.75, borderRadius: 2, bgcolor: brand.primary100 }}>
         תשובה ב
       </Typography>
     </MockCard>
@@ -68,7 +68,7 @@ function MockCard({ children }: { children: ReactNode }) {
   return (
     <Box
       style={{ color: brand.slate900 }}
-      sx={{ p: 2, borderRadius: 3, bgcolor: brand.violet50, border: `1px solid ${brand.violet100}` }}
+      sx={{ p: 2, borderRadius: 3, bgcolor: brand.primary50, border: `1px solid ${brand.primary100}` }}
     >
       {children}
     </Box>

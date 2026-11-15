@@ -84,7 +84,7 @@ export default function AcceptTeacherShareDialog({
 
   const summary =
     share.share_type === "catalog"
-      ? `${he.shareCatalog}: ${share.source_catalog_name} (${share.source_exam_count ?? 0} ${he.exams})`
+      ? `${he.shareCatalogTitle}: ${share.source_catalog_name} (${share.source_exam_count ?? 0} ${he.exams})`
       : `${he.shareExam}: ${share.source_exam_title}`;
 
   return (

@@ -8,15 +8,15 @@ const bannerCardSx = {
   mb: 2,
   overflow: "hidden",
   borderRadius: 3,
-  border: `1px solid ${alpha(brand.violet600, 0.12)}`,
+  border: `1px solid ${alpha(brand.primary600, 0.12)}`,
   boxShadow: softCardShadow,
-  background: `linear-gradient(135deg, ${alpha(brand.violet50, 0.95)} 0%, ${brand.white} 72%)`,
+  background: `linear-gradient(135deg, ${alpha(brand.primary50, 0.95)} 0%, ${brand.white} 72%)`,
 } as const;
 
 function WaitingDots() {
   return (
     <Box sx={{ display: "flex", gap: 0.7, mt: 0.85 }} aria-hidden>
-      {[brand.violet600, brand.sky500, brand.amber500].map((color, i) => (
+      {[brand.primary600, brand.sky500, brand.amber500].map((color, i) => (
         <Box
           key={color}
           sx={{

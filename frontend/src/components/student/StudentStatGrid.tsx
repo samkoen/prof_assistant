@@ -26,7 +26,7 @@ export default function StudentStatGrid({ counts, courses, wallet, loading }: St
         <StatCard label={he.studentStatToDo} value={counts.todo + counts.inProgress} icon={<QuizIcon />} tone="success" to="/student/exams" loading={loading} />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
-        <StatCard label={he.studentStatGraded} value={counts.graded} icon={<EmojiEventsOutlinedIcon />} tone="violet" to="/student/exams" loading={loading} />
+        <StatCard label={he.studentStatGraded} value={counts.graded} icon={<EmojiEventsOutlinedIcon />} tone="primary" to="/student/exams" loading={loading} />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <StatCard label={he.studentStatCourses} value={courses} icon={<MenuBookIcon />} tone="info" to="/student/courses" loading={loading} />

@@ -20,7 +20,7 @@ export default function PublicCommerce() {
 function InfoBlock({ title, text }: { title: string; text: string }) {
   return (
     <Box component="section" sx={{ mt: 4 }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>{title}</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>{title}</Typography>
       <Typography sx={{ maxWidth: 720, lineHeight: 1.75 }}>{text}</Typography>
     </Box>
   );
@@ -29,7 +29,7 @@ function InfoBlock({ title, text }: { title: string; text: string }) {
 function LegalLinks() {
   return (
     <Box component="section" sx={{ mt: 4 }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>{he.publicHome.legalTitle}</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>{he.publicHome.legalTitle}</Typography>
       <Typography color="text.secondary" sx={{ mb: 1.5 }}>{he.publicHome.legalLead}</Typography>
       <Stack direction="row" sx={{ gap: 3 }}>
         <Link component={RouterLink} to="/terms" fontWeight={700}>{he.publicHome.termsTitle}</Link>

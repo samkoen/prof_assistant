@@ -18,6 +18,7 @@ import {
   type GeminiQuestionSeriesDraft,
 } from "../types/geminiQuestionSeries";
 import { parseQcmText, toImportPayload } from "../utils/qcmImportParser";
+import { applyResolutions, pendingMismatches, type CheckResolution, type CheckResolutions } from "../utils/answerChecks";
 import { logGeminiPrompt } from "../utils/geminiSessionDebug";
 import {
   fetchRemainingGeminiBatches,
@@ -77,6 +78,7 @@ export default function ExamEditorGeminiGenerationSection({
   const [previewStep, setPreviewStep] = useState(false);
   const [previewData, setPreviewData] = useState<GeminiGenerationPreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [resolutions, setResolutions] = useState<CheckResolutions>({});
   const { openFromError, dialog: creditsDialog } = useAiCreditsPaywall();
 
   useRefreshBalanceAfterGeneration(generating);
@@ -112,6 +114,18 @@ export default function ExamEditorGeminiGenerationSection({
     parsedQuestions.length > 0 &&
     isLowTopicOverlap(instructionTexts, parsedQuestions.map((q) => q.text));
   const generationWarnings = session?.generation_warnings ?? [];
+  const answerChecks = useMemo(() => session?.answer_checks ?? [], [session?.answer_checks]);
+  const resolveCheck = (qNum: number, resolution: CheckResolution | undefined) =>
+    setResolutions((prev) => {
+      const next = { ...prev };
+      if (resolution) next[qNum] = resolution;
+      else delete next[qNum];
+      return next;
+    });
+
+  useEffect(() => {
+    setResolutions({});
+  }, [rawText]);
   const showDuplicateWarnings =
     generationWarnings.length > 0 && (showPartialPreview || showFullPreview);
 
@@ -294,6 +308,11 @@ export default function ExamEditorGeminiGenerationSection({
     if (!parseResult || parseResult.questions.length === 0 || !session || !generationComplete) {
       return;
     }
+    const pending = pendingMismatches(parseResult.questions, answerChecks, resolutions);
+    if (pending.length > 0) {
+      onError(he.answerCheckPendingReason(pending.length));
+      return;
+    }
     setAccepting(true);
     onError("");
     try {
@@ -303,7 +322,7 @@ export default function ExamEditorGeminiGenerationSection({
         {
           method: "POST",
           body: JSON.stringify({
-            questions: toImportPayload(parseResult.questions),
+            questions: toImportPayload(applyResolutions(parseResult.questions, answerChecks, resolutions)),
             questions_language: questionsLanguage,
           }),
         },
@@ -351,7 +370,7 @@ export default function ExamEditorGeminiGenerationSection({
         />
       )}
       {!generationStarted && !previewStep && (
-        <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5, ...hebrewAlignRightSx }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, ...hebrewAlignRightSx }}>
           {he.geminiBriefRequestTitle}
         </Typography>
       )}
@@ -526,6 +545,9 @@ export default function ExamEditorGeminiGenerationSection({
           questions={parsedQuestions}
           accepting={accepting}
           editable={editable}
+          checks={answerChecks}
+          resolutions={resolutions}
+          onResolve={resolveCheck}
           partial
           onAccept={acceptDraft}
           onReject={handleReject}
@@ -558,6 +580,9 @@ export default function ExamEditorGeminiGenerationSection({
             questions={parsedQuestions}
             accepting={accepting}
             editable={editable}
+            checks={answerChecks}
+            resolutions={resolutions}
+            onResolve={resolveCheck}
             onAccept={acceptDraft}
             onReject={handleReject}
           />

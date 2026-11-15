@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     gemini_max_output_tokens: int = 2048
     gemini_generation_max_output_tokens: int = 8192
     gemini_thinking_budget: int = 0
+    # Double vérification des réponses générées (résolution indépendante, sans voir la clé).
+    answer_check_enabled: bool = True
+    answer_check_thinking_budget: int = 4096
+    answer_check_code_execution: bool = True
+    answer_check_max_output_tokens: int = 16384
     gemini_timeout_seconds: float = 45.0
     gemini_generation_timeout_seconds: float = 120.0
     gemini_fallback_models: str = "gemini-2.5-flash"

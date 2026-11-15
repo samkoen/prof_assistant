@@ -19,7 +19,7 @@ export default function BusinessDetails() {
 
   return (
     <Box component="section" sx={{ mt: { xs: 4, sm: 6 } }}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>{he.publicHome.businessTitle}</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>{he.publicHome.businessTitle}</Typography>
       <Stack sx={{ p: 2.5, borderRadius: 3, bgcolor: brand.white, boxShadow: softCardShadow, gap: 1.25 }}>
         {lines.map((line) => (
           <ContactLine key={line.kind} kind={line.kind} value={line.value} />

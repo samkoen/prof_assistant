@@ -15,6 +15,7 @@ from app.models.exam_gemini_generation import (
 from app.models.user import User
 from app.schemas.exam import QuestionsImportRequest
 from app.schemas.gemini_questions import (
+    GeminiAnswerCheck,
     GeminiGenerationProgress,
     GeminiSeriesInput,
     GeminiSessionMessageResponse,
@@ -37,8 +38,10 @@ from app.services.gemini_batch_runner import (
     init_batch_params,
     load_sources_package,
     mark_manual_refine,
+    refresh_answer_checks,
     run_generation_batch,
 )
+from app.services.qcm_solutions import strip_solutions
 from app.services.gemini_debug_email import (
     last_user_prompt_before_model,
     send_gemini_parse_error_email,
@@ -94,7 +97,14 @@ def _session_to_response(
         ],
         generation_progress=GeminiGenerationProgress(**progress),
         generation_warnings=list(params.get("generation_warnings") or []),
+        answer_checks=_answer_checks(params),
     )
+
+
+def _answer_checks(params: dict) -> list[GeminiAnswerCheck]:
+    raw = params.get("answer_checks") or {}
+    items = [GeminiAnswerCheck.model_validate(v) for v in raw.values()]
+    return sorted(items, key=lambda c: c.q_num)
 
 
 def _contents_from_messages(messages: list[ExamGeminiGenerationMessage]) -> list[dict]:
@@ -166,8 +176,10 @@ async def _append_refine_exchange(
     db.add(
         ExamGeminiGenerationMessage(session_id=session.id, role="model", content=raw)
     )
-    mark_manual_refine(session, raw)
-    return raw
+    clean, solutions = strip_solutions(raw)
+    mark_manual_refine(session, clean)
+    await refresh_answer_checks(session, solutions)
+    return clean
 
 
 def _generation_product(user: User) -> str:

@@ -1,42 +1,58 @@
 import { Link } from "react-router-dom";
-import { alpha, Box, Button, Typography } from "@mui/material";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import { Box, Button, Card, LinearProgress, Typography } from "@mui/material";
+import CheckIcon from "@mui/icons-material/Check";
+import { OPEN_CREATE_PARAM } from "../../config/createActions";
 import { he } from "../../i18n/he";
-import { brand, statusTones } from "../../theme/brand";
+import { brand, statusTones, surface } from "../../theme/brand";
 import type { OnboardingStep } from "../../utils/teacherDashboard";
 
 type StepCopy = { title: string; description: string; to: string };
 
 const STEP_COPY: Record<OnboardingStep["key"], StepCopy> = {
-  catalog: { title: he.onboardingCatalog, description: he.onboardingCatalogDesc, to: "/teacher/catalog-courses" },
-  offering: { title: he.onboardingOffering, description: he.onboardingOfferingDesc, to: "/teacher/courses" },
+  catalog: { title: he.onboardingCatalog, description: he.onboardingCatalogDesc, to: `/teacher/catalog-courses?${OPEN_CREATE_PARAM}=1` },
+  offering: { title: he.onboardingOffering, description: he.onboardingOfferingDesc, to: `/teacher/courses?${OPEN_CREATE_PARAM}=1` },
   exam: { title: he.onboardingExam, description: he.onboardingExamDesc, to: "/teacher/exams/new" },
 };
 
-function StepIcon({ done }: { done: boolean }) {
-  return done ? (
-    <CheckCircleIcon sx={{ color: statusTones.success.fg }} />
-  ) : (
-    <RadioButtonUncheckedIcon sx={{ color: brand.violet400 }} />
+function StepMarker({ index, done, current }: { index: number; done: boolean; current: boolean }) {
+  const filled = done || current;
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: 32,
+        height: 32,
+        flexShrink: 0,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: "0.9rem",
+        bgcolor: done ? statusTones.success.bg : filled ? brand.primary600 : surface.hover,
+        color: done ? statusTones.success.fg : filled ? brand.white : brand.slate600,
+      }}
+    >
+      {done ? <CheckIcon fontSize="small" /> : index + 1}
+    </Box>
   );
 }
 
-function StepRow({ step, current }: { step: OnboardingStep; current: boolean }) {
+function StepRow({ step, index, current }: { step: OnboardingStep; index: number; current: boolean }) {
   const copy = STEP_COPY[step.key];
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1, opacity: step.done ? 0.65 : 1 }}>
-      <StepIcon done={step.done} />
+    <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, gap: 1.5, py: 1.5, borderTop: index > 0 ? `1px solid ${surface.border}` : "none", flexWrap: { xs: "wrap", sm: "nowrap" } }}>
+      <StepMarker index={index} done={step.done} current={current} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography fontWeight={700} sx={{ textDecoration: step.done ? "line-through" : "none" }}>
+        <Typography fontWeight={600} sx={{ color: step.done ? brand.slate600 : brand.slate900 }}>
           {copy.title}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {copy.description}
+          {step.done ? he.onboardingDone : copy.description}
         </Typography>
       </Box>
       {!step.done && (
-        <Button component={Link} to={copy.to} size="small" variant={current ? "contained" : "outlined"}>
+        <Button component={Link} to={copy.to} variant={current ? "contained" : "outlined"} sx={{ width: { xs: "100%", sm: "auto" } }}>
           {he.onboardingStart}
         </Button>
       )}
@@ -44,20 +60,23 @@ function StepRow({ step, current }: { step: OnboardingStep; current: boolean }) 
   );
 }
 
-/** Liste de démarrage : disparaît d'elle-même une fois les trois étapes faites. */
+/** Mise en route en 3 étapes (מקצוע → קורס → מטלה) ; disparaît une fois tout fait. */
 export default function TeacherOnboarding({ steps }: { steps: OnboardingStep[] }) {
   const currentIndex = steps.findIndex((s) => !s.done);
+  const done = steps.filter((s) => s.done).length;
   return (
-    <Box sx={{ mb: 3.5, p: 2.5, borderRadius: 3, bgcolor: alpha(brand.violet600, 0.05), border: `1px solid ${alpha(brand.violet600, 0.16)}` }}>
-      <Typography variant="h6" fontWeight={800}>
-        {he.onboardingTitle}
+    <Card sx={{ mb: 3, p: { xs: 2, sm: 2.5 } }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 1, flexWrap: "wrap" }}>
+        <Typography variant="h6">{he.onboardingTitle}</Typography>
+        <Typography variant="body2" color="text.secondary">{he.onboardingProgress(done, steps.length)}</Typography>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+        {he.onboardingSubtitle} {he.onboardingWhy}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {he.onboardingSubtitle}
-      </Typography>
+      <LinearProgress variant="determinate" value={(done / steps.length) * 100} sx={{ my: 1.5, height: 6, borderRadius: 3, bgcolor: surface.hover }} />
       {steps.map((step, index) => (
-        <StepRow key={step.key} step={step} current={index === currentIndex} />
+        <StepRow key={step.key} step={step} index={index} current={index === currentIndex} />
       ))}
-    </Box>
+    </Card>
   );
 }

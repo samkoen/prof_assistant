@@ -14,7 +14,7 @@ export default function ProductDemo() {
 
   return (
     <Box component="section" aria-label={he.publicHome.demoTitle}>
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>{he.publicHome.demoTitle}</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>{he.publicHome.demoTitle}</Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>{he.publicHome.demoHint}</Typography>
       <DemoPlayer index={demo.index} playing={demo.playing} onToggle={demo.toggle} onPick={demo.pick}>
         <DemoSlide id={id} />
@@ -83,7 +83,7 @@ function SceneDot({ label, active, onPick }: { label: string; active: boolean; o
         border: 0,
         borderRadius: 99,
         cursor: "pointer",
-        bgcolor: active ? brand.violet600 : brand.slate200,
+        bgcolor: active ? brand.primary600 : brand.slate200,
       }}
     />
   );

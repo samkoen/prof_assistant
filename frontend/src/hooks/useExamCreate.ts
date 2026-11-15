@@ -24,15 +24,17 @@ function readParams(params: URLSearchParams, fallback: string) {
 function useCreateContext(offeringId: string, onError: (message: string) => void) {
   const [catalogs, setCatalogs] = useState<CatalogCourse[]>([]);
   const [offering, setOffering] = useState<CourseOffering | null>(null);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     Promise.all([api<CatalogCourse[]>("/api/catalog-courses/mine"), api<CourseOffering[]>("/api/courses/mine")])
       .then(([cats, offs]) => {
         setCatalogs(cats);
         if (offeringId) setOffering(offs.find((o) => o.id === Number(offeringId)) ?? null);
       })
-      .catch(() => onError(he.errorGeneric));
+      .catch(() => onError(he.errorGeneric))
+      .finally(() => setLoaded(true));
   }, [offeringId, onError]);
-  return { catalogs, offering };
+  return { catalogs, offering, loaded };
 }
 
 async function sendCreatedExam(
@@ -73,7 +75,7 @@ export function useExamCreate(mode: ExamCreateMode = {}) {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const { catalogs, offering } = useCreateContext(params.offeringId, setError);
+  const { catalogs, offering, loaded } = useCreateContext(params.offeringId, setError);
 
   const submit = () => {
     if (!form.catalog_course_id) return setError(he.selectCatalogCourse);
@@ -87,5 +89,5 @@ export function useExamCreate(mode: ExamCreateMode = {}) {
     setError("");
   };
 
-  return { form, patch, reset, submit, error, setError, saving, catalogs, offering, params };
+  return { form, patch, reset, submit, error, setError, saving, catalogs, offering, params, loaded };
 }

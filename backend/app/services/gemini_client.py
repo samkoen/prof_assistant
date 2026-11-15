@@ -40,13 +40,18 @@ def _extract_text(payload: dict) -> str:
     return text
 
 
-def _generation_config(max_output_tokens: int | None = None) -> dict:
+def _generation_config(
+    max_output_tokens: int | None = None,
+    *,
+    thinking_budget: int | None = None,
+) -> dict:
     cfg: dict = {
         "temperature": settings.gemini_temperature,
         "maxOutputTokens": max_output_tokens or settings.gemini_max_output_tokens,
     }
-    if settings.gemini_thinking_budget >= 0:
-        cfg["thinkingConfig"] = {"thinkingBudget": settings.gemini_thinking_budget}
+    budget = settings.gemini_thinking_budget if thinking_budget is None else thinking_budget
+    if budget >= 0:
+        cfg["thinkingConfig"] = {"thinkingBudget": budget}
     return cfg
 
 
@@ -121,27 +126,38 @@ async def _post_generate(
         return await client.post(url, params={"key": api_key}, json=body)
 
 
+def ran_code(payload: dict) -> bool:
+    """Vrai si le modèle a réellement exécuté du code (outil code_execution)."""
+    candidates = payload.get("candidates") or []
+    parts = ((candidates[0].get("content") or {}).get("parts") or []) if candidates else []
+    return any("codeExecutionResult" in p for p in parts)
+
+
+def extract_text_and_code_flag(payload: dict) -> tuple[str, bool]:
+    return _extract_text(payload), ran_code(payload)
+
+
 async def _request_once(
-    model: str, api_key: str, body: dict, timeout: float
-) -> str:
+    model: str, api_key: str, body: dict, timeout: float, extract=_extract_text
+):
     response = await _post_generate(model, api_key, body, timeout)
     if response.status_code >= 400:
         detail = _parse_api_error(response)
         logger.warning("Gemini API %s model=%s: %s", response.status_code, model, detail)
         message, auth_failure = _user_message(response.status_code, model, detail)
         raise GeminiError(message, auth_failure=auth_failure)
-    return _extract_text(response.json())
+    return extract(response.json())
 
 
 async def _request_with_retries(
-    model: str, api_key: str, body: dict, timeout: float
-) -> str:
+    model: str, api_key: str, body: dict, timeout: float, extract=_extract_text
+):
     retries = max(0, settings.gemini_retry_count)
     delay = settings.gemini_retry_delay_seconds
     last: GeminiError | None = None
     for attempt in range(retries + 1):
         try:
-            return await _request_once(model, api_key, body, timeout)
+            return await _request_once(model, api_key, body, timeout, extract)
         except GeminiError as exc:
             last = exc
             if exc.auth_failure or attempt >= retries:
@@ -152,12 +168,12 @@ async def _request_with_retries(
 
 
 async def _generate_across_models(
-    models: list[str], api_key: str, body: dict, timeout: float
-) -> str:
+    models: list[str], api_key: str, body: dict, timeout: float, extract=_extract_text
+):
     last_error: GeminiError | None = None
     for model in models:
         try:
-            return await _request_with_retries(model, api_key, body, timeout)
+            return await _request_with_retries(model, api_key, body, timeout, extract)
         except GeminiError as exc:
             last_error = exc
             if exc.auth_failure:
@@ -186,13 +202,18 @@ def _chat_body(
     max_output_tokens: int | None,
     system_instruction: str | None = None,
     attachments: list[AiAttachment] | None = None,
+    thinking_budget: int | None = None,
+    code_execution: bool = False,
 ) -> dict:
     body: dict = {
         "contents": with_attachments(contents, attachments),
-        "generationConfig": _generation_config(max_output_tokens),
+        "generationConfig": _generation_config(max_output_tokens, thinking_budget=thinking_budget),
     }
     if system_instruction and system_instruction.strip():
         body["systemInstruction"] = {"parts": [{"text": system_instruction.strip()}]}
+    if code_execution:
+        # Bac à sable Google : le modèle exécute son code chez Gemini, jamais sur nos serveurs.
+        body["tools"] = [{"code_execution": {}}]
     return body
 
 
@@ -201,7 +222,8 @@ async def _generate_with_body(
     *,
     timeout_seconds: float | None,
     use_generation_fallbacks: bool,
-) -> str:
+    extract=_extract_text,
+):
     api_key = (settings.gemini_api_key or "").strip()
     if not api_key:
         hint = (
@@ -213,7 +235,7 @@ async def _generate_with_body(
     primary = settings.gemini_primary_model(for_generation=use_generation_fallbacks)
     timeout = timeout_seconds or settings.gemini_timeout_seconds
     models = _models_chain(primary, use_generation_fallbacks=use_generation_fallbacks)
-    return await _generate_across_models(models, api_key, body, timeout)
+    return await _generate_across_models(models, api_key, body, timeout, extract)
 
 
 async def generate_text(
@@ -224,12 +246,16 @@ async def generate_text(
     use_generation_fallbacks: bool = False,
     system_instruction: str | None = None,
     attachments: list[AiAttachment] | None = None,
+    thinking_budget: int | None = None,
+    code_execution: bool = False,
 ) -> str:
     body = _chat_body(
         [{"role": "user", "parts": [{"text": prompt}]}],
         max_output_tokens=max_output_tokens,
         system_instruction=system_instruction,
         attachments=attachments,
+        thinking_budget=thinking_budget,
+        code_execution=code_execution,
     )
     return await _generate_with_body(
         body,
@@ -257,4 +283,29 @@ async def generate_chat(
         body,
         timeout_seconds=timeout_seconds,
         use_generation_fallbacks=use_generation_fallbacks,
+    )
+
+
+async def generate_verification_text(
+    prompt: str,
+    *,
+    max_output_tokens: int,
+    timeout_seconds: float,
+    system_instruction: str,
+    thinking_budget: int,
+    code_execution: bool,
+) -> tuple[str, bool]:
+    """Comme generate_text, mais renvoie aussi si du code a réellement été exécuté."""
+    body = _chat_body(
+        [{"role": "user", "parts": [{"text": prompt}]}],
+        max_output_tokens=max_output_tokens,
+        system_instruction=system_instruction,
+        thinking_budget=thinking_budget,
+        code_execution=code_execution,
+    )
+    return await _generate_with_body(
+        body,
+        timeout_seconds=timeout_seconds,
+        use_generation_fallbacks=True,
+        extract=extract_text_and_code_flag,
     )

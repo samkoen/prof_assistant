@@ -29,7 +29,7 @@ type CardShellProps = {
 };
 
 /** Carte de base : bande d'accent en haut, ombre douce, relief au survol si cliquable. */
-function CardShell({ accent, link, interactive, onDoubleClick, minHeight, children, footer }: CardShellProps) {
+function CardShell({ link, interactive, onDoubleClick, minHeight, children, footer }: CardShellProps) {
   const hoverable = Boolean(link || interactive);
   const card = (
     <Card
@@ -39,18 +39,17 @@ function CardShell({ accent, link, interactive, onDoubleClick, minHeight, childr
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        borderTop: `4px solid ${accent}`,
         boxShadow: softCardShadow,
         cursor: onDoubleClick ? "pointer" : undefined,
-        transition: "box-shadow 0.2s, transform 0.15s",
-        "&:hover": hoverable ? { boxShadow: `0 12px 30px ${alpha(brand.violet900, 0.14)}`, transform: "translateY(-2px)" } : undefined,
+        transition: "border-color 0.15s",
+        "&:hover": hoverable ? { borderColor: brand.slate400 } : undefined,
       }}
     >
-      <Box sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 1.5, minHeight, flex: 1 }}>{children}</Box>
+      <Box sx={{ p: { xs: 2, sm: 2.25 }, display: "flex", flexDirection: "column", gap: 1.5, minHeight, flex: 1 }}>{children}</Box>
       {footer && (
         <>
           <Divider />
-          <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>{footer}</Box>
+          <Box sx={{ p: 1.25, display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>{footer}</Box>
         </>
       )}
     </Card>
@@ -65,7 +64,7 @@ function CardShell({ accent, link, interactive, onDoubleClick, minHeight, childr
 
 function CourseAvatar({ name, accent }: { name: string; accent: string }) {
   return (
-    <Avatar sx={{ width: 48, height: 48, bgcolor: alpha(accent, 0.14), color: accent, fontWeight: 800, fontSize: "1.15rem", flexShrink: 0 }}>
+    <Avatar variant="rounded" sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: alpha(accent, 0.12), color: accent, fontWeight: 700, fontSize: "1.05rem", flexShrink: 0 }}>
       {name.trim()[0]?.toUpperCase() ?? "?"}
     </Avatar>
   );
@@ -92,7 +91,7 @@ function OfferingHeader({ offering, accent, actions }: { offering: CourseOfferin
     <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
       <CourseAvatar name={offering.catalog_name} accent={accent} />
       <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-        <Typography variant="subtitle1" fontWeight={800} sx={{ lineHeight: 1.35 }}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ lineHeight: 1.35 }}>
           {offering.catalog_name}
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
@@ -167,7 +166,7 @@ export function OfferingCardGrid(props: OfferingCardGridProps) {
   const { offerings, emptyMessage = he.noCourses } = props;
   if (offerings.length === 0) return <EmptyGrid message={emptyMessage} />;
   return (
-    <Grid container spacing={2.5}>
+    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
       {offerings.map((offering, index) => (
         <Grid key={offering.id} size={{ xs: 12, sm: 6, lg: 4 }}>
           <OfferingCard offering={offering} index={index} props={props} />
@@ -200,7 +199,7 @@ function CatalogHeader({ catalog, accent, actions }: { catalog: CatalogCourse; a
     <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
       <CourseAvatar name={catalog.name} accent={accent} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle1" fontWeight={800}>{catalog.name}</Typography>
+        <Typography variant="subtitle1" fontWeight={600}>{catalog.name}</Typography>
         <Typography variant="caption" color="text.secondary">{formatDate(catalog.created_at)}</Typography>
       </Box>
       {actions}
@@ -215,7 +214,7 @@ function CatalogCard({ catalog, index, link, footer, actions }: CatalogCardProps
       <CatalogHeader catalog={catalog} accent={accent} actions={actions} />
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
         <Chip size="small" label={`${he.exams}: ${catalog.exam_count}`} />
-        <Chip size="small" label={`תרגילים: ${catalog.exercise_count}`} variant="outlined" />
+        <Chip size="small" label={`${he.catalogExercisesLabel}: ${catalog.exercise_count}`} variant="outlined" />
       </Box>
       {catalog.description && <ClampedText text={catalog.description} />}
     </CardShell>
@@ -225,7 +224,7 @@ function CatalogCard({ catalog, index, link, footer, actions }: CatalogCardProps
 export function CatalogCardGrid({ catalogs, emptyMessage = he.noCatalogCourses, getCardLink, renderActions, renderFooter }: CatalogCardGridProps) {
   if (catalogs.length === 0) return <EmptyGrid message={emptyMessage} />;
   return (
-    <Grid container spacing={2.5}>
+    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
       {catalogs.map((catalog, index) => (
         <Grid key={catalog.id} size={{ xs: 12, sm: 6, lg: 4 }}>
           <CatalogCard

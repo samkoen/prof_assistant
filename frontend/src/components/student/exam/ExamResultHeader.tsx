@@ -20,7 +20,7 @@ function ScoreHero({ title, score, max }: { title: string; score: number; max: n
     <Box dir="rtl" sx={{ mb: 3, p: 3, borderRadius: 3, color: "#fff", background: heroGradient, boxShadow: softCardShadow }}>
       <Typography variant="overline" sx={{ opacity: 0.85, fontWeight: 700 }}>{title}</Typography>
       <Box sx={{ display: "flex", alignItems: "baseline", gap: 1.5, flexWrap: "wrap" }}>
-        <Typography component="span" sx={{ fontSize: "3rem", fontWeight: 800, lineHeight: 1.1 }}>{percent}%</Typography>
+        <Typography component="span" sx={{ fontSize: "3rem", fontWeight: 700, lineHeight: 1.1 }}>{percent}%</Typography>
         <Typography component="span" sx={{ opacity: 0.9 }}>{he.examResultOutOf(score, max)}</Typography>
       </Box>
       <LinearProgress
@@ -35,7 +35,7 @@ function ScoreHero({ title, score, max }: { title: string; score: number; max: n
 function PendingCard() {
   return (
     <Box dir="rtl" sx={{ mb: 3, p: 3, borderRadius: 3, bgcolor: statusTones.info.bg, color: statusTones.info.fg }}>
-      <Typography variant="subtitle1" fontWeight={800}>{he.examResultPendingTitle}</Typography>
+      <Typography variant="subtitle1" fontWeight={700}>{he.examResultPendingTitle}</Typography>
       <Typography variant="body2" sx={{ mt: 0.5 }}>{he.examResultsPending}</Typography>
     </Box>
   );
@@ -44,7 +44,7 @@ function PendingCard() {
 function NoGradeCard() {
   return (
     <Box dir="rtl" sx={{ mb: 3, p: 3, borderRadius: 3, bgcolor: statusTones.warning.bg, color: statusTones.warning.fg }}>
-      <Typography variant="subtitle1" fontWeight={800}>{he.noGradeTitle}</Typography>
+      <Typography variant="subtitle1" fontWeight={700}>{he.noGradeTitle}</Typography>
       <Typography variant="body2" sx={{ mt: 0.5 }}>{he.gradingLockedStudent}</Typography>
     </Box>
   );

@@ -12,7 +12,7 @@ export default function ResultsStatGrid({ stats }: { stats: ResultsStats }) {
   return (
     <Grid container spacing={2} sx={{ mb: 3 }}>
       <Grid item xs={12} sm={6} md={3}>
-        <StatCard label={he.resultsStatSubmitted} value={`${stats.submitted} / ${stats.total}`} icon={<AssignmentTurnedInOutlinedIcon />} tone="violet" />
+        <StatCard label={he.resultsStatSubmitted} value={`${stats.submitted} / ${stats.total}`} icon={<AssignmentTurnedInOutlinedIcon />} tone="primary" />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <StatCard label={he.resultsStatAverage} value={formatPercent(stats.average)} icon={<QueryStatsIcon />} tone={scoreTone(stats.average)} />

@@ -18,7 +18,7 @@ const OPTIONS: Array<{ value: SemesterFilter; label: string }> = [
 ];
 
 function SemesterChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
-  const tone = statusTones.violet;
+  const tone = statusTones.primary;
   const sx = selected
     ? { bgcolor: tone.fg, color: "#fff", fontWeight: 700, "&:hover": { bgcolor: tone.fg } }
     : { bgcolor: tone.bg, color: tone.fg, fontWeight: 600 };

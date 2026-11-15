@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { he } from "../../i18n/he";
-import { sessionStatusView, sessionTargetPath } from "../examStatus";
+import { sessionStatusHint, sessionStatusView, sessionTargetPath } from "../examStatus";
 
 describe("sessionTargetPath", () => {
   const base = { id: 4, exam_id: 12, offering_id: 9 };
@@ -37,5 +37,15 @@ describe("sessionStatusView", () => {
   it("signale un תרגול en attente d'envoi, puis une note bloquée", () => {
     expect(sessionStatusView({ status: "draft", is_tirgoul: true, results_published: false }).key).toBe("draft");
     expect(sessionStatusView({ status: "active", is_tirgoul: true, results_published: false, grading_locked: true }).key).toBe("grading_locked");
+  });
+});
+
+describe("sessionStatusHint", () => {
+  it("explique ce que voient les élèves", () => {
+    expect(sessionStatusHint({ status: "draft", results_published: false })).toBe(he.statusHintDraft);
+    expect(sessionStatusHint({ status: "draft", is_tirgoul: true, results_published: false })).toBe(he.statusHintDraftPractice);
+    expect(sessionStatusHint({ status: "active", results_published: false })).toBe(he.statusHintActive);
+    expect(sessionStatusHint({ status: "closed", results_published: false })).toBe(he.statusHintAwaitingPublish);
+    expect(sessionStatusHint({ status: "closed", results_published: true })).toBe(he.statusHintFinished);
   });
 });

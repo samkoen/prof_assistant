@@ -18,6 +18,7 @@ const LABELS: Record<string, string> = {
   "generation.refine": he.aiPromptGenerationRefine,
   "generation.batch": he.aiPromptGenerationBatch,
   "generation.prior": he.aiPromptGenerationPrior,
+  "generation.verify": he.aiPromptGenerationVerify,
   "generation.preview": he.aiPromptGenerationPreview,
   "generation.sources_intro": he.aiPromptGenerationSources,
   "task_verify.system": he.aiPromptTaskVerifySystem,

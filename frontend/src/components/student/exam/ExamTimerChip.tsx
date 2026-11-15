@@ -10,7 +10,7 @@ const pulse = keyframes`
   50% { box-shadow: 0 0 0 6px rgba(185, 28, 28, 0); }
 `;
 
-const LEVEL_TONE: Record<TimerLevel, StatusTone> = { normal: "violet", warning: "warning", critical: "danger" };
+const LEVEL_TONE: Record<TimerLevel, StatusTone> = { normal: "primary", warning: "warning", critical: "danger" };
 
 type ExamTimerChipProps = { timeLeft: string; level: TimerLevel };
 
@@ -31,7 +31,7 @@ export default function ExamTimerChip({ timeLeft, level }: ExamTimerChipProps) {
         borderRadius: 999,
         bgcolor: tone.bg,
         color: tone.fg,
-        fontWeight: 800,
+        fontWeight: 700,
         fontSize: "1.05rem",
         fontVariantNumeric: "tabular-nums",
         flexShrink: 0,

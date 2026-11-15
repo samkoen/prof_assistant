@@ -28,7 +28,7 @@ function ScoreBar({ attempt }: { attempt: StudentExamSessionWithAttempt["attempt
         <Typography variant="caption" fontWeight={700}>
           {he.yourScore}: {attempt.score} / {attempt.max_score}
         </Typography>
-        <Typography variant="caption" fontWeight={800} sx={{ color }}>
+        <Typography variant="caption" fontWeight={700} sx={{ color }}>
           {percent}%
         </Typography>
       </Box>
@@ -40,8 +40,8 @@ function ScoreBar({ attempt }: { attempt: StudentExamSessionWithAttempt["attempt
 function ActionHint({ label, openable, pending }: { label: string; openable: boolean; pending: boolean }) {
   const Icon = openable ? ArrowBackIcon : LockOutlinedIcon;
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0, fontWeight: 800, color: pending ? brand.violet700 : "text.secondary" }}>
-      <Typography variant="body2" fontWeight={800} color="inherit">
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0, fontWeight: 700, color: pending ? brand.primary700 : "text.secondary" }}>
+      <Typography variant="body2" fontWeight={700} color="inherit">
         {label}
       </Typography>
       <Icon fontSize="small" />
@@ -76,11 +76,11 @@ export default function StudentExamCard({ session, showCourse = false, highlight
         <Box sx={{ minWidth: 0, flex: 1, textAlign: "right" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 0.5 }}>
             <StatusChip label={view.label} tone={view.tone} />
-            {session.kind === "task" && <StatusChip label={he.taskChip} tone="violet" />}
+            {session.kind === "task" && <StatusChip label={he.taskChip} tone="primary" />}
             {session.is_tirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
             {session.grading_locked && <StatusChip label={he.gradingLocked} tone="warning" />}
           </Box>
-          <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.35 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.35 }}>
             {session.exam_title}
           </Typography>
           <Typography variant="body2" color="text.secondary">

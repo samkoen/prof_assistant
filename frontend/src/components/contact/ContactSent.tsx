@@ -10,7 +10,7 @@ export default function ContactSent({ onAnother }: { onAnother: () => void }) {
     <Box dir="rtl" sx={{ maxWidth: 640, p: 3, borderRadius: 3, bgcolor: "background.paper", boxShadow: softCardShadow }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: tone.fg }}>
         <CheckCircleIcon />
-        <Typography variant="h6" fontWeight={800}>{he.contactSentTitle}</Typography>
+        <Typography variant="h6" fontWeight={700}>{he.contactSentTitle}</Typography>
       </Box>
       <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>{he.contactSentHint}</Typography>
       <Button variant="outlined" onClick={onAnother}>{he.contactSendAnother}</Button>

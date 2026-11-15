@@ -27,7 +27,7 @@ export default function TaskResultPanel({ sessionId }: { sessionId: number }) {
       {gradingLocked && <Alert severity="info">{he.gradingLockedStudent}</Alert>}
       {steps.map((step) => (
         <Box key={step.step_id} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-          <Typography fontWeight={800}>{step.title}</Typography>
+          <Typography fontWeight={700}>{step.title}</Typography>
           {!gradingLocked && <Typography>{verdictLabel(step.verdict)} · {step.score ?? 0} / {step.max_points}</Typography>}
           {step.has_proof && gradingLocked && <Typography>{step.proof_filename}</Typography>}
           {step.appreciation && <Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}>{step.appreciation}</Typography>}

@@ -23,11 +23,11 @@ function rowSx(checked: boolean, ltr: boolean) {
     cursor: "pointer",
     borderRadius: 2,
     border: "1.5px solid",
-    borderColor: checked ? brand.violet600 : "divider",
-    bgcolor: checked ? brand.violet50 : "background.paper",
+    borderColor: checked ? brand.primary600 : "divider",
+    bgcolor: checked ? brand.primary50 : "background.paper",
     transition: "border-color .15s, background-color .15s",
     textAlign: ltr ? "left" : "right",
-    "&:hover": { borderColor: brand.violet500, bgcolor: checked ? brand.violet50 : "action.hover" },
+    "&:hover": { borderColor: brand.primary500, bgcolor: checked ? brand.primary50 : "action.hover" },
   } as const;
 }
 

@@ -25,29 +25,23 @@ export default function HighlightCard({
     <Card
       sx={{
         height: "100%",
-        border: highlighted
-          ? `2px solid ${brand.amber400}`
-          : `1px solid ${alpha(brand.violet500, 0.14)}`,
-        boxShadow: highlighted
-          ? `0 0 0 3px ${alpha(brand.amber500, 0.16)}, 0 12px 32px ${alpha(brand.violet700, 0.1)}`
-          : softCardShadow,
+        border: highlighted ? `2px solid ${brand.primary500}` : undefined,
+        boxShadow: highlighted ? `0 0 0 3px ${alpha(brand.primary500, 0.14)}` : softCardShadow,
         overflow: "hidden",
       }}
     >
-      <Box sx={{ height: 4, background: gradient }} />
-      <CardContent sx={{ p: 2.75, height: "calc(100% - 4px)", display: "flex", flexDirection: "column" }}>
+      <CardContent sx={{ p: 2.75, height: "100%", display: "flex", flexDirection: "column" }}>
         <Box
           sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 2.5,
+            width: 44,
+            height: 44,
+            borderRadius: 2,
             background: gradient,
             color: "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             mb: 1.75,
-            boxShadow: `0 6px 16px ${alpha(brand.violet900, 0.14)}`,
             "& .MuiSvgIcon-root": { fontSize: 26 },
           }}
         >

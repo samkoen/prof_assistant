@@ -12,6 +12,7 @@ type Options = {
   offerings: CourseOffering[];
   reload: () => Promise<void>;
   onError: (message: string) => void;
+  onSuccess?: (message: string) => void;
 };
 
 const DEFAULT_TIMING: ExamTimingForm = { durationMinutes: "45", warningMinutes: "10", autoSubmitOnTimeout: true };
@@ -27,7 +28,7 @@ export function compatibleOfferings(exam: Exam | null, offerings: CourseOffering
 }
 
 /** Dialogue de mise en ligne d'un examen : sélection du groupe + minutage. */
-export function useActivateExam({ offerings, reload, onError }: Options) {
+export function useActivateExam({ offerings, reload, onError, onSuccess }: Options) {
   const [open, setOpen] = useState(false);
   const [exam, setExam] = useState<Exam | null>(null);
   const [offeringId, setOfferingId] = useState("");
@@ -56,6 +57,7 @@ export function useActivateExam({ offerings, reload, onError }: Options) {
       const body = { offering_id: Number(offeringId), integrity_mode_enabled: true, ...timingActivatePayload(timing) };
       await api(`/api/exams/${exam.id}/activate`, { method: "POST", body: JSON.stringify(body) });
       setOpen(false);
+      onSuccess?.(`${he.examActivated}: ${exam.title}`);
       await reload();
     } catch (e) {
       onError(errorMessage(e));

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
-import { Alert, Box, Button, Skeleton } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useParams } from "react-router-dom";
+import { Alert, Box, Skeleton } from "@mui/material";
 import PeopleOutlineIcon from "@mui/icons-material/PeopleOutline";
 import AddStudentDialog from "../../components/courses/AddStudentDialog";
 import CourseStudentRowActions from "../../components/courses/CourseStudentRowActions";
 import CourseStudentsStats from "../../components/courses/CourseStudentsStats";
+import CourseSectionTabs from "../../components/courses/CourseSectionTabs";
 import DataListTable from "../../components/DataListTable/DataListTable";
 import ListPageToolbar from "../../components/ListPageToolbar";
 import OfferingEnrollmentSettings from "../../components/OfferingEnrollmentSettings";
@@ -43,16 +43,14 @@ export default function TeacherCourseStudentsPage() {
 
   return (
     <Box dir="rtl" sx={{ width: "100%", minWidth: 0 }}>
-      <Button component={RouterLink} to="/teacher/courses" startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1 }}>
-        {he.backToCourses}
-      </Button>
       <ListPageToolbar
-        title={he.courseStudents}
-        subtitle={data.course ? offeringLabel(data.course) : he.manageCourseStudents}
+        back={{ to: "/teacher/courses", label: he.backToCourses }}
+        title={data.course ? offeringLabel(data.course) : he.courseStudents}
         titleVariant="h5"
         addLabel={he.addStudentToCourse}
         onAdd={() => setAddOpen(true)}
       />
+      <CourseSectionTabs courseId={id} value="students" />
       {data.error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => data.setError("")}>{data.error}</Alert>}
       {data.course && <OfferingEnrollmentSettings offering={data.course} onUpdated={data.setCourse} onError={data.setError} />}
       <CourseStudentsStats counts={counts} />

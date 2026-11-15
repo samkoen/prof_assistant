@@ -18,11 +18,11 @@ const cardSx = { flex: "1 1 320px", p: 3, borderRadius: 3, boxShadow: softCardSh
 function MethodHeader({ icon, title, description }: { icon: JSX.Element; title: string; description: string }) {
   return (
     <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
-      <Box sx={{ width: 44, height: 44, borderRadius: 2.5, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: alpha(brand.violet600, 0.1), color: brand.violet600, flexShrink: 0 }}>
+      <Box sx={{ width: 44, height: 44, borderRadius: 2.5, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: alpha(brand.primary600, 0.1), color: brand.primary600, flexShrink: 0 }}>
         {icon}
       </Box>
       <Box>
-        <Typography fontWeight={800}>{title}</Typography>
+        <Typography fontWeight={700}>{title}</Typography>
         <Typography variant="body2" color="text.secondary">
           {description}
         </Typography>

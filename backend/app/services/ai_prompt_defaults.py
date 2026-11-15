@@ -225,6 +225,21 @@ Questions already generated — do not repeat topics, wording, or examples:
         placeholders=("prior_text",),
     ),
     PromptSpec(
+        key="generation.verify",
+        body="""You are checking an exam answer key. Solve every question below yourself, independently.
+The answers marked by the author are hidden on purpose: do not guess them, work each question out.
+{tool_rule}
+Then write exactly one line per question, and nothing else after them:
+Q<number>: <letters of ALL correct options, comma-separated> | <one short sentence why, written in {language}>
+For true/false questions, A is the first line and B the second.
+If no option is correct or the question is ambiguous, write: Q<number>: ? | <why>
+
+Questions:
+{questions}""",
+        required=("{questions}", "Q<number>:", "independently"),
+        placeholders=("questions", "tool_rule", "language"),
+    ),
+    PromptSpec(
         key="generation.preview",
         body="""{title_line}Read the teacher instructions and sources. Write one line in Hebrew using Hebrew letters (א-ת), not Latin transliteration, exactly:
 נושא מובן: <short sentence> · מקורות: <short list or «ללא»> · {total_questions} שאלות: <level/type briefly>

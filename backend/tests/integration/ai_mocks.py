@@ -20,6 +20,10 @@ async def fake_generate_chat(_contents: list, **_kwargs) -> str:
     return EXPLANATION_TEXT
 
 
+async def fake_generate_verification(_prompt: str, **_kwargs) -> tuple[str, bool]:
+    return "", False
+
+
 def install_ai_mocks(monkeypatch) -> None:
     targets = (
         "app.services.ai_client.generate_text",
@@ -31,6 +35,9 @@ def install_ai_mocks(monkeypatch) -> None:
         name = target.rsplit(".", 1)[-1]
         stub = fake_generate_chat if name == "generate_chat" else fake_generate_text
         monkeypatch.setattr(target, stub)
+    monkeypatch.setattr(
+        "app.services.gemini_answer_check.generate_verification", fake_generate_verification
+    )
     monkeypatch.setattr(
         "app.services.email_delivery.deliver_html_email",
         lambda **_k: True,

@@ -1,7 +1,7 @@
 import { Box } from "@mui/material";
 import type { User } from "../api/client";
 import type { MenuItemDef } from "../config/menuItems";
-import { sidebarGradient } from "../theme/brand";
+import { surface } from "../theme/brand";
 import SidebarHeader from "./shell/SidebarHeader";
 import SidebarMenu, { type MenuBadges } from "./shell/SidebarMenu";
 import SidebarUserFooter from "./shell/SidebarUserFooter";
@@ -22,7 +22,8 @@ const rootSx = {
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",
-  background: sidebarGradient,
+  backgroundColor: surface.card,
+  borderInlineEnd: `1px solid ${surface.border}`,
 } as const;
 
 /** Contenu de la barre latérale : marque, navigation, compte utilisateur. */

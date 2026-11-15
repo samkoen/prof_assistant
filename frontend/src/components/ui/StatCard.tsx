@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { alpha, Box, Card, CardActionArea, Skeleton, Typography } from "@mui/material";
+import { Box, Card, CardActionArea, Skeleton, Typography } from "@mui/material";
 import { brand, softCardShadow, statusTones, type StatusTone } from "../../theme/brand";
 
 type StatCardProps = {
@@ -19,16 +19,16 @@ function IconBadge({ icon, tone }: { icon: ReactNode; tone: StatusTone }) {
   return (
     <Box
       sx={{
-        width: 46,
-        height: 46,
+        width: 40,
+        height: 40,
         flexShrink: 0,
-        borderRadius: 2.5,
+        borderRadius: 2,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         bgcolor: color.bg,
         color: color.fg,
-        "& .MuiSvgIcon-root": { fontSize: 26 },
+        "& .MuiSvgIcon-root": { fontSize: 22 },
       }}
     >
       {icon}
@@ -39,7 +39,7 @@ function IconBadge({ icon, tone }: { icon: ReactNode; tone: StatusTone }) {
 function StatValue({ value, loading }: { value: string | number; loading?: boolean }) {
   if (loading) return <Skeleton variant="text" width={56} height={44} />;
   return (
-    <Typography variant="h4" fontWeight={800} sx={{ lineHeight: 1.1, color: brand.slate900 }}>
+    <Typography variant="h5" component="p" fontWeight={700} sx={{ lineHeight: 1.15, color: brand.slate900, fontSize: { xs: "1.3rem", sm: "1.5rem" } }}>
       {value}
     </Typography>
   );
@@ -48,12 +48,8 @@ function StatValue({ value, loading }: { value: string | number; loading?: boole
 const cardSx = {
   height: "100%",
   boxShadow: softCardShadow,
-  transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
-  "&:hover": {
-    transform: "translateY(-3px)",
-    borderColor: alpha(brand.violet600, 0.35),
-    boxShadow: `0 14px 34px ${alpha(brand.violet900, 0.14)}`,
-  },
+  transition: "border-color 0.15s ease",
+  "&:hover": { borderColor: brand.primary400 },
 } as const;
 
 type StatBodyProps = Omit<StatCardProps, "to">;
@@ -61,11 +57,11 @@ type StatBodyProps = Omit<StatCardProps, "to">;
 function StatBody({ label, value, icon, tone, hint, loading }: StatBodyProps) {
   return (
     <>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
+      <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: { xs: 1, sm: 1.5 } }}>
         <IconBadge icon={icon} tone={tone} />
         <Box sx={{ minWidth: 0 }}>
           <StatValue value={value} loading={loading} />
-          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+          <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>
             {label}
           </Typography>
         </Box>
@@ -83,14 +79,14 @@ function StatBody({ label, value, icon, tone, hint, loading }: StatBodyProps) {
 export default function StatCard({ to, ...body }: StatCardProps) {
   if (!to) {
     return (
-      <Card sx={{ ...cardSx, p: 2.25, "&:hover": {} }}>
+      <Card sx={{ ...cardSx, p: { xs: 1.75, sm: 2.25 }, "&:hover": {} }}>
         <StatBody {...body} />
       </Card>
     );
   }
   return (
     <Card sx={cardSx}>
-      <CardActionArea component={Link} to={to} sx={{ p: 2.25, height: "100%" }}>
+      <CardActionArea component={Link} to={to} sx={{ p: { xs: 1.75, sm: 2.25 }, height: "100%" }}>
         <StatBody {...body} />
       </CardActionArea>
     </Card>

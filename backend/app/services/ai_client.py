@@ -406,3 +406,57 @@ async def generate_chat(
         mode="chat",
         for_generation=for_generation,
     )
+
+
+async def _verification_gemini(prompt: str, *, system: str, code_execution: bool) -> tuple[str, bool]:
+    from app.services.gemini_client import GeminiError, generate_verification_text
+
+    try:
+        return await generate_verification_text(
+            prompt,
+            max_output_tokens=settings.answer_check_max_output_tokens,
+            timeout_seconds=settings.gemini_generation_timeout_seconds,
+            system_instruction=system,
+            thinking_budget=settings.answer_check_thinking_budget,
+            code_execution=code_execution,
+        )
+    except GeminiError as exc:
+        raise AiError(str(exc)) from exc
+
+
+async def _metered_pair(run, *, mode: str) -> tuple[str, bool]:
+    """_metered pour un appel qui renvoie (texte, drapeau)."""
+    box: dict = {}
+
+    async def run_text() -> str:
+        box["result"] = await run()
+        return box["result"][0]
+
+    await _metered(run_text, mode=mode, for_generation=True)
+    return box["result"]
+
+
+async def generate_verification(prompt: str, *, system: str, code_execution: bool) -> tuple[str, bool]:
+    """Appel de vérification (raisonnement activé ; exécution de code chez Gemini si demandé).
+
+    Renvoie (texte, code_réellement_exécuté). Sans Gemini, pas d'outil de code :
+    le modèle raisonne seulement.
+    """
+    if not uses_gemini(for_generation=True):
+        text = await _metered(
+            lambda: _generate_text_opencode(prompt, system=system, timeout_seconds=None, for_generation=True),
+            mode="verify",
+            for_generation=True,
+        )
+        return text, False
+    try:
+        return await _metered_pair(
+            lambda: _verification_gemini(prompt, system=system, code_execution=code_execution), mode="verify"
+        )
+    except AiError:
+        if not code_execution:
+            raise
+        logger.warning("Verification with code execution failed — retrying without the tool")
+        return await _metered_pair(
+            lambda: _verification_gemini(prompt, system=system, code_execution=False), mode="verify"
+        )

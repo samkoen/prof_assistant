@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Box, MenuItem, TextField, Typography } from "@mui/material";
+import { Box, Card, MenuItem, TextField, Typography } from "@mui/material";
+import { brand } from "../../theme/brand";
 import ChoiceCard from "../ui/ChoiceCard";
 import type { CatalogCourse } from "../../api/client";
 import { he } from "../../i18n/he";
@@ -10,22 +11,38 @@ type FormProps = {
   onChange: (patch: Partial<ExamCreateForm>) => void;
 };
 
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+function StepBadge({ step }: { step: number }) {
   return (
-    <Box component="section" sx={{ mb: 3.5 }}>
-      <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
-        {title}
-      </Typography>
-      {children}
+    <Box
+      component="span"
+      aria-hidden
+      sx={{ width: 26, height: 26, borderRadius: "50%", bgcolor: brand.primary50, color: brand.primary700, fontWeight: 700, fontSize: "0.85rem", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+    >
+      {step}
     </Box>
+  );
+}
+
+/** Bloc numéroté du formulaire de création : on voit d'emblée combien d'étapes il reste. */
+export function FormSection({ title, step, children }: { title: string; step?: number; children: ReactNode }) {
+  return (
+    <Card component="section" sx={{ mb: 2, p: { xs: 2, sm: 2.5 } }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 2 }}>
+        {step != null && <StepBadge step={step} />}
+        <Typography variant="h6" component="h2">
+          {title}
+        </Typography>
+      </Box>
+      {children}
+    </Card>
   );
 }
 
 const cardsRowSx = { display: "flex", flexWrap: "wrap", gap: 1.5 } as const;
 
-export function BasicsSection({ form, onChange, catalogs, lockCatalog }: FormProps & { catalogs: CatalogCourse[]; lockCatalog: boolean }) {
+export function BasicsSection({ form, onChange, catalogs, lockCatalog, step }: FormProps & { catalogs: CatalogCourse[]; lockCatalog: boolean; step?: number }) {
   return (
-    <FormSection title={he.createExamBasics}>
+    <FormSection title={he.createExamBasics} step={step}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
           select
@@ -35,7 +52,7 @@ export function BasicsSection({ form, onChange, catalogs, lockCatalog }: FormPro
           value={form.catalog_course_id}
           disabled={lockCatalog}
           onChange={(e) => onChange({ catalog_course_id: e.target.value })}
-          helperText={catalogs.length === 0 ? he.noCatalogCourses : undefined}
+          helperText={lockCatalog ? undefined : he.createExamCatalogHint}
         >
           {catalogs.map((c) => (
             <MenuItem key={c.id} value={String(c.id)}>
@@ -43,15 +60,15 @@ export function BasicsSection({ form, onChange, catalogs, lockCatalog }: FormPro
             </MenuItem>
           ))}
         </TextField>
-        <TextField fullWidth label={he.examTitle} value={form.title} onChange={(e) => onChange({ title: e.target.value })} inputProps={{ maxLength: 255 }} />
+        <TextField fullWidth required label={he.examTitle} placeholder={he.createExamTitlePlaceholder} value={form.title} onChange={(e) => onChange({ title: e.target.value })} inputProps={{ maxLength: 255 }} />
       </Box>
     </FormSection>
   );
 }
 
-export function TypeSection({ form, onChange }: FormProps) {
+export function TypeSection({ form, onChange, step }: FormProps & { step?: number }) {
   return (
-    <FormSection title={he.createExamType}>
+    <FormSection title={he.createExamType} step={step}>
       <Box role="radiogroup" sx={cardsRowSx}>
         <ChoiceCard title={he.createExamTypePractice} description={he.createExamTypePracticeHint} selected={form.kind === "tirgoul"} onSelect={() => onChange({ kind: "tirgoul", is_tirgoul: true })} />
         <ChoiceCard title={he.createExamTypeExam} description={he.createExamTypeExamHint} selected={form.kind === "official"} onSelect={() => onChange({ kind: "official", is_tirgoul: false })} />
@@ -61,10 +78,10 @@ export function TypeSection({ form, onChange }: FormProps) {
   );
 }
 
-export function AudienceSection({ form, onChange }: FormProps) {
+export function AudienceSection({ form, onChange, step }: FormProps & { step?: number }) {
   const choose = (audience: ExamAudience) => () => onChange({ audience });
   return (
-    <FormSection title={he.examAudience}>
+    <FormSection title={he.examAudience} step={step}>
       <Box role="radiogroup" sx={cardsRowSx}>
         <ChoiceCard title={he.examAudienceAllGroups} description={he.examAudienceAllHint} selected={form.audience === "all"} onSelect={choose("all")} />
         <ChoiceCard title={he.examAudienceThisGroup} description={he.examAudienceGroupHint} selected={form.audience === "this_group"} onSelect={choose("this_group")} />
@@ -73,9 +90,9 @@ export function AudienceSection({ form, onChange }: FormProps) {
   );
 }
 
-export function ScopeSection({ form, onChange }: FormProps) {
+export function ScopeSection({ form, onChange, step }: FormProps & { step?: number }) {
   return (
-    <FormSection title={he.scopeRestriction}>
+    <FormSection title={he.scopeRestriction} step={step}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField fullWidth label={he.academicYear} value={form.scope_academic_year} placeholder={he.scopeAny} onChange={(e) => onChange({ scope_academic_year: e.target.value })} />
         <TextField select fullWidth label={he.semester} value={form.scope_semester} onChange={(e) => onChange({ scope_semester: e.target.value })}>

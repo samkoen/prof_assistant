@@ -17,7 +17,7 @@ type EnrollmentGroupPanelProps = {
 function GroupHeader({ group, bulkBusy, onApproveAll }: Pick<EnrollmentGroupPanelProps, "group" | "bulkBusy" | "onApproveAll">) {
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 1.25 }}>
-      <Typography variant="h6" fontWeight={800}>
+      <Typography variant="h6" fontWeight={700}>
         {group.label}
       </Typography>
       <StatusChip label={String(group.rows.length)} tone="warning" />

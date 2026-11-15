@@ -31,7 +31,7 @@ export default function PublicPackPurchase({ packs }: { packs: AiCreditPack[] })
 
   return (
     <Box component="section">
-      <Typography variant="h5" fontWeight={800} sx={{ mb: 1 }}>{he.publicHome.pricesTitle}</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>{he.publicHome.pricesTitle}</Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>{he.publicHome.pricesLead}</Typography>
       <TextField
         label={he.publicHome.guestEmailLabel}
@@ -80,7 +80,7 @@ function PackGroup({
 }) {
   return (
     <Box sx={{ p: 2.5, borderRadius: 3, bgcolor: brand.white, boxShadow: softCardShadow }}>
-      <Typography fontWeight={800} sx={{ mb: 1 }}>{title}</Typography>
+      <Typography fontWeight={700} sx={{ mb: 1 }}>{title}</Typography>
       <Stack component="ul" sx={{ m: 0, p: 0, listStyle: "none", gap: 1 }}>
         {packs.map((pack) => (
           <Stack key={pack.code} component="li" direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }}>

@@ -1,11 +1,11 @@
-/** Pastel backgrounds for course cards (cycle by index). */
+/** Teintes discrètes pour l'initiale des cartes (cycle par index). */
 export const COURSE_CARD_COLORS = [
-  { bg: "#e3f2fd", accent: "#1565c0" },
-  { bg: "#fce4ec", accent: "#c2185b" },
-  { bg: "#e0f7fa", accent: "#00838f" },
-  { bg: "#fff3e0", accent: "#ef6c00" },
-  { bg: "#e8f5e9", accent: "#2e7d32" },
-  { bg: "#fff8e1", accent: "#f9a825" },
+  { bg: "#e8eefb", accent: "#2451b3" },
+  { bg: "#e6f4f1", accent: "#0f7a63" },
+  { bg: "#f3ecfa", accent: "#6b3fa0" },
+  { bg: "#fdf1e4", accent: "#a65a00" },
+  { bg: "#e7f2f8", accent: "#0e6a8f" },
+  { bg: "#f8e9ee", accent: "#a3324f" },
 ] as const;
 
 export function courseCardColor(index: number) {

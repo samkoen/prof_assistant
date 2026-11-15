@@ -1,364 +1,34 @@
-import { useState, type ReactNode } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Tooltip,
-  Typography,
-} from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
-import ShareIcon from "@mui/icons-material/Share";
-import DeleteIcon from "@mui/icons-material/Delete";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import DownloadIcon from "@mui/icons-material/Download";
+import { Link as RouterLink } from "react-router-dom";
+import { Button, IconButton, Tooltip } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import DisabledActionTooltip from "./DisabledActionTooltip";
-import ExamPdfDownloadButton from "./ExamPdfDownloadButton";
-import HideExamButton from "./exams/HideExamButton";
-import ExamPortableExportDialog from "./ExamPortableExportDialog";
-import ShareWithTeacherDialog from "./ShareWithTeacherDialog";
-import { api, ApiError, downloadExamPdf, type Exam } from "../api/client";
+import ActionsMenu from "./ui/ActionsMenu";
+import type { Exam } from "../api/client";
+import { useExamManageActions } from "../hooks/useExamManageActions";
 import { he } from "../i18n/he";
-import { isDevEnvironment } from "../utils/isDevEnvironment";
-import Spinner from "./ui/Spinner";
-
-export type ExamRowPrimaryAction = "delete" | "duplicate";
-
-export type ExamRowMenuExtra = {
-  key: string;
-  label: string;
-  icon: ReactNode;
-  disabled?: boolean;
-  onClick: () => void;
-};
 
 interface ExamActionButtonsProps {
   exam: Exam;
   onChanged: () => void;
   onError: (message: string) => void;
   onDeleted?: () => void;
-  size?: "small" | "medium";
-  iconOnly?: boolean;
-  /** Masquer les actions indisponibles (ex. supprimer si examen activé). */
-  hideInactive?: boolean;
-  /** Tableau cours : 3e action inline + menu ⋮ en dernier. */
-  courseRowLayout?: boolean;
-  primaryAction?: ExamRowPrimaryAction;
-  menuExtras?: ExamRowMenuExtra[];
-  /** Depuis un groupe : retire l'examen de ce groupe seulement s'il est partagé. */
+  /** Depuis un קורס : retire la מטלה de ce קורס seulement. */
   offeringId?: number;
 }
 
-export function ExamActionButtons({
-  exam,
-  onChanged,
-  onError,
-  onDeleted,
-  size = "small",
-  iconOnly = false,
-  hideInactive = false,
-  courseRowLayout = false,
-  primaryAction = "delete",
-  menuExtras = [],
-  offeringId,
-}: ExamActionButtonsProps) {
-  const navigate = useNavigate();
-  const fromGroup = offeringId != null;
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [busy, setBusy] = useState<"duplicate" | "delete" | "pdf" | null>(null);
-  const canDelete = fromGroup || exam.can_delete !== false;
-
-  const closeMenu = () => setMenuAnchor(null);
-
-  const downloadPdf = async () => {
-    if (exam.question_count <= 0) return;
-    closeMenu();
-    setBusy("pdf");
-    try {
-      await downloadExamPdf(exam.id, exam.title);
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const duplicate = async () => {
-    setBusy("duplicate");
-    try {
-      const copy = await api<Exam>(`/api/exams/${exam.id}/duplicate`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      navigate(`/teacher/exams/${copy.id}/edit?return=${encodeURIComponent(window.location.pathname)}`);
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const remove = async () => {
-    setBusy("delete");
-    try {
-      const path = fromGroup ? `/api/exams/${exam.id}/offerings/${offeringId}` : `/api/exams/${exam.id}`;
-      await api(path, { method: "DELETE" });
-      setConfirmDelete(false);
-      if (onDeleted) onDeleted();
-      else onChanged();
-    } catch (e) {
-      onError(e instanceof ApiError ? e.message : he.errorGeneric);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const hideBtn = (
-    <HideExamButton
-      exam={exam}
-      iconOnly={iconOnly}
-      size={size}
-      onChanged={onChanged}
-      onError={onError}
-    />
-  );
-
-  const deleteBtn = iconOnly ? (
-    <DisabledActionTooltip
-      disabled={busy != null || !canDelete}
-      disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
-      title={busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
-    >
-      <IconButton
-        size="small"
-        color="error"
-        aria-label={fromGroup ? he.removeExamFromGroup : he.deleteExam}
-        onClick={() => setConfirmDelete(true)}
-      >
-        <DeleteIcon fontSize="small" />
-      </IconButton>
-    </DisabledActionTooltip>
-  ) : (
-    <DisabledActionTooltip
-      disabled={busy != null || !canDelete}
-      disabledReason={!canDelete ? he.cannotDeleteExamActivated : undefined}
-      title={busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
-    >
-      <Button
-        size={size}
-        variant="outlined"
-        color="error"
-        startIcon={<DeleteIcon />}
-        onClick={() => setConfirmDelete(true)}
-      >
-        {fromGroup ? he.removeExamFromGroup : he.deleteExam}
-      </Button>
-    </DisabledActionTooltip>
-  );
-
-  const duplicateBtn = iconOnly ? (
-    <Tooltip title={busy === "duplicate" ? he.loading : he.duplicateExam}>
-      <span>
-        <IconButton
-          size="small"
-          aria-label={he.duplicateExam}
-          disabled={busy != null}
-          onClick={duplicate}
-        >
-          {busy === "duplicate" ? (
-            <Spinner size={18} />
-          ) : (
-            <ContentCopyIcon fontSize="small" />
-          )}
-        </IconButton>
-      </span>
-    </Tooltip>
-  ) : (
-    <Button
-      size={size}
-      variant="outlined"
-      startIcon={<ContentCopyIcon />}
-      disabled={busy != null}
-      onClick={duplicate}
-    >
-      {busy === "duplicate" ? he.loading : he.duplicateExam}
-    </Button>
-  );
-
-  const shareBtn = iconOnly ? (
-    <Tooltip title={he.shareExam}>
-      <IconButton size="small" aria-label={he.shareExam} onClick={() => setShareOpen(true)}>
-        <ShareIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
-  ) : (
-    <Button size={size} variant="outlined" startIcon={<ShareIcon />} onClick={() => setShareOpen(true)}>
-      {he.shareExam}
-    </Button>
-  );
-
-  const exportBtn =
-    isDevEnvironment &&
-    (iconOnly ? (
-      <Tooltip title={he.portableExportExam}>
-        <IconButton size="small" aria-label={he.portableExportExam} onClick={() => setExportOpen(true)}>
-          <FileUploadIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    ) : (
-      <Button size={size} variant="outlined" startIcon={<FileUploadIcon />} onClick={() => setExportOpen(true)}>
-        {he.portableExportExam}
-      </Button>
-    ));
-
-  const dialogs = (
-    <>
-      {isDevEnvironment && (
-        <ExamPortableExportDialog
-          open={exportOpen}
-          examId={exam.id}
-          examTitle={exam.title}
-          onClose={() => setExportOpen(false)}
-        />
-      )}
-
-      <ShareWithTeacherDialog
-        open={shareOpen}
-        kind="exam"
-        examId={exam.id}
-        itemLabel={exam.title}
-        onClose={() => setShareOpen(false)}
-        onSent={onChanged}
-      />
-
-      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} fullWidth maxWidth="xs" dir="rtl">
-        <DialogTitle>{fromGroup ? he.removeExamFromGroup : he.deleteExam}</DialogTitle>
-        <DialogContent>
-          <Typography>{fromGroup ? he.removeExamFromGroupConfirm : he.deleteExamConfirm}</Typography>
-          <Typography fontWeight={600} sx={{ mt: 1 }}>
-            {exam.title}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDelete(false)}>{he.cancel}</Button>
-          <Button variant="contained" color="error" onClick={remove} disabled={busy === "delete"}>
-            {busy === "delete" ? he.loading : fromGroup ? he.removeExamFromGroup : he.deleteExam}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
-  );
-
-  const moreMenuBtn = (
-    <Tooltip title={he.moreExamActions}>
-      <IconButton
-        size="small"
-        aria-label={he.moreExamActions}
-        disabled={busy != null}
-        onClick={(e) => setMenuAnchor(e.currentTarget)}
-      >
-        <MoreVertIcon fontSize="small" />
-      </IconButton>
-    </Tooltip>
-  );
-
-  const moreMenu = (
-    <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu} dir="rtl">
-      {primaryAction === "delete" && (
-        <MenuItem
-          disabled={busy != null}
-          onClick={() => {
-            closeMenu();
-            void duplicate();
-          }}
-        >
-          <ListItemIcon>
-            <ContentCopyIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{he.duplicateExam}</ListItemText>
-        </MenuItem>
-      )}
-      {menuExtras.map((item) => (
-        <MenuItem
-          key={item.key}
-          disabled={busy != null || item.disabled}
-          onClick={() => {
-            closeMenu();
-            item.onClick();
-          }}
-        >
-          <ListItemIcon>{item.icon}</ListItemIcon>
-          <ListItemText>{item.label}</ListItemText>
-        </MenuItem>
-      ))}
-      {isDevEnvironment && (
-        <MenuItem
-          disabled={busy != null}
-          onClick={() => {
-            closeMenu();
-            setExportOpen(true);
-          }}
-        >
-          <ListItemIcon>
-            <FileUploadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{he.portableExportExam}</ListItemText>
-        </MenuItem>
-      )}
-      <MenuItem disabled={busy != null} onClick={() => { closeMenu(); setShareOpen(true); }}>
-        <ListItemIcon>
-          <ShareIcon fontSize="small" />
-        </ListItemIcon>
-        <ListItemText>{he.shareExam}</ListItemText>
-      </MenuItem>
-      {exam.question_count > 0 && (
-        <MenuItem disabled={busy != null} onClick={() => void downloadPdf()}>
-          <ListItemIcon>
-            <DownloadIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>{busy === "pdf" ? he.loading : he.downloadExamPdf}</ListItemText>
-        </MenuItem>
-      )}
-    </Menu>
-  );
-
-  if (courseRowLayout) {
-    const thirdAction = primaryAction === "delete" ? deleteBtn : duplicateBtn;
-    return (
-      <>
-        {hideBtn}
-        {thirdAction}
-        {moreMenuBtn}
-        {moreMenu}
-        {dialogs}
-      </>
-    );
-  }
-
+/** Menu « ⋮ » de gestion d'une מטלה (dupliquer, partager, PDF, masquer, supprimer). */
+export function ExamActionButtons({ exam, onChanged, onError, onDeleted, offeringId }: ExamActionButtonsProps) {
+  const manage = useExamManageActions(exam, { onChanged, onError, onDeleted, offeringId });
   return (
     <>
-      {duplicateBtn}
-      {exportBtn}
-      {shareBtn}
-      <ExamPdfDownloadButton exam={exam} onError={onError} iconOnly={iconOnly} />
-      {hideBtn}
-      {(!hideInactive || canDelete) && deleteBtn}
-      {dialogs}
+      <ActionsMenu actions={manage.actions} />
+      {manage.dialogs}
     </>
   );
+}
+
+export function examEditPath(examId: number, returnTo?: string): string {
+  return returnTo ? `/teacher/exams/${examId}/edit?return=${encodeURIComponent(returnTo)}` : `/teacher/exams/${examId}/edit`;
 }
 
 export function ExamEditLink({
@@ -372,39 +42,23 @@ export function ExamEditLink({
   size?: "small" | "medium";
   returnTo?: string;
   iconOnly?: boolean;
-  /** מבחן déjà activé — icône צפייה (lecture seule) au lieu de עריכה. */
+  /** מבחן déjà activé — צפייה (lecture seule) au lieu de עריכה. */
   viewOnly?: boolean;
 }) {
-  const to = returnTo
-    ? `/teacher/exams/${examId}/edit?return=${encodeURIComponent(returnTo)}`
-    : `/teacher/exams/${examId}/edit`;
+  const to = examEditPath(examId, returnTo);
   const label = viewOnly ? he.viewExam : he.editExam;
   const ActionIcon = viewOnly ? VisibilityOutlinedIcon : EditOutlinedIcon;
-
   if (iconOnly) {
     return (
       <Tooltip title={label}>
-        <IconButton
-          component={RouterLink}
-          to={to}
-          size="small"
-          color="primary"
-          aria-label={label}
-        >
+        <IconButton component={RouterLink} to={to} size="small" color="primary" aria-label={label}>
           <ActionIcon fontSize="small" />
         </IconButton>
       </Tooltip>
     );
   }
-
   return (
-    <Button
-      size={size}
-      variant="outlined"
-      component={RouterLink}
-      to={to}
-      startIcon={<ActionIcon />}
-    >
+    <Button size={size} variant="outlined" component={RouterLink} to={to} startIcon={<ActionIcon />}>
       {label}
     </Button>
   );

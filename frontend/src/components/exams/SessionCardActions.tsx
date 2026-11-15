@@ -1,15 +1,16 @@
-import { Link as RouterLink } from "react-router-dom";
-import { Box, Button } from "@mui/material";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
-import GradingIcon from "@mui/icons-material/Grading";
+import { Box } from "@mui/material";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import GradingIcon from "@mui/icons-material/GradingOutlined";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopIcon from "@mui/icons-material/Stop";
-import { ExamEditLink } from "../ExamActionButtons";
+import StopIcon from "@mui/icons-material/StopOutlined";
+import ExamPrimaryButton from "./ExamPrimaryButton";
 import PracticeReleaseButtons from "./PracticeReleaseButtons";
-import LoadingButton from "../ui/LoadingButton";
+import ActionsMenu, { type MenuAction } from "../ui/ActionsMenu";
+import { examEditPath } from "../ExamActionButtons";
 import type { ExamSession } from "../../api/client";
 import type { SessionBusy } from "../../hooks/useSessionLifecycle";
 import { he } from "../../i18n/he";
+import { sessionPrimaryAction } from "../../utils/examPrimaryAction";
 import { sessionTargetPath } from "../../utils/examStatus";
 import type { SessionActionKind } from "./sessionActionCopy";
 
@@ -28,80 +29,29 @@ type ActionsProps = {
   handlers: SessionCardHandlers;
 };
 
-const rowSx = { display: "flex", gap: 1, flexWrap: "wrap", flexShrink: 0 } as const;
+const RETURN_TO = "/teacher/exams";
+const rowSx = { display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", flexShrink: 0 } as const;
 
-function isBusy(busy: SessionBusy, kind: SessionActionKind, id: number): boolean {
-  return busy?.kind === kind && busy.id === id;
+function isPractice(session: ExamSession): boolean {
+  return session.kind === "task" || Boolean(session.is_tirgoul);
 }
 
-function GradesButton({ session }: { session: ExamSession }) {
-  return (
-    <Button size="small" variant="outlined" component={RouterLink} to={sessionTargetPath(session)} startIcon={<GradingIcon />}>
-      {he.viewExamGrades}
-    </Button>
-  );
+function resultsPath(session: ExamSession): string {
+  return `/teacher/courses/${session.offering_id}/exams/sessions/${session.id}/results`;
 }
 
-function CloseButton({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
-  return (
-    <LoadingButton
-      size="small"
-      variant="contained"
-      startIcon={<DoneAllIcon />}
-      loading={isBusy(busy, "close", session.id)}
-      onClick={() => handlers.onRequest("close", session)}
-    >
-      {he.closeExam}
-    </LoadingButton>
-  );
-}
-
-function DraftActions({ session, handlers }: Pick<ActionsProps, "session" | "handlers">) {
-  return (
-    <Box sx={rowSx}>
-      <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
-      <Button size="small" variant="contained" color="success" disabled={session.question_count < 1} onClick={() => handlers.onActivateSession(session)}>
-        {he.activateExam}
-      </Button>
-    </Box>
-  );
-}
-
-function ActiveActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
-  return (
-    <Box sx={rowSx}>
-      <CloseButton session={session} busy={busy} handlers={handlers} />
-      <LoadingButton
-        size="small"
-        variant="outlined"
-        color="warning"
-        startIcon={<StopIcon />}
-        loading={isBusy(busy, "deactivate", session.id)}
-        onClick={() => handlers.onRequest("deactivate", session)}
-      >
-        {he.cancelActivation}
-      </LoadingButton>
-    </Box>
-  );
-}
-
-function ClosedActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
-  return (
-    <Box sx={rowSx}>
-      <LoadingButton
-        size="small"
-        variant="contained"
-        color="success"
-        startIcon={<PlayArrowIcon />}
-        loading={isBusy(busy, "reopen", session.id)}
-        onClick={() => handlers.onRequest("reopen", session)}
-      >
-        {he.reopenExam}
-      </LoadingButton>
-      {!session.results_published && <CloseButton session={session} busy={busy} handlers={handlers} />}
-      <GradesButton session={session} />
-    </Box>
-  );
+function menuActions(session: ExamSession, handlers: SessionCardHandlers, showGrades: boolean): MenuAction[] {
+  const items: MenuAction[] = [
+    { key: "edit", label: he.editExam, icon: <EditOutlinedIcon fontSize="small" />, to: examEditPath(session.exam_id, RETURN_TO) },
+  ];
+  if (showGrades) items.push({ key: "grades", label: he.viewExamGrades, icon: <GradingIcon fontSize="small" />, to: resultsPath(session) });
+  if (!isPractice(session) && session.status === "active") {
+    items.push({ key: "deactivate", label: he.cancelActivation, icon: <StopIcon fontSize="small" />, onClick: () => handlers.onRequest("deactivate", session) });
+  }
+  if (!isPractice(session) && session.status === "closed") {
+    items.push({ key: "reopen", label: he.reopenExam, icon: <PlayArrowIcon fontSize="small" />, onClick: () => handlers.onRequest("reopen", session) });
+  }
+  return items;
 }
 
 function releaseProps(session: ExamSession, handlers: SessionCardHandlers) {
@@ -119,37 +69,35 @@ function releaseProps(session: ExamSession, handlers: SessionCardHandlers) {
   };
 }
 
-function TaskActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
+/** תרגול / משימה : envoi aux élèves, blocage de note, et publication pour une משימה. */
+function PracticeActions({ session, busy, handlers }: Omit<ActionsProps, "closedTab">) {
+  const canPublishTask = session.kind === "task" && session.status === "active" && !session.results_published && !session.grading_locked;
   return (
     <Box sx={rowSx}>
       <PracticeReleaseButtons {...releaseProps(session, handlers)} />
-      <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
-      {session.status === "active" && !session.results_published && !session.grading_locked && (
-        <LoadingButton size="small" variant="contained" loading={isBusy(busy, "close", session.id)} onClick={() => handlers.onRequest("close", session)}>
-          {he.taskPublish}
-        </LoadingButton>
+      {canPublishTask && (
+        <ExamPrimaryButton kind="publish" loading={busy?.id === session.id} onPublish={() => handlers.onRequest("publish", session)} />
       )}
-      <GradesButton session={session} />
+      <ActionsMenu actions={menuActions(session, handlers, session.status !== "draft")} />
     </Box>
   );
 }
 
-function PracticeActions({ session, handlers }: Pick<ActionsProps, "session" | "handlers">) {
+/** Un bouton principal selon l'état de la session + menu « ⋮ » pour les actions secondaires. */
+export default function SessionCardActions({ session, busy, handlers }: ActionsProps) {
+  if (isPractice(session)) return <PracticeActions session={session} busy={busy} handlers={handlers} />;
+  const primary = sessionPrimaryAction(session);
   return (
     <Box sx={rowSx}>
-      <PracticeReleaseButtons {...releaseProps(session, handlers)} />
-      <ExamEditLink examId={session.exam_id} returnTo="/teacher/exams" />
-      <GradesButton session={session} />
+      <ExamPrimaryButton
+        kind={primary}
+        loading={busy?.id === session.id}
+        gradesPath={sessionTargetPath(session)}
+        onActivate={() => handlers.onActivateSession(session)}
+        onClose={() => handlers.onRequest("close", session)}
+        onPublish={() => handlers.onRequest("publish", session)}
+      />
+      <ActionsMenu actions={menuActions(session, handlers, primary !== "grades" && session.status !== "draft")} />
     </Box>
   );
-}
-
-/** Actions disponibles selon l'état de la session (pratique, brouillon, actif, clos). */
-export default function SessionCardActions({ session, closedTab, busy, handlers }: ActionsProps) {
-  if (session.kind === "task") return <TaskActions session={session} busy={busy} handlers={handlers} />;
-  if (session.is_tirgoul) return <PracticeActions session={session} handlers={handlers} />;
-  if (closedTab) return <ClosedActions session={session} busy={busy} handlers={handlers} />;
-  if (session.status === "draft") return <DraftActions session={session} handlers={handlers} />;
-  if (session.status === "active") return <ActiveActions session={session} busy={busy} handlers={handlers} />;
-  return null;
 }

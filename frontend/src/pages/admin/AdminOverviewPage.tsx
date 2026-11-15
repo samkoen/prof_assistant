@@ -1,4 +1,4 @@
-import { alpha, Box, Button, Grid } from "@mui/material";
+import { Box, Button, Grid } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PeopleIcon from "@mui/icons-material/People";
 import SchoolIcon from "@mui/icons-material/School";
@@ -66,25 +66,14 @@ export default function AdminOverviewPage() {
         subtitle={he.adminWelcome}
         actions={
           <>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/admin/students")}
-              sx={{ bgcolor: "#fff", color: "primary.dark", "&:hover": { bgcolor: alpha("#fff", 0.9) } }}
-            >
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/admin/students")}>
               {he.newStudent}
             </Button>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => navigate("/admin/users")}
-              sx={{ borderColor: "#fff", color: "#fff", "&:hover": { borderColor: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
-            >
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => navigate("/admin/users")}>
               {he.newUser}
             </Button>
             <Button
               variant="contained"
-              color="secondary"
               startIcon={<AddIcon />}
               onClick={() => navigate("/admin/courses")}
             >

@@ -24,7 +24,9 @@ const PATH_LABELS: Record<string, string> = {
   "/student/courses/:id": he.exams,
   "/student/exams": he.exams,
   "/student/join-course": he.joinByTeacherTitle,
-  "/student/notifications": he.notifications,
+  "/student/shares": he.studentShares,
+  "/student/tirgoulim/new": he.createTirgoul,
+  "/student/tirgoulim/:id/edit": he.editTirgoul,
   "/admin": he.dashboard,
   "/admin/users": he.adminUsers,
   "/admin/students": he.students,
@@ -33,6 +35,7 @@ const PATH_LABELS: Record<string, string> = {
   "/admin/ai-prompts": he.aiPromptsAdminTitle,
   "/admin/ai-billing": he.aiBillingAdminTitle,
   "/profile": he.myProfile,
+  "/contact": he.helpAndContact,
   "/billing/return": he.aiCreditsBuyTitle,
 };
 

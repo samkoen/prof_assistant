@@ -38,7 +38,7 @@ export default function ScoreDistribution({ buckets, graded }: { buckets: Distri
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
-        <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
           {he.resultsDistributionTitle}
         </Typography>
         {graded === 0 ? (

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Chip, Tooltip } from "@mui/material";
+import { Box, Chip, Tooltip } from "@mui/material";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import type { WalletBalance } from "../../api/billing";
 import { PROFILE_PATH } from "../../config/menuItems";
@@ -13,7 +13,7 @@ export function creditsChipLabel(wallet: WalletBalance): string {
 
 /** Solde de crédits AI toujours visible ; passe à l'ambre quand il est presque épuisé. */
 export default function TopBarCreditsChip({ wallet }: { wallet: WalletBalance }) {
-  const tone = creditsAreLow(wallet.total, wallet.unlimited) ? statusTones.warning : statusTones.violet;
+  const tone = creditsAreLow(wallet.total, wallet.unlimited) ? statusTones.warning : statusTones.primary;
   return (
     <Tooltip title={he.topBarCreditsTitle}>
       <Chip
@@ -23,11 +23,22 @@ export default function TopBarCreditsChip({ wallet }: { wallet: WalletBalance })
         icon={<AutoAwesomeIcon sx={{ fontSize: 18, color: `${tone.fg} !important` }} />}
         label={
           <span dir="rtl">
-            {he.statAiCredits}
-            {"\u200F"}: <bdi>{creditsChipLabel(wallet)}</bdi>
+            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+              {he.statAiCredits}
+              {"\u200F"}:{" "}
+            </Box>
+            <bdi>{creditsChipLabel(wallet)}</bdi>
           </span>
         }
-        sx={{ bgcolor: tone.bg, color: tone.fg, fontWeight: 700, "&:hover": { bgcolor: tone.bg, filter: "brightness(0.96)" } }}
+        sx={{
+          bgcolor: tone.bg,
+          color: tone.fg,
+          fontWeight: 600,
+          // MUI pose margin-right: -6 sur l'icône (prévu pour le LTR). En RTL l'icône
+          // est à droite, donc cette marge négative la sort du fond. On la rentre.
+          "&& .MuiChip-icon": { marginLeft: "4px", marginRight: "8px" },
+          "&:hover": { bgcolor: tone.bg, filter: "brightness(0.96)" },
+        }}
       />
     </Tooltip>
   );
