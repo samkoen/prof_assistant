@@ -10,6 +10,7 @@ import {
   applyResolutions,
   canUseChecked,
   checkFor,
+  promotesToMultiple,
   pendingMismatches,
   summarizeChecks,
   type CheckResolution,
@@ -86,6 +87,7 @@ export default function GeminiGeneratedQuestionsPreview({
               <AnswerCheckPanel
                 check={check}
                 canUseChecked={canUseChecked(questions[i], check)}
+                becomesMultiple={promotesToMultiple(questions[i], check.checked)}
                 resolution={resolutions[check.q_num]}
                 onResolve={(r) => onResolve?.(check.q_num, r)}
               />

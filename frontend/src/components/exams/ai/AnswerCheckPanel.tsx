@@ -10,6 +10,7 @@ import { statusTones } from "../../../theme/brand";
 type AnswerCheckPanelProps = {
   check: GeminiAnswerCheck;
   canUseChecked: boolean;
+  becomesMultiple?: boolean;
   resolution?: CheckResolution;
   onResolve: (resolution: CheckResolution | undefined) => void;
 };
@@ -48,9 +49,17 @@ function Detail({ label, text }: { label: string; text: string }) {
   );
 }
 
-function Decision({ check, canUseChecked, resolution, onResolve }: AnswerCheckPanelProps) {
+function useCheckedText(check: GeminiAnswerCheck, becomesMultiple: boolean, chosen: boolean): string {
+  const shown = letters(check.checked);
+  if (chosen) return becomesMultiple ? he.answerCheckChoseUseMultiple(shown) : he.answerCheckChoseUse(shown);
+  return becomesMultiple ? he.answerCheckUseMultiple(shown) : he.answerCheckUse(shown);
+}
+
+function Decision({ check, canUseChecked, becomesMultiple = false, resolution, onResolve }: AnswerCheckPanelProps) {
   if (resolution) {
-    const text = resolution === "checked" ? he.answerCheckChoseUse(letters(check.checked)) : he.answerCheckChoseKeep(letters(check.generated));
+    const text = resolution === "checked"
+      ? useCheckedText(check, becomesMultiple, true)
+      : he.answerCheckChoseKeep(letters(check.generated));
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1, flexWrap: "wrap" }}>
         <Typography variant="body2" fontWeight={600}>{text}</Typography>
@@ -65,7 +74,7 @@ function Decision({ check, canUseChecked, resolution, onResolve }: AnswerCheckPa
       </Button>
       {canUseChecked && (
         <Button size="small" variant="contained" onClick={() => onResolve("checked")}>
-          {he.answerCheckUse(letters(check.checked))}
+          {useCheckedText(check, becomesMultiple, false)}
         </Button>
       )}
     </Box>

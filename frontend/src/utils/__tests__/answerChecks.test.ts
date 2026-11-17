@@ -50,7 +50,29 @@ describe("applyResolutions", () => {
     expect(kept[1].options.map((o) => o.is_correct)).toEqual([true, false]);
     const fixed = applyResolutions(questions, checks, { 2: "checked" });
     expect(fixed[1].options.map((o) => o.is_correct)).toEqual([false, true]);
+    expect(fixed[1].question_type).toBe("single");
     expect(fixed[0]).toBe(questions[0]);
+  });
+
+  it("passe la question en choix multiple quand la vérification retient plusieurs réponses", () => {
+    const single: ParsedQuestion = {
+      text: "?",
+      question_type: "single",
+      points: 1,
+      q_num: 4,
+      options: [
+        { text: "a", is_correct: true },
+        { text: "b", is_correct: false },
+        { text: "c", is_correct: false },
+        { text: "d", is_correct: false },
+      ],
+    };
+    const multi = check(4, "mismatch", ["A"], ["A", "B", "C"]);
+    const fixed = applyResolutions([single], [multi], { 4: "checked" })[0];
+    expect(fixed.question_type).toBe("multiple");
+    expect(fixed.options.map((o) => o.is_correct)).toEqual([true, true, true, false]);
+    const kept = applyResolutions([single], [multi], { 4: "generated" })[0];
+    expect(kept).toBe(single);
   });
 
   it("n'applique pas une vérification qui ne désigne aucune option valable", () => {
