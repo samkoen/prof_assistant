@@ -436,8 +436,10 @@ export const he = {
   answerCheckSolution: "פתרון המחולל",
   answerCheckKeep: (letters: string) => `להשאיר ${letters}`,
   answerCheckUse: (letters: string) => `להחליף ל-${letters}`,
+  answerCheckUseMultiple: (letters: string) => `להחליף ל-${letters} (בחירה מרובה)`,
   answerCheckChoseKeep: (letters: string) => `נבחר: להשאיר ${letters}`,
   answerCheckChoseUse: (letters: string) => `נבחר: להחליף ל-${letters}`,
+  answerCheckChoseUseMultiple: (letters: string) => `נבחר: להחליף ל-${letters} (בחירה מרובה)`,
   answerCheckChange: "שינוי",
   answerCheckSummary: (verified: number, mismatch: number, unchecked: number) =>
     `בדיקת תשובות: ${verified} אומתו · ${mismatch} לבדיקה · ${unchecked} לא נבדקו`,

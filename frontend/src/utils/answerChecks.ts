@@ -29,9 +29,15 @@ export function pendingMismatches(
     .map((c) => c.q_num);
 }
 
+/** Plusieurs bonnes réponses sur un choix unique : le type devient בחירה מרובה. */
+export function promotesToMultiple(question: ParsedQuestion, letters: string[]): boolean {
+  return question.question_type === "single" && letters.length > 1;
+}
+
 function withLetters(question: ParsedQuestion, letters: string[]): ParsedQuestion {
   return {
     ...question,
+    question_type: promotesToMultiple(question, letters) ? "multiple" : question.question_type,
     options: question.options.map((o, i) => ({ ...o, is_correct: letters.includes(LETTERS[i]) })),
   };
 }
