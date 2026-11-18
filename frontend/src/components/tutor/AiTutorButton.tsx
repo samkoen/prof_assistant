@@ -10,10 +10,12 @@ interface AiTutorButtonProps {
   questionIndex: number;
   isCorrect: boolean | null;
   forPractice: boolean;
+  /** Faux : seulement l'explication, sans chat (réglage du prof). */
+  chatEnabled: boolean;
   dir: "rtl" | "ltr";
 }
 
-/** Bouton « להבין את התשובה » d'une question de la correction ; ouvre le chat du tuteur. */
+/** Seule entrée IA d'une question de la correction : ouvre le tuteur, ou l'explication seule si le chat est désactivé. */
 export default function AiTutorButton(props: AiTutorButtonProps) {
   const [open, setOpen] = useState(false);
   return (
@@ -30,6 +32,7 @@ export default function AiTutorButton(props: AiTutorButtonProps) {
           questionLabel={he.tutorQuestionLabel(props.questionIndex)}
           isCorrect={props.isCorrect}
           forPractice={props.forPractice}
+          chatEnabled={props.chatEnabled}
           dir={props.dir}
         />
       )}

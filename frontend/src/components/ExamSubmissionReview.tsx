@@ -3,7 +3,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import { OptionDisplay } from "./MultilineOptionLayout";
 import QuestionImageDisplay from "./QuestionImageDisplay";
-import QuestionAiExplanation from "./QuestionAiExplanation";
 import QuestionOpenEvaluation from "./QuestionOpenEvaluation";
 import AiTutorButton from "./tutor/AiTutorButton";
 import AiExplanationMarkdown from "./AiExplanationMarkdown";
@@ -155,15 +154,7 @@ function ReviewQuestionCard({
           examDir={qDir}
           questionText={q.text}
         />
-        <QuestionAiExplanation
-          sessionId={sessionId}
-          questionId={q.id}
-          language={language}
-          forPractice={forPractice}
-        />
-        {tutorEnabled && (
-          <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={q.is_correct} forPractice={forPractice} dir={language === "he" ? "rtl" : "ltr"} />
-        )}
+        <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={q.is_correct} forPractice={forPractice} chatEnabled={tutorEnabled} dir={language === "he" ? "rtl" : "ltr"} />
       </CardContent>
     </Card>
   );
@@ -230,7 +221,7 @@ function OpenReviewQuestionCard({
           onAttemptScore={onAttemptScore}
         />
         {tutorEnabled && (
-          <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={null} forPractice={forPractice} dir={language === "he" ? "rtl" : "ltr"} />
+          <AiTutorButton sessionId={sessionId} questionId={q.id} questionIndex={index + 1} isCorrect={null} forPractice={forPractice} chatEnabled dir={language === "he" ? "rtl" : "ltr"} />
         )}
       </CardContent>
     </Card>

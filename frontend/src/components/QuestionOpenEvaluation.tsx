@@ -6,7 +6,7 @@ import AiExplanationMarkdown from "./AiExplanationMarkdown";
 import { AiCreditBalance, useAiCreditsPaywall } from "./AiCreditsPaywall";
 import { STUDENT_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
-import type { ExplanationLanguage } from "./QuestionAiExplanation";
+import type { ExplanationLanguage } from "../api/client";
 import Spinner from "./ui/Spinner";
 
 interface QuestionOpenEvaluationProps {

@@ -604,6 +604,7 @@ export const he = {
   tutorTitle: "עוזר חכם",
   tutorQuestionLabel: (n: number) => `שאלה ${n}`,
   tutorClose: "סגירה",
+  tutorChatDisabledNote: "המורה לא הפעיל/ה שיחה עם העוזר במטלה זו — מוצג ההסבר לתשובה.",
   tutorPrivacyNote: "המורה רואה רק סיכום אנונימי של השיחות, לא את ההודעות שלך.",
   tutorCostNote: "פתיחת שיחה על שאלה עולה קרדיט AI אחד; ההודעות הבאות באותה שאלה כלולות.",
   tutorIntro: "אפשר לשאול כל דבר על השאלה הזאת. נתחיל ממה שחשבת כשבחרת את התשובה.",
