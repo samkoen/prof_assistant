@@ -1,6 +1,6 @@
 import { stripEditorBidiMarks } from "./examQuestionsLanguage";
 
-export type QuestionType = "single" | "multiple" | "true_false" | "open";
+export type QuestionType = "single" | "multiple" | "open";
 
 export interface ParsedQuestionOption {
   text: string;
@@ -66,7 +66,6 @@ function normalizeType(raw: string | undefined): QuestionType {
   if (!raw) return "single";
   const t = raw.toLowerCase();
   if (t === "multiple") return "multiple";
-  if (t === "true_false" || t === "tf" || t === "vrai_faux") return "true_false";
   if (t === "open") return "open";
   return "single";
 }
@@ -318,9 +317,6 @@ function choiceTypeError(
   blockIndex: number,
 ): ParseError | undefined {
   const correct = options.filter((o) => o.is_correct);
-  if (type === "true_false" && options.length !== 2) {
-    return { block: blockIndex, message: "שאלת נכון/לא נכון דורשת 2 אפשרויות" };
-  }
   if (type !== "multiple" && correct.length === 0) {
     return { block: blockIndex, message: "נדרשת תשובה נכונה אחת (סמן ב-*)" };
   }
@@ -356,10 +352,10 @@ function parseChoiceBlock(
   }
   const optionSection = rawLines.slice(optionStart);
   let options = parseLetterOptions(optionSection);
-  let type = header.type;
+  const type = header.type;
   if (options.length === 0) {
+    // Ancien format vrai/faux (lignes « נכון » / « לא נכון ») : importé en choix unique.
     options = collectTrueFalseOptions(optionSection);
-    if (options.length) type = "true_false";
   }
   if (options.length === 0) {
     return missingOptionsResult(header, rawLines, blockIndex);
@@ -497,10 +493,10 @@ B) B-tree *
 C) מערך
 D) רשימה מקושרת
 ---
-Q3 [true_false]
-מחסנית (Stack) עובדת לפי עקרון FIFO
-נכון
-לא נכון *
+Q3
+מחסנית (Stack) עובדת לפי עקרון
+A) FIFO
+B) LIFO *
 ---
 Q4 [open] (2 pt)
 הסבירו בקצרה איך עובד חיפוש בינארי.

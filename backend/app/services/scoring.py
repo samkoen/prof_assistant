@@ -45,7 +45,7 @@ def score_question(
 
     correct_ids = {o.id for o in question.options if o.is_correct}
     selected = set(selected_option_ids)
-    if question.question_type in (QuestionType.SINGLE, QuestionType.TRUE_FALSE):
+    if question.question_type == QuestionType.SINGLE:
         return _score_single(correct_ids, selected, max_points)
     mode = question.multiple_scoring_mode or MultipleScoringMode.PROPORTIONAL
     return _score_multiple(correct_ids, selected, max_points, mode)

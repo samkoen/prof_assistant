@@ -59,11 +59,9 @@ def test_hebrew_words_are_not_mistaken_for_references():
     assert not references_letters("ביום א של השבוע")
 
 
-def test_true_false_and_open_untouched():
-    tf = _question(["נכון", "לא נכון"], qtype=QuestionType.TRUE_FALSE)
+def test_open_untouched():
     open_q = QuestionCreate(text="?", question_type=QuestionType.OPEN)
-    shuffle_generated_questions([tf, open_q], random.Random(0))
-    assert [o.text for o in tf.options] == ["נכון", "לא נכון"]
+    shuffle_generated_questions([open_q], random.Random(0))
     assert open_q.options == []
 
 

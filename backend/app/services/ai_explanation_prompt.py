@@ -12,7 +12,6 @@ ExplanationLanguage = GeminiSeriesLanguage
 _TYPE_LABELS: dict[QuestionType, str] = {
     QuestionType.SINGLE: "single choice",
     QuestionType.MULTIPLE: "multiple choice",
-    QuestionType.TRUE_FALSE: "true/false",
     QuestionType.OPEN: "open question",
 }
 

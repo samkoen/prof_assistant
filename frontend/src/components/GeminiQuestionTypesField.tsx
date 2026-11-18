@@ -7,7 +7,6 @@ import { he } from "../i18n/he";
 const TYPE_LABELS: Record<QuestionType, string> = {
   single: he.questionTypeSingle,
   multiple: he.questionTypeMultiple,
-  true_false: he.questionTypeTrueFalse,
   open: he.questionTypeOpen,
 };
 

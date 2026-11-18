@@ -30,11 +30,11 @@ A)
 B) 5
 C) 3 ✓
 ---
-Q3 [true_false] (1 pt)
-מחסנית עובדת לפי FIFO
+Q3 [single] (1 pt)
+מחסנית עובדת לפי
 Solution: מחסנית היא LIFO.
-נכון
-לא נכון *
+A) FIFO
+B) LIFO *
 ---
 Q4 [open] (2 pt)
 הסבירו חיפוש בינארי."""
@@ -61,7 +61,7 @@ def test_parse_choice_blocks_reads_all_mark_styles():
     assert blocks[0].correct_letters == ("B",)
     assert blocks[1].correct_letters == ("A", "C")
     assert blocks[1].options[0].text == "6"
-    assert blocks[2].question_type == "true_false"
+    assert blocks[2].question_type == "single"
     assert blocks[2].correct_letters == ("B",)
 
 

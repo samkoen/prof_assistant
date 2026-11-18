@@ -12,7 +12,7 @@ def validate_question_key(
         return "יש לבחור תשובה נכונה"
     if not correct_ids <= option_ids:
         return "אפשרות לא שייכת לשאלה"
-    if question_type in (QuestionType.SINGLE, QuestionType.TRUE_FALSE) and len(correct_ids) != 1:
+    if question_type == QuestionType.SINGLE and len(correct_ids) != 1:
         return "נדרשת תשובה נכונה אחת"
     return None
 

@@ -323,7 +323,7 @@ export interface Question {
   id: number;
   text: string;
   image_url?: string | null;
-  question_type: "single" | "multiple" | "true_false" | "open";
+  question_type: "single" | "multiple" | "open";
   order_index: number;
   points: number;
   multiple_scoring_mode: string | null;
@@ -349,7 +349,7 @@ export interface StudentQuestion {
   id: number;
   text: string;
   image_url?: string | null;
-  question_type: "single" | "multiple" | "true_false" | "open";
+  question_type: "single" | "multiple" | "open";
   order_index: number;
   points: number;
   options: StudentQuestionOption[];
@@ -452,7 +452,7 @@ export interface ExamReviewQuestion {
   id: number;
   text: string;
   image_url?: string | null;
-  question_type: "single" | "multiple" | "true_false" | "open";
+  question_type: "single" | "multiple" | "open";
   order_index: number;
   points: number;
   is_correct: boolean;

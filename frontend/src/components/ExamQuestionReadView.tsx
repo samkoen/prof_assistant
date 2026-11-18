@@ -13,14 +13,12 @@ import {
 const typeLabelRtl: Record<string, string> = {
   single: he.questionTypeSingle,
   multiple: he.questionTypeMultiple,
-  true_false: he.questionTypeTrueFalse,
   open: he.questionTypeOpen,
 };
 
 const typeLabelLtr: Record<string, string> = {
   single: "Choix unique",
   multiple: "Choix multiple",
-  true_false: "Vrai / faux",
   open: "Question ouverte",
 };
 

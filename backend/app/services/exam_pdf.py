@@ -74,41 +74,33 @@ def _question_type_label(question_type: QuestionType | str, lang: str) -> str:
     he = {
         QuestionType.SINGLE: "בחירה יחידה",
         QuestionType.MULTIPLE: "בחירה מרובה",
-        QuestionType.TRUE_FALSE: "נכון / לא נכון",
         QuestionType.OPEN: "שאלה פתוחה",
         "single": "בחירה יחידה",
         "multiple": "בחירה מרובה",
-        "true_false": "נכון / לא נכון",
         "open": "שאלה פתוחה",
     }
     fr = {
         QuestionType.SINGLE: "Choix unique",
         QuestionType.MULTIPLE: "Choix multiple",
-        QuestionType.TRUE_FALSE: "Vrai / faux",
         QuestionType.OPEN: "Question ouverte",
         "single": "Choix unique",
         "multiple": "Choix multiple",
-        "true_false": "Vrai / faux",
         "open": "Question ouverte",
     }
     en = {
         QuestionType.SINGLE: "Single choice",
         QuestionType.MULTIPLE: "Multiple choice",
-        QuestionType.TRUE_FALSE: "True / false",
         QuestionType.OPEN: "Open question",
         "single": "Single choice",
         "multiple": "Multiple choice",
-        "true_false": "True / false",
         "open": "Open question",
     }
     ru = {
         QuestionType.SINGLE: "Один ответ",
         QuestionType.MULTIPLE: "Несколько ответов",
-        QuestionType.TRUE_FALSE: "Верно / неверно",
         QuestionType.OPEN: "Открытый вопрос",
         "single": "Один ответ",
         "multiple": "Несколько ответов",
-        "true_false": "Верно / неверно",
         "open": "Открытый вопрос",
     }
     tables = {"he": he, "fr": fr, "en": en, "ru": ru}
