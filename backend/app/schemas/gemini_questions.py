@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.enums import QuestionType
 
@@ -14,6 +14,15 @@ class GeminiSeriesInput(BaseModel):
     level: GeminiSeriesLevel
     question_types: list[QuestionType] = Field(min_length=1, max_length=4)
     language: GeminiSeriesLanguage = "he"
+
+    @field_validator("question_types", mode="before")
+    @classmethod
+    def _legacy_true_false(cls, value: object) -> object:
+        """Ancien type vrai/faux (séries enregistrées dans initial_params) : relu en choix unique."""
+        if not isinstance(value, list):
+            return value
+        mapped = ["single" if t == "true_false" else t for t in value]
+        return list(dict.fromkeys(mapped))
 
 
 class GeminiGenerateQuestionsRequest(BaseModel):
