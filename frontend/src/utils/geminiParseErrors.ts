@@ -7,7 +7,6 @@ const GEMINI_PARSE_MESSAGE: Record<string, string> = {
   "לא נמצאו אפשרויות תשובה": he.geminiParseErrNoOptions,
   "חסר טקסט לשאלה": he.geminiParseErrMissingText,
   "חסרות אפשרויות": he.geminiParseErrNoOptionsShort,
-  "שאלת נכון/לא נכון דורשת 2 אפשרויות": he.geminiParseErrTfTwo,
   "נדרשת תשובה נכונה אחת (סמן ב-*)": he.geminiParseErrSingleStar,
   "בחירה יחידה: יותר מתשובה נכונה אחת (סמן * רק על אפשרות אחת)": he.geminiParseErrSingleTooMany,
   "לפחות תשובה נכונה אחת (סמן ב-*)": he.geminiParseErrMultipleStar,

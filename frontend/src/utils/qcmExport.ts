@@ -9,9 +9,6 @@ function formatPoints(points: number): string {
 
 function formatQuestionHeader(index: number, type: string, points: number): string {
   const pts = formatPoints(points);
-  if (type === "true_false") {
-    return points === 1 ? `Q${index} [true_false]` : `Q${index} [true_false] (${pts} pt)`;
-  }
   if (type === "open") {
     return points === 1 ? `Q${index} [open]` : `Q${index} [open] (${pts} pt)`;
   }
@@ -43,18 +40,6 @@ function formatLetterOption(letter: string, text: string, isCorrect: boolean): s
   return formatMultilineOption(letter, lines, isCorrect);
 }
 
-function formatTrueFalseOptions(
-  options: { text: string; is_correct: boolean | null; order_index: number }[],
-): string {
-  const sorted = [...options].sort((a, b) => a.order_index - b.order_index);
-  return sorted
-    .map((opt) => {
-      const star = opt.is_correct ? " *" : "";
-      return `${opt.text.trim()}${star}`;
-    })
-    .join("\n");
-}
-
 function formatChoiceOptions(
   options: { text: string; is_correct: boolean | null; order_index: number }[],
 ): string {
@@ -74,10 +59,7 @@ export function questionToQcmBlock(question: Question, index: number): string {
     const model = (question.model_answer ?? "").trim();
     return model ? [header, body, `ANSWER:\n${model}`].join("\n") : [header, body].join("\n");
   }
-  const options =
-    question.question_type === "true_false"
-      ? formatTrueFalseOptions(question.options)
-      : formatChoiceOptions(question.options);
+  const options = formatChoiceOptions(question.options);
   return [header, body, options].filter(Boolean).join("\n");
 }
 

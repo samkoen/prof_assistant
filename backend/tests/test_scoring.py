@@ -51,11 +51,11 @@ def test_omitted_questions_count_in_max_score():
     assert normalized[2] == []
 
 
-def test_true_false_scoring():
+def test_two_option_single_scoring():
     q = make_question(
         1,
         points=1.0,
-        question_type=QuestionType.TRUE_FALSE,
+        question_type=QuestionType.SINGLE,
         correct_ids=[1],
         option_ids=[1, 2],
     )

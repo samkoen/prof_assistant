@@ -415,7 +415,6 @@ export const he = {
   geminiParseErrNoOptions: "לא נמצאו אפשרויות תשובה (A) B) C)…)",
   geminiParseErrNoOptionsShort: "חסרות אפשרויות תשובה",
   geminiParseErrMissingText: "חסר טקסט לשאלה",
-  geminiParseErrTfTwo: "שאלת נכון/לא נכון: נדרשות בדיוק שתי שורות (נכון / לא נכון) עם * על הנכונה",
   geminiParseErrSingleStar:
     "בחירה יחידה: חסר סימון * — שורת * לבד אחרי A), או A) * ואז טקסט, או * בסוף שורת התשובה הנכונה",
   geminiParseErrSingleTooMany:
@@ -496,7 +495,6 @@ export const he = {
   questionType: "סוג שאלה",
   questionTypeSingle: "בחירה יחידה",
   questionTypeMultiple: "בחירה מרובה",
-  questionTypeTrueFalse: "נכון / לא נכון",
   questionTypeOpen: "שאלה פתוחה",
   points: "נקודות",
   options: "אפשרויות",
@@ -527,7 +525,6 @@ export const he = {
   questionEditPreview: "תצוגה מקדימה",
   questionEditPreviewEmpty: "אין תוכן לתצוגה — עברו למצב עריכה והזינו טקסט.",
   minTwoOptionsRequired: "נדרשות לפחות 2 אפשרויות",
-  tfTwoOptionsRequired: "נדרשות 2 אפשרויות (נכון/לא נכון)",
   oneCorrectRequired: "נדרשת תשובה נכונה אחת",
   atLeastOneCorrectRequired: "נדרשת לפחות תשובה נכונה אחת",
   optionTextRequired: "כל האפשרויות חייבות טקסט",
@@ -609,6 +606,7 @@ export const he = {
   tutorTitle: "עוזר חכם",
   tutorQuestionLabel: (n: number) => `שאלה ${n}`,
   tutorClose: "סגירה",
+  tutorChatDisabledNote: "המורה לא הפעיל/ה שיחה עם העוזר במטלה זו — מוצג ההסבר לתשובה.",
   tutorPrivacyNote: "המורה רואה רק סיכום אנונימי של השיחות, לא את ההודעות שלך.",
   tutorCostNote: "פתיחת שיחה על שאלה עולה קרדיט AI אחד; ההודעות הבאות באותה שאלה כלולות.",
   tutorIntro: "אפשר לשאול כל דבר על השאלה הזאת. נתחיל ממה שחשבת כשבחרת את התשובה.",

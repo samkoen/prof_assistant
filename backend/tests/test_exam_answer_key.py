@@ -15,7 +15,6 @@ def test_validate_single_needs_one_correct():
 def test_validate_rejects_open_and_foreign_option():
     assert validate_question_key(QuestionType.OPEN, set(), {1}) is not None
     assert validate_question_key(QuestionType.MULTIPLE, {1, 2}, {1, 2}) is None
-    assert validate_question_key(QuestionType.TRUE_FALSE, {1, 2}, {1, 2}) is not None
 
 
 def test_apply_option_flags_keeps_ids():

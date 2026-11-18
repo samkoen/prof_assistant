@@ -18,23 +18,7 @@ _LEVEL_LABELS = {"easy": "easy", "medium": "medium", "hard": "hard"}
 _TYPE_LABELS = {
     QuestionType.SINGLE: "single choice (single)",
     QuestionType.MULTIPLE: "multiple choice (multiple)",
-    QuestionType.TRUE_FALSE: "true/false (true_false)",
     QuestionType.OPEN: "open question (open)",
-}
-
-_LANG_CONFIG: dict[GeminiSeriesLanguage, dict[str, str]] = {
-    "he": {
-        "tf": 'For true_false: lines "נכון" / "לא נכון" with * on the correct one',
-    },
-    "fr": {
-        "tf": 'For true_false: lines "Vrai" / "Faux" with * on the correct one',
-    },
-    "en": {
-        "tf": 'For true_false: lines "True" / "False" with * on the correct one',
-    },
-    "ru": {
-        "tf": 'For true_false: lines "Верно" / "Неверно" with * on the correct one',
-    },
 }
 
 _TREE_TOPIC_RE = re.compile(
@@ -93,7 +77,7 @@ _TREE_OPTION_RULES = """
 
 
 SOLUTION_RULE = (
-    "For single/multiple/true_false: right after the question text and before A), write one line "
+    "For single/multiple: right after the question text and before A), write one line "
     "starting with \"Solution:\" — a short worked solution (compute the value, trace the code, apply the rule) "
     "in at most 3 short sentences. Decide the correct option from this solution, then mark it with *. "
     "No Solution line for open questions"
@@ -119,12 +103,11 @@ def series_needs_tree_hint(series: list[GeminiSeriesInput]) -> bool:
 
 def _write_rule(lang: GeminiSeriesLanguage) -> str:
     return (
-        f"Write all questions, options, and true/false lines in {output_language_rule(lang)}."
+        f"Write all questions and options in {output_language_rule(lang)}."
     )
 
 
 def _format_rules(lang: GeminiSeriesLanguage, *, include_tree: bool) -> str:
-    cfg = _LANG_CONFIG[lang]
     tree_rules = _TREE_OPTION_RULES if include_tree else ""
     markdown_rule = (
         "- markdown: ``` around ASCII drawings is allowed; also **bold**, *italic*, `code`, lists with -"
@@ -133,10 +116,10 @@ def _format_rules(lang: GeminiSeriesLanguage, *, include_tree: bool) -> str:
     )
     return f"""Required format:
 - Separate questions with a --- line only
-- Header: Q<num> [single|multiple|true_false|open] (1 pt) — global running number
+- Header: Q<num> [single|multiple|open] (1 pt) — global running number
 - {SOLUTION_RULE}
 - {_write_rule(lang)}
-- Options: A) B) C) D) — only for single/multiple/true_false
+- Options: A) B) C) D) — only for single/multiple
 - For open questions: question text only, no A) B) and no correct-answer mark
 {tree_rules}- Correct mark (required): a * line right after A), or A) * then text, or * at the end of the answer line — do not write «wrong» as a mark (only * or ✓)
 - Single-choice example (plain text):
@@ -144,7 +127,6 @@ def _format_rules(lang: GeminiSeriesLanguage, *, include_tree: bool) -> str:
   *
   Correct option text
   C) Wrong option
-- {cfg["tf"]}
 - Single choice: exactly one option with * (required — without * the system rejects it)
 - Multiple choice: at least two options, at least one with *
 - {markdown_rule}

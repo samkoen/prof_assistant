@@ -11,10 +11,6 @@ _MARK_CHARS = "*✓✔★"
 _MARKER_ONLY_RE = re.compile(rf"^[{_MARK_CHARS}]\s*$")
 _TRAILING_MARK_RE = re.compile(rf"\s*[{_MARK_CHARS}]\s*$")
 _LEADING_MARK_RE = re.compile(rf"^[{_MARK_CHARS}]+\s*")
-_TF_LINE_RE = re.compile(
-    r"^(?:vrai|faux|true|false|נכון|לא נכון|верно|неверно)\s*[*✓✔★]?\s*$",
-    re.IGNORECASE,
-)
 
 LETTERS = "ABCDEFGH"
 
@@ -77,13 +73,8 @@ def _lettered_options(lines: list[str]) -> list[QcmOption]:
     return [_option_from_lines(letter, body) for letter, body in groups]
 
 
-def _true_false_options(lines: list[str]) -> list[QcmOption]:
-    tf_lines = [line for line in lines if _TF_LINE_RE.match(line.strip())]
-    return [_option_from_lines(LETTERS[i], [line]) for i, line in enumerate(tf_lines[:2])]
-
-
 def parse_choice_block(block: str) -> QcmChoiceBlock | None:
-    """Bloc à choix (single / multiple / true_false) ; None pour une question ouverte ou illisible."""
+    """Bloc à choix (single / multiple) ; None pour une question ouverte ou illisible."""
     lines = block.splitlines()
     header = next((line for line in lines if line.strip()), "")
     match = _HEADER_RE.match(header)
@@ -93,7 +84,7 @@ def parse_choice_block(block: str) -> QcmChoiceBlock | None:
     if qtype == "open":
         return None
     body = lines[lines.index(header) + 1 :]
-    options = _lettered_options(body) or _true_false_options(body)
+    options = _lettered_options(body)
     if len(options) < 2:
         return None
     return QcmChoiceBlock(int(match.group(1)), qtype, extract_block_stem(block), tuple(options))

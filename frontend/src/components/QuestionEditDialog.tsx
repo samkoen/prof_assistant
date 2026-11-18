@@ -18,7 +18,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  Typography,} from "@mui/material";
+  Typography,
+} from "@mui/material";
 import DirectionalMultilineField from "./DirectionalMultilineField";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -50,11 +51,6 @@ interface QuestionEditDialogProps {
 }
 
 type QuestionViewMode = "edit" | "preview";
-
-const TF_OPTIONS: OptionDraft[] = [
-  { text: "נכון", is_correct: true },
-  { text: "לא נכון", is_correct: false },
-];
 
 const DEFAULT_OPTIONS: OptionDraft[] = [
   { text: "", is_correct: false },
@@ -98,13 +94,11 @@ function validateDraft(
 ): string | null {
   if (!hasContent(text, imageUrl)) return he.questionContentRequired;
   if (questionType === "open") return null;
-  if (questionType === "true_false") {
-    if (options.length !== 2) return he.tfTwoOptionsRequired;
-  } else if (options.length < 2) {
+  if (options.length < 2) {
     return he.minTwoOptionsRequired;
   }
   const correct = options.filter((o) => o.is_correct);
-  if (questionType === "single" || questionType === "true_false") {
+  if (questionType === "single") {
     if (correct.length !== 1) return he.oneCorrectRequired;
   } else if (correct.length < 1) {
     return he.atLeastOneCorrectRequired;
@@ -251,10 +245,6 @@ export default function QuestionEditDialog({
 
   const handleTypeChange = (type: QuestionType) => {
     setQuestionType(type);
-    if (type === "true_false") {
-      setOptions(TF_OPTIONS.map((o) => ({ ...o })));
-      return;
-    }
     if (type === "open") {
       setOptions([]);
       return;
@@ -377,7 +367,6 @@ export default function QuestionEditDialog({
                 >
                   <MenuItem value="single">{he.questionTypeSingle}</MenuItem>
                   <MenuItem value="multiple">{he.questionTypeMultiple}</MenuItem>
-                  <MenuItem value="true_false">{he.questionTypeTrueFalse}</MenuItem>
                   <MenuItem value="open">{he.questionTypeOpen}</MenuItem>
                 </Select>
               </FormControl>
@@ -422,7 +411,6 @@ export default function QuestionEditDialog({
                 key={i}
                 examId={examId}
                 opt={opt}
-                questionType={questionType}
                 optionsCount={options.length}
                 onCorrect={() => setCorrect(i)}
                 onTextChange={(value) =>
@@ -435,16 +423,14 @@ export default function QuestionEditDialog({
               />
             ))}
 
-            {questionType !== "true_false" && (
-              <Button
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setOptions((prev) => [...prev, { text: "", is_correct: false }])}
-                sx={{ mt: 1 }}
-              >
-                {he.addOption}
-              </Button>
-            )}
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => setOptions((prev) => [...prev, { text: "", is_correct: false }])}
+              sx={{ mt: 1 }}
+            >
+              {he.addOption}
+            </Button>
               </>
             )}
           </>
@@ -468,7 +454,6 @@ export default function QuestionEditDialog({
 function OptionRow({
   examId,
   opt,
-  questionType,
   optionsCount,
   onCorrect,
   onTextChange,
@@ -477,14 +462,13 @@ function OptionRow({
 }: {
   examId: number;
   opt: OptionDraft;
-  questionType: QuestionType;
   optionsCount: number;
   onCorrect: () => void;
   onTextChange: (value: string) => void;
   onImageChange: (url: string | null) => void;
   onRemove: () => void;
 }) {
-  const canRemove = questionType !== "true_false" && optionsCount > 2;
+  const canRemove = optionsCount > 2;
 
   return (
     <Box
@@ -505,7 +489,6 @@ function OptionRow({
         size="small"
         minRows={opt.text.includes("\n") ? 3 : 1}
         maxRows={8}
-        disabled={questionType === "true_false"}
         showHint={false}
         sx={{ mb: 0.25 }}
         toolbarInlineStart={

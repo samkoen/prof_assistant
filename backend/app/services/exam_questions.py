@@ -75,18 +75,13 @@ def _model_answer_source(
 def _validate_qcm_options(body: QuestionCreate, label: str) -> None:
     from fastapi import HTTPException
 
-    if body.question_type == QuestionType.TRUE_FALSE:
-        if len(body.options) != 2:
-            raise HTTPException(status_code=400, detail=f"{label}: נדרשות 2 אפשרויות (נכון/לא נכון)")
-    elif len(body.options) < 2:
+    if len(body.options) < 2:
         raise HTTPException(status_code=400, detail=f"{label}: לפחות 2 אפשרויות")
     correct = [o for o in body.options if o.is_correct]
     if body.question_type == QuestionType.SINGLE and len(correct) != 1:
         raise HTTPException(status_code=400, detail=f"{label}: נדרשת תשובה נכונה אחת")
     if body.question_type == QuestionType.MULTIPLE and len(correct) < 1:
         raise HTTPException(status_code=400, detail=f"{label}: לפחות תשובה נכונה אחת")
-    if body.question_type == QuestionType.TRUE_FALSE and len(correct) != 1:
-        raise HTTPException(status_code=400, detail=f"{label}: נדרשת תשובה נכונה אחת")
     for opt_idx, opt in enumerate(body.options):
         if not _has_content(opt.text, opt.image_url):
             raise HTTPException(
