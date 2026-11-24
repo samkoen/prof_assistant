@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Button, Card, Collapse, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import ExamStructurePanel from "./ExamStructurePanel";
 import TaskStepsEditor from "./TaskStepsEditor";
 import ExamEditorAddQuestionsSection from "../ExamEditorAddQuestionsSection";
 import ExamEditorQuestionsSection from "../ExamEditorQuestionsSection";
@@ -77,9 +78,10 @@ export default function ExamEditorSections(props: ExamEditorSectionsProps) {
   const { editor, exam, examId, startMethod } = props;
   const [addOpen, setAddOpen] = useState(() => addPanelOpenInitially(exam.questions.length, exam.is_editable, startMethod));
   if (exam.kind === "task") return <TaskStepsEditor examId={examId} />;
-  const { ops, dialog } = editor;
+  const { ops, dialog, structure } = editor;
   return (
     <Box dir="rtl" sx={{ minWidth: 0 }}>
+      <ExamStructurePanel exam={exam} structure={structure} />
       {exam.questions.length > 0 && (
         <ExamEditorQuestionsSection
           exam={exam}
@@ -88,6 +90,7 @@ export default function ExamEditorSections(props: ExamEditorSectionsProps) {
           onMove={ops.move}
           onEdit={dialog.openEdit}
           onDelete={ops.setQuestionToDelete}
+          onAssign={(questionId, sectionId) => structure.assign([questionId], sectionId)}
           onAdd={addOpen ? undefined : () => openAddPanel(setAddOpen)}
         />
       )}

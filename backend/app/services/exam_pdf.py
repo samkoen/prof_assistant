@@ -12,7 +12,9 @@ from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 from app.models.enums import ExamQuestionsLanguage, QuestionType
-from app.models.exam import Exam, Question
+from app.models.exam import Exam, ExamSection, Question
+from app.services.exam_sections import group_questions_by_section, scoring_rules
+from app.services.scoring import exam_max_score
 from app.services.question_media import local_path_from_image_url, open_image_for_pdf
 from app.utils.content_direction import (
     content_dir_for_question_text,
@@ -460,7 +462,7 @@ def _write_cover(
         _write_text(pdf, course_name, layout, size=12, h=7, color=COLOR_PRIMARY_DARK)
     if exam.description:
         pdf.ln(1)
-        _write_text(pdf, exam.description, layout, size=10, h=6, color=COLOR_MUTED)
+        _write_lines(pdf, exam.description, layout, size=10, h=6, color=(15, 23, 42))
     pdf.ln(4)
     _write_text(pdf, strings["meta"], layout, size=10, h=6, color=COLOR_MUTED)
     if include_answers:
@@ -559,6 +561,36 @@ def _write_option_line(
     )
 
 
+def _write_lines(pdf: FPDF, text: str, layout: PdfLayout, **style) -> None:
+    """Texte de consigne sur plusieurs lignes : une ligne du PDF par ligne saisie."""
+    for line in text.splitlines():
+        if line.strip():
+            _write_text(pdf, line.strip(), layout, **style)
+
+
+def _section_rule_text(section: ExamSection, count: int, layout: PdfLayout) -> str:
+    required = section.required_count
+    if not required or required >= count:
+        return ""
+    if layout.lang == "he":
+        return f"יש לענות על {required} מתוך {count} שאלות."
+    if layout.lang == "fr":
+        return f"Répondre à {required} questions sur {count}."
+    if layout.lang == "ru":
+        return f"Ответьте на {required} из {count} вопросов."
+    return f"Answer {required} of {count} questions."
+
+
+def _write_section_header(pdf: FPDF, layout: PdfLayout, section: ExamSection, count: int) -> None:
+    pdf.ln(4)
+    _write_text(pdf, section.title, layout, size=14, h=9, style="B", color=COLOR_PRIMARY_DARK)
+    if section.instructions:
+        _write_lines(pdf, section.instructions, layout, size=10, h=6, color=(15, 23, 42))
+    rule = _section_rule_text(section, count, layout)
+    if rule:
+        _write_text(pdf, rule, layout, size=10, h=6, style="B", color=(15, 23, 42))
+
+
 def _write_question_answers(
     pdf: FPDF,
     layout: PdfLayout,
@@ -648,16 +680,25 @@ def build_exam_pdf_bytes(
     course_name: str = "",
     *,
     include_answers: bool = False,
+    sections: list[ExamSection] | None = None,
 ) -> bytes:
     layout = _layout_for_exam(exam, questions)
     ordered = sorted(questions, key=lambda q: (q.order_index, q.id))
-    total_points = sum(q.points for q in ordered)
+    parts = sections or []
+    by_section = {s.id: s for s in parts}
+    total_points = exam_max_score({q.id: q for q in ordered}, scoring_rules(exam, parts))
     pdf = _create_pdf(layout)
     _write_cover(
         pdf, exam, layout, course_name, len(ordered), total_points, include_answers=include_answers
     )
-    for i, question in enumerate(ordered, start=1):
-        _write_question(pdf, layout, i, question, include_answers=include_answers)
+    index = 0
+    for group in group_questions_by_section(ordered, parts):
+        section = by_section.get(group[0].section_id)
+        if section:
+            _write_section_header(pdf, layout, section, len(group))
+        for question in group:
+            index += 1
+            _write_question(pdf, layout, index, question, include_answers=include_answers)
     out = BytesIO()
     pdf.output(out)
     return out.getvalue()

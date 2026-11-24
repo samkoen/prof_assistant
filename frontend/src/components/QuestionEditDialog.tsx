@@ -25,7 +25,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import { api, ApiError, type Question } from "../api/client";
+import { api, ApiError, type ExamSection, type Question } from "../api/client";
 import DisabledActionTooltip from "./DisabledActionTooltip";
 import QuestionImageField from "./QuestionImageField";
 import QuestionDraftPreview from "./QuestionDraftPreview";
@@ -43,6 +43,8 @@ interface OptionDraft {
 
 interface QuestionEditDialogProps {
   examId: number;
+  /** Parties de l'examen : affiche le choix « חלק במבחן » quand il y en a. */
+  sections?: ExamSection[];
   /** null = création d’une nouvelle question */
   question: Question | null;
   open: boolean;
@@ -204,6 +206,7 @@ function QuestionViewModeToggle({
 
 export default function QuestionEditDialog({
   examId,
+  sections = [],
   question,
   open,
   onClose,
@@ -214,6 +217,7 @@ export default function QuestionEditDialog({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>("single");
   const [points, setPoints] = useState(1);
+  const [sectionId, setSectionId] = useState<number | null>(null);
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [modelAnswer, setModelAnswer] = useState("");
   const [modelAnswerSource, setModelAnswerSource] = useState<"teacher" | "ai" | null>(null);
@@ -235,6 +239,7 @@ export default function QuestionEditDialog({
       setError,
       setViewMode,
     });
+    setSectionId(question?.section_id ?? null);
   }, [question, open]);
 
   const validationError = useMemo(
@@ -269,15 +274,10 @@ export default function QuestionEditDialog({
     }
     setSaving(true);
     setError("");
-    const payload = buildPayload(
-      text,
-      imageUrl,
-      questionType,
-      points,
-      options,
-      modelAnswer,
-      modelAnswerSource,
-    );
+    const payload = {
+      ...buildPayload(text, imageUrl, questionType, points, options, modelAnswer, modelAnswerSource),
+      section_id: sectionId,
+    };
     try {
       let saved: Question;
       if (isCreate) {
@@ -378,6 +378,20 @@ export default function QuestionEditDialog({
                 inputProps={{ min: 0.5, step: 0.5 }}
                 sx={{ width: 120 }}
               />
+              {sections.length > 0 && (
+                <TextField
+                  select
+                  label={he.examSectionField}
+                  value={sectionId ?? "none"}
+                  onChange={(e) => setSectionId(e.target.value === "none" ? null : Number(e.target.value))}
+                  sx={{ minWidth: 160 }}
+                >
+                  <MenuItem value="none">{he.examSectionNone}</MenuItem>
+                  {sections.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>{s.title}</MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Box>
 
             {questionType === "open" ? (

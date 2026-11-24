@@ -21,8 +21,8 @@ export default function ExamTakeHeader({ paper, sessionId, showTitle }: ExamTake
           {paper.is_tirgoul && <StatusChip label={he.tirgoulChip} tone="info" />}
         </Box>
       )}
-      {paper.description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{paper.description}</Typography>
+      {paper.kind === "task" && paper.description && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, whiteSpace: "pre-wrap" }}>{paper.description}</Typography>
       )}
     </Box>
   );

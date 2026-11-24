@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -15,6 +16,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import type { ExamReview, ExamReviewCorrectOption, ExamReviewQuestion, ExplanationLanguage } from "../api/client";
 import { formatExamPointsLabel } from "../utils/examQuestionsLanguage";
+import { effectiveRequired, groupMaxPoints, groupQuestionsBySection, uncountedReviewKind } from "../utils/examSections";
+import ExamSectionHeader from "./student/exam/ExamSectionHeader";
 import { he } from "../i18n/he";
 
 interface ExamSubmissionReviewProps {
@@ -59,6 +62,14 @@ function ReviewOptions({
   );
 }
 
+/** Question hors barème d'une partie « N sur M » : laissée de côté par l'élève, ou traitée en trop. */
+function NotCountedChip({ q }: { q: ExamReviewQuestion }) {
+  const kind = uncountedReviewKind(q);
+  if (!kind) return null;
+  const label = kind === "skipped" ? he.examReviewSkippedByChoice : he.examReviewNotCounted;
+  return <Chip size="small" variant="outlined" color={kind === "skipped" ? "default" : "warning"} label={label} sx={{ mb: 1 }} />;
+}
+
 function ReviewQuestionCard({
   q,
   index,
@@ -89,23 +100,25 @@ function ReviewQuestionCard({
       />
     );
   }
-  const wrong = !q.is_correct;
+  const uncounted = uncountedReviewKind(q);
+  const wrong = !q.is_correct && uncounted !== "skipped";
   const qDir = contentDirForQuestionText(q.text);
   const ltr = qDir === "ltr";
   const pointsLabel = formatExamPointsLabel(q.points, qDir);
+  const tone = uncounted ? "neutral" : wrong ? "wrong" : "right";
 
   return (
     <Card
       sx={{
         mb: 2,
         border: "1px solid",
-        borderColor: wrong ? "error.light" : "success.light",
-        bgcolor: wrong ? "rgba(211, 47, 47, 0.04)" : "rgba(76, 175, 80, 0.04)",
+        borderColor: { neutral: "divider", wrong: "error.light", right: "success.light" }[tone],
+        bgcolor: { neutral: "transparent", wrong: "rgba(211, 47, 47, 0.04)", right: "rgba(76, 175, 80, 0.04)" }[tone],
       }}
     >
       <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
         <Box display="flex" alignItems="flex-start" gap={1} flexWrap="wrap" mb={1}>
-          <Chip
+          {uncounted !== "skipped" && <Chip
             size="small"
             icon={wrong ? <CloseIcon /> : <CheckIcon />}
             label={wrong ? he.questionAnsweredWrong : he.questionAnsweredCorrectly}
@@ -116,7 +129,8 @@ function ReviewQuestionCard({
                 marginInlineEnd: "-2px",
               },
             }}
-          />
+          />}
+          <NotCountedChip q={q} />
         </Box>
         <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
           {" "}
@@ -190,10 +204,12 @@ function OpenReviewQuestionCard({
   const ltr = qDir === "ltr";
   const pointsLabel = formatExamPointsLabel(q.points, qDir);
   const chip = openReviewChip(q);
+  const skipped = uncountedReviewKind(q) === "skipped";
   return (
     <Card sx={{ mb: 2, border: "1px solid", borderColor: "divider" }}>
       <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
-        <Chip size="small" label={chip.label} color={chip.color} sx={{ mb: 1 }} />
+        {!skipped && <Chip size="small" label={chip.label} color={chip.color} sx={{ mb: 1, marginInlineEnd: 1 }} />}
+        <NotCountedChip q={q} />
         <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
           {" "}
           <Typography component="span" variant="body2" color="text.secondary">
@@ -245,17 +261,29 @@ export default function ExamSubmissionReview({
       <Typography variant="h6" fontWeight={600} gutterBottom>
         {he.examReviewTitle}
       </Typography>
-      {review.questions.map((q, i) => (
-        <ReviewQuestionCard
-          key={q.id}
-          q={q}
-          index={i}
-          sessionId={review.session_id}
-          language={language}
-          forPractice={review.for_practice}
-          tutorEnabled={Boolean(review.ai_tutor_enabled)}
-          onAttemptScore={onAttemptScore}
-        />
+      {groupQuestionsBySection(review.questions, review.sections ?? []).map((group) => (
+        <Fragment key={group.section?.id ?? "none"}>
+          {group.section && (
+            <ExamSectionHeader
+              section={group.section}
+              questionCount={group.items.length}
+              required={effectiveRequired(group.section, group.items.length)}
+              points={groupMaxPoints(group)}
+            />
+          )}
+          {group.items.map(({ question: q, index }) => (
+            <ReviewQuestionCard
+              key={q.id}
+              q={q}
+              index={index - 1}
+              sessionId={review.session_id}
+              language={language}
+              forPractice={review.for_practice}
+              tutorEnabled={Boolean(review.ai_tutor_enabled)}
+              onAttemptScore={onAttemptScore}
+            />
+          ))}
+        </Fragment>
       ))}
     </Box>
   );

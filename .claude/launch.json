@@ -4,15 +4,48 @@
     {
       "name": "backend",
       "runtimeExecutable": "C:\\Users\\USER\\exam\\backend\\.venv\\Scripts\\python.exe",
-      "runtimeArgs": ["run.py"],
+      "runtimeArgs": [
+        "run.py"
+      ],
       "cwd": "C:\\Users\\USER\\exam\\backend",
       "port": 8000
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
       "port": 5173
+    },
+    {
+      "name": "backend-alt",
+      "runtimeExecutable": "C:\\Users\\USER\\exam\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8011"
+      ],
+      "cwd": "C:\\Users\\USER\\exam\\backend",
+      "port": 8011,
+      "autoPort": false
+    },
+    {
+      "name": "frontend-alt",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set API_PROXY_TARGET=http://127.0.0.1:8011&& npm run dev --prefix frontend -- --port 5180 --strictPort"
+      ],
+      "port": 5180,
+      "autoPort": false
     }
   ]
 }

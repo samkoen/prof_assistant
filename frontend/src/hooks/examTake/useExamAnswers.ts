@@ -33,9 +33,15 @@ export function useExamAnswers() {
     setTextAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  /** Retire la réponse d'une question (choix et texte) — libère une place dans une partie « N sur M ». */
+  const clear = (questionId: number) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: [] }));
+    setTextAnswers((prev) => ({ ...prev, [questionId]: "" }));
+  };
+
   const snapshot = useCallback((): AnswersSnapshot => ({ answers: answersRef.current, texts: textsRef.current }), []);
 
-  return { answers, textAnswers, hydrate, setSingle, toggleMultiple, setOpenText, snapshot };
+  return { answers, textAnswers, hydrate, setSingle, toggleMultiple, setOpenText, clear, snapshot };
 }
 
 export type ExamAnswers = ReturnType<typeof useExamAnswers>;

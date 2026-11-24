@@ -14,6 +14,7 @@ from app.schemas.exam import SubmitAnswerItem
 from app.services.ai_tutor_store import delete_tutor_rows
 from app.services.exam_submit_service import persist_fields_for_answer
 from app.services.practice_release import write_practice_score
+from app.services.exam_sections import load_scoring_rules
 from app.services.scoring import score_exam_answers
 
 
@@ -113,7 +114,12 @@ async def finalize_practice_submission(
         if item.question_id in questions
     }
     items_by_q = {item.question_id: item for item in answer_items if item.question_id in questions}
-    total, max_total, normalized = score_exam_answers(questions, selected_by_q)
+    total, max_total, normalized = score_exam_answers(
+        questions,
+        selected_by_q,
+        rules=await load_scoring_rules(exam, db),
+        text_by_q={qid: item.text_answer for qid, item in items_by_q.items()},
+    )
     for qid, selected in normalized.items():
         item = items_by_q.get(qid) or SubmitAnswerItem(question_id=qid, selected_option_ids=selected)
         fields = persist_fields_for_answer(item, questions[qid])

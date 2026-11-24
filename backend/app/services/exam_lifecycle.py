@@ -29,6 +29,7 @@ from app.models.task import TaskProof, TaskReview, TaskStep
 from app.services.catalog_scope import catalog_item_matches_offering
 from app.services.exam_kind import apply_exam_kind, exam_kind_value, is_task, is_tirgoul
 from app.models.enums import ExamKind
+from app.services.exam_sections import copy_sections, delete_exam_sections
 from app.services.question_media import copy_image_url_for_duplicate
 
 
@@ -258,15 +259,18 @@ async def duplicate_exam_to_catalog(
         questions_language=source.questions_language,
         is_tirgoul=source.is_tirgoul,
         kind=exam_kind_value(source),
+        score_cap=source.score_cap,
     )
     apply_exam_kind(copy, bool(source.is_tirgoul))
     _keep_private_scope(copy, source)
     db.add(copy)
     await db.flush()
+    section_ids = await copy_sections(source.id, copy.id, db)
 
     for q in questions:
         new_q = Question(
             exam_id=copy.id,
+            section_id=section_ids.get(q.section_id),
             text=q.text,
             image_url=copy_image_url_for_duplicate(q.image_url, source.id, copy.id),
             question_type=q.question_type,
@@ -405,6 +409,8 @@ async def delete_exam_cascade(exam_id: int, db: AsyncSession) -> None:
         ).scalars():
             await db.delete(opt)
         await db.delete(question)
+    await db.flush()
+    await delete_exam_sections(exam_id, db)
 
     exam = await db.get(Exam, exam_id)
     if exam:

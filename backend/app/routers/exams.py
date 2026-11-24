@@ -11,7 +11,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.course import CourseCatalog, CourseEnrollment, CourseOffering
 from app.models.enums import EnrollmentStatus, ExamKind, ExamStatus, UserRole
-from app.models.exam import Answer, Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
+from app.models.exam import Answer, Exam, ExamSection, ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.models.notification import Notification
 from app.models.enums import NotificationType
 from app.models.user import User
@@ -27,6 +27,7 @@ from app.schemas.exam import (
     ExamCreate,
     ExamDetailResponse,
     ExamDuplicateRequest,
+    ExamSectionResponse,
     ExamStudentVisibilityUpdate,
     ExamReviewQuestion,
     ExamReviewResponse,
@@ -139,6 +140,8 @@ from app.services.exam_submit_service import (
     save_draft_answers,
 )
 from app.services.exam_review import review_question_row
+from app.services.exam_sections import list_sections, paper_order, scoring_rules
+from app.services.scoring import answered_question_ids, uncounted_question_ids
 from app.services.open_answer_evaluation import load_evaluations_map, maps_from_answer_rows
 from app.services.integrity_service import (
     EXAM_SESSION_TOKEN_HEADER,
@@ -182,6 +185,7 @@ def _exam_response(
         question_count=question_count,
         can_delete=can_delete,
         hidden_from_students=bool(exam.hidden_from_students),
+        score_cap=exam.score_cap,
         **scope_to_response(exam, names),
     )
 
@@ -369,6 +373,7 @@ def _take_meta(session: ExamSession, exam: Exam) -> dict:
         "questions_language": exam.questions_language,
         "is_tirgoul": is_tirgoul(exam),
         "kind": exam_kind_value(exam),
+        "score_cap": exam.score_cap,
     }
 
 
@@ -412,6 +417,7 @@ def _student_question(q: Question, index: int, rng: random.Random, shuffle_opts:
         question_type=q.question_type,
         order_index=index,
         points=q.points,
+        section_id=q.section_id,
         options=[
             StudentQuestionOptionResponse(id=o.id, text=o.text, image_url=o.image_url, order_index=oi)
             for oi, o in enumerate(opts)
@@ -419,20 +425,28 @@ def _student_question(q: Question, index: int, rng: random.Random, shuffle_opts:
     )
 
 
-def _build_paper(exam: Exam, questions: list[Question], rng: random.Random) -> list[StudentQuestionResponse]:
-    ordered = list(questions)
-    if should_shuffle_questions(exam):
-        rng.shuffle(ordered)
+def _build_paper(
+    exam: Exam, questions: list[Question], rng: random.Random, sections: list[ExamSection]
+) -> list[StudentQuestionResponse]:
+    ordered = paper_order(questions, sections, rng, shuffle=should_shuffle_questions(exam))
     shuffle_opts = should_shuffle_options(exam)
     return [_student_question(q, qi, rng, shuffle_opts) for qi, q in enumerate(ordered)]
 
 
-def _student_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
-    return _build_paper(exam, questions, random.Random(attempt_id))
+def _student_paper(
+    exam: Exam, questions: list[Question], attempt_id: int, sections: list[ExamSection]
+) -> list[StudentQuestionResponse]:
+    return _build_paper(exam, questions, random.Random(attempt_id), sections)
 
 
-def _practice_paper(exam: Exam, questions: list[Question], attempt_id: int) -> list[StudentQuestionResponse]:
-    return _build_paper(exam, questions, random.Random(attempt_id ^ 0x5A5A5A5A))
+def _practice_paper(
+    exam: Exam, questions: list[Question], attempt_id: int, sections: list[ExamSection]
+) -> list[StudentQuestionResponse]:
+    return _build_paper(exam, questions, random.Random(attempt_id ^ 0x5A5A5A5A), sections)
+
+
+def _section_responses(sections: list[ExamSection]) -> list[ExamSectionResponse]:
+    return [ExamSectionResponse.model_validate(s) for s in sections]
 
 
 def _build_review_rows(
@@ -444,16 +458,17 @@ def _build_review_rows(
     practice_order: bool = False,
     text_by_q: dict[int, str] | None = None,
     eval_by_q: dict[int, object] | None = None,
+    sections: list[ExamSection] | None = None,
 ) -> list[ExamReviewQuestion]:
     questions_by_id = {q.id: q for q in questions_list}
     texts = text_by_q or {}
     evals = eval_by_q or {}
-    paper = (
-        _practice_paper(exam, questions_list, attempt_id)
-        if practice_order
-        else _student_paper(exam, questions_list, attempt_id)
-    )
-    return [
+    parts = sections or []
+    build = _practice_paper if practice_order else _student_paper
+    paper = build(exam, questions_list, attempt_id, parts)
+    answered = answered_question_ids(questions_by_id, selected_by_q, texts)
+    skipped = uncounted_question_ids(questions_by_id, answered, scoring_rules(exam, parts))
+    rows = [
         review_question_row(
             questions_by_id[sq.id],
             sq.order_index,
@@ -463,6 +478,10 @@ def _build_review_rows(
         )
         for sq in paper
     ]
+    for row in rows:
+        row.section_id = questions_by_id[row.id].section_id
+        row.counted = row.id not in skipped
+    return rows
 
 
 async def _load_exam_questions(exam_id: int, db: AsyncSession) -> list[Question]:
@@ -960,6 +979,7 @@ async def get_exam_detail(
         **_exam_response(exam, item_count, names, can_delete=can_delete).model_dump(),
         catalog_course_name=catalog.name if catalog else "",
         questions=[QuestionResponse.model_validate(q) for q in questions],
+        sections=_section_responses(await list_sections(exam_id, db)),
         is_editable=editable,
     )
 
@@ -1003,7 +1023,13 @@ async def download_exam_pdf(
     catalog = await db.get(CourseCatalog, exam.catalog_course_id)
     course_name = catalog.name if catalog else ""
     try:
-        pdf_bytes = build_exam_pdf_bytes(exam, questions, course_name, include_answers=include_answers)
+        pdf_bytes = build_exam_pdf_bytes(
+            exam,
+            questions,
+            course_name,
+            include_answers=include_answers,
+            sections=await list_sections(exam_id, db),
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=503, detail="לא ניתן ליצור PDF — חסרה גופן במערכת")
     filename = pdf_content_disposition(exam)
@@ -1497,10 +1523,12 @@ async def take_exam_session(
         .order_by(Question.order_index, Question.id)
     )
     questions = list(q_result.scalars().all())
+    sections = await list_sections(exam.id, db)
+    section_rows = _section_responses(sections)
     await db.commit()
     await db.refresh(attempt)
     await db.refresh(session)
-    paper = [] if attempt.submitted_at else _student_paper(exam, questions, attempt.id)
+    paper = [] if attempt.submitted_at else _student_paper(exam, questions, attempt.id, sections)
     saved = [] if attempt.submitted_at else await _saved_answers_for_attempt(attempt.id, db)
     return ExamTakeResponse(
         **_take_meta(session, exam),
@@ -1513,6 +1541,7 @@ async def take_exam_session(
                 exam=exam,
             ),
         questions=paper,
+        sections=section_rows if paper else [],
         saved_answers=saved,
     )
 
@@ -1665,6 +1694,7 @@ async def get_session_review(
     answers_result = await db.execute(select(Answer).where(Answer.attempt_id == attempt.id))
     selected_by_q, text_by_q = maps_from_answer_rows(answers_result.scalars().all())
     eval_by_q = await load_evaluations_map(attempt.id, db, for_practice=False)
+    sections = await list_sections(exam.id, db)
     review_rows = _build_review_rows(
         exam,
         questions_list,
@@ -1672,6 +1702,7 @@ async def get_session_review(
         selected_by_q,
         text_by_q=text_by_q,
         eval_by_q=eval_by_q,
+        sections=sections,
     )
 
     return ExamReviewResponse(
@@ -1682,6 +1713,7 @@ async def get_session_review(
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
+        sections=_section_responses(sections),
         ai_tutor_enabled=tutor_enabled_for(exam),
     )
 
@@ -1715,7 +1747,8 @@ async def take_practice_session(
         raise HTTPException(status_code=400, detail="אין תרגול פעיל")
     questions_list = await _load_exam_questions(exam.id, db)
     saved_selected, saved_texts = await practice_answer_maps(attempt.id, db)
-    paper = _practice_paper(exam, questions_list, attempt.id)
+    sections = await list_sections(exam.id, db)
+    paper = _practice_paper(exam, questions_list, attempt.id, sections)
     saved = [
         SavedAnswerDraft(
             question_id=qid,
@@ -1733,6 +1766,7 @@ async def take_practice_session(
             attempt, exam.id, results_published=session.results_published, exam=exam
         ),
         questions=paper,
+        sections=_section_responses(sections),
         saved_answers=saved,
     )
 
@@ -1810,6 +1844,7 @@ async def get_practice_review(
     questions_list = await _load_exam_questions(exam.id, db)
     selected_by_q, text_by_q = await practice_answer_maps(attempt.id, db)
     eval_by_q = await load_evaluations_map(attempt.id, db, for_practice=True)
+    sections = await list_sections(exam.id, db)
     review_rows = _build_review_rows(
         exam,
         questions_list,
@@ -1818,6 +1853,7 @@ async def get_practice_review(
         practice_order=True,
         text_by_q=text_by_q,
         eval_by_q=eval_by_q,
+        sections=sections,
     )
     return ExamReviewResponse(
         session_id=session.id,
@@ -1827,6 +1863,7 @@ async def get_practice_review(
         questions_language=exam.questions_language,
         attempt=attempt_resp,
         questions=review_rows,
+        sections=_section_responses(sections),
         for_practice=True,
         ai_tutor_enabled=tutor_enabled_for(exam),
     )

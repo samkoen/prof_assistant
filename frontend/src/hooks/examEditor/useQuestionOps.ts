@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, ApiError, type ExamDetail, type Question } from "../../api/client";
 import { he } from "../../i18n/he";
 import { removeQuestionFromList } from "../../utils/examEditorChanges";
+import { moveWithinGroup } from "../../utils/examSections";
 import type { EditorFeedback } from "./useEditorFeedback";
 import type { ExamData } from "./useExamData";
 
@@ -16,11 +17,10 @@ export function useQuestionOps(id: number, data: ExamData, fb: EditorFeedback) {
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
   const [deletingQuestionId, setDeletingQuestionId] = useState<number | null>(null);
 
-  const move = async (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (!exam || target < 0 || target >= exam.questions.length) return;
-    const ids = exam.questions.map((q) => q.id);
-    [ids[index], ids[target]] = [ids[target], ids[index]];
+  /** Déplace une question d'un cran à l'intérieur de sa partie. */
+  const move = async (questionId: number, direction: -1 | 1) => {
+    const ids = exam ? moveWithinGroup(exam.questions, exam.sections ?? [], questionId, direction) : null;
+    if (!ids) return;
     setReordering(true);
     fb.setError("");
     try {

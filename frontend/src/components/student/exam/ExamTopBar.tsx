@@ -3,7 +3,6 @@ import SkipNextIcon from "@mui/icons-material/SkipNext";
 import type { StudentQuestion } from "../../../api/client";
 import { he } from "../../../i18n/he";
 import { softCardShadow, statusTones } from "../../../theme/brand";
-import { countAnsweredQuestions } from "../../../utils/studentExamQuestionNav";
 import type { TimerLevel } from "../../../utils/examTake";
 import StatusChip from "../../ui/StatusChip";
 import ExamQuestionPills from "./ExamQuestionPills";
@@ -17,6 +16,8 @@ export type ExamTopBarProps = {
   answers: Record<number, number[]>;
   textAnswers: Record<number, string>;
   activeIndex: number;
+  /** Réponses données / attendues (une partie « N sur M » n'en attend que N). */
+  progress: { answered: number; required: number };
   allAnswered: boolean;
   onSelect: (index: number) => void;
   onNextUnanswered: () => void;
@@ -48,10 +49,10 @@ function TitleRow({ title, isTirgoul, timer }: Pick<ExamTopBarProps, "title" | "
   );
 }
 
-function ProgressRow(props: Pick<ExamTopBarProps, "questions" | "answers" | "textAnswers" | "allAnswered" | "onNextUnanswered">) {
-  const { questions, answers, textAnswers, allAnswered, onNextUnanswered } = props;
-  const total = questions.length;
-  const done = countAnsweredQuestions(questions, answers, textAnswers);
+function ProgressRow(props: Pick<ExamTopBarProps, "progress" | "allAnswered" | "onNextUnanswered">) {
+  const { progress, allAnswered, onNextUnanswered } = props;
+  const total = progress.required;
+  const done = progress.answered;
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 1 }}>
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -73,14 +74,12 @@ function ProgressRow(props: Pick<ExamTopBarProps, "questions" | "answers" | "tex
 
 /** Barre collante de l'examen : titre, minuteur, progression et navigation entre les questions. */
 export default function ExamTopBar(props: ExamTopBarProps) {
-  const { title, isTirgoul, timer, questions, answers, textAnswers, activeIndex, allAnswered, onSelect, onNextUnanswered } = props;
+  const { title, isTirgoul, timer, questions, answers, textAnswers, activeIndex, progress, allAnswered, onSelect, onNextUnanswered } = props;
   return (
     <Box dir="rtl" sx={barSx}>
       <TitleRow title={title} isTirgoul={isTirgoul} timer={timer} />
       <ProgressRow
-        questions={questions}
-        answers={answers}
-        textAnswers={textAnswers}
+        progress={progress}
         allAnswered={allAnswered}
         onNextUnanswered={onNextUnanswered}
       />
