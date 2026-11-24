@@ -11,6 +11,7 @@ import {
   moveWithinGroup,
   parseRequiredCount,
   parseScoreCap,
+  uncountedReviewKind,
 } from "../examSections";
 
 const PART_A: ExamSection = { id: 1, title: "חלק א'", instructions: null, order_index: 0, required_count: null };
@@ -72,6 +73,19 @@ describe("passation d'une partie « 6 sur 7 »", () => {
     expect(findNextAnswerableIndex(QUESTIONS, SECTIONS, answered([2, 3, 4, 5, 6, 7]), 3)).toBe(0);
     const all = { ...answered([2, 3, 4, 5, 6, 7]), textAnswers: { 1: "x" } };
     expect(findNextAnswerableIndex(QUESTIONS, SECTIONS, all, 0)).toBeNull();
+  });
+});
+
+describe("correction d'une partie « N sur M »", () => {
+  it("distingue la question laissée de côté de la réponse en trop", () => {
+    expect(uncountedReviewKind({ counted: false, student_options: [] })).toBe("skipped");
+    expect(uncountedReviewKind({ counted: false, student_text_answer: "  " })).toBe("skipped");
+    expect(uncountedReviewKind({ counted: false, student_options: [{ id: 1 }] })).toBe("extra");
+    expect(uncountedReviewKind({ counted: false, student_text_answer: "x" })).toBe("extra");
+  });
+  it("ne signale rien pour une question notée", () => {
+    expect(uncountedReviewKind({ counted: true, student_options: [] })).toBeNull();
+    expect(uncountedReviewKind({ student_options: [] })).toBeNull();
   });
 });
 

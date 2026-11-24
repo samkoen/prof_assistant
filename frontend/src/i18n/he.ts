@@ -295,6 +295,7 @@ export const he = {
   examScoreCapNote: (cap: number) => `הציון הסופי במבחן לא יעלה על ${cap}`,
   examTotalPointsNote: (points: number) => `סכום הנקודות במבחן: ${points}`,
   examReviewNotCounted: "לא נבדקה — מעבר למספר השאלות הנדרש",
+  examReviewSkippedByChoice: "לא נבחרה — לא נדרש לענות על שאלה זו",
   examStructureTitle: "מבנה המבחן והוראות",
   examStructureHint: "הטקסט שהתלמיד רואה בראש המבחן, חלקי המבחן וכללי המענה.",
   examInstructionsLabel: "הוראות לנבחן (מוצגות בראש המבחן)",

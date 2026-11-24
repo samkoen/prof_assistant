@@ -117,6 +117,20 @@ export function parseRequiredCount(raw: string): number | null {
 }
 
 /**
+ * Statut, à la correction, d'une question hors barème dans une partie « N sur M » :
+ * "skipped" si l'élève l'a laissée de côté (son droit), "extra" s'il y a répondu en trop.
+ */
+export function uncountedReviewKind(q: {
+  counted?: boolean;
+  student_options?: unknown[];
+  student_text_answer?: string | null;
+}): "skipped" | "extra" | null {
+  if (q.counted !== false) return null;
+  const answered = (q.student_options?.length ?? 0) > 0 || Boolean(q.student_text_answer?.trim());
+  return answered ? "extra" : "skipped";
+}
+
+/**
  * Nouvel ordre global des questions après déplacement d'une question à l'intérieur de sa partie ;
  * null si elle est déjà en bord de partie.
  */
