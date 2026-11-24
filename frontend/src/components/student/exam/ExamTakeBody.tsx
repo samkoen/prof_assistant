@@ -4,6 +4,7 @@ import { he } from "../../../i18n/he";
 import { scrollToExamQuestion } from "../../../utils/studentExamQuestionNav";
 import { unansweredCount } from "../../../utils/examTake";
 import TaskTakePanel from "./TaskTakePanel";
+import ExamInstructionsCard from "./ExamInstructionsCard";
 import ExamQuestionList from "./ExamQuestionList";
 import ExamResultView from "./ExamResultView";
 import ExamSubmitBar from "./ExamSubmitBar";
@@ -14,14 +15,17 @@ function PracticeBody({ state }: { state: ExamTakeState }) {
   const { store, actions } = state;
   return (
     <>
+      <ExamInstructionsCard instructions={paper?.description} questions={paper?.questions ?? []} sections={paper?.sections} scoreCap={paper?.score_cap} />
       <ExamQuestionList
         questions={paper?.questions ?? []}
+        sections={paper?.sections}
         answers={store.answers}
         textAnswers={store.textAnswers}
         practice
         onSingle={store.setSingle}
         onToggle={store.toggleMultiple}
         onText={store.setOpenText}
+        onClear={store.clear}
       />
       <Button variant="contained" size="large" sx={{ mt: 2 }} disabled={actions.submitting} onClick={() => actions.submitPractice()}>
         {actions.submitting ? he.loading : he.submitPracticeExam}
@@ -45,22 +49,26 @@ function OfficialBody({ state }: { state: ExamTakeState }) {
           answers={store.answers}
           textAnswers={store.textAnswers}
           activeIndex={state.activeIndex}
+          progress={{ answered: state.answeredCount, required: state.requiredCount }}
           allAnswered={state.allAnswered}
           onSelect={scrollToExamQuestion}
           onNextUnanswered={state.goNextUnanswered}
         />
       )}
+      <ExamInstructionsCard instructions={paper?.description} questions={questions} sections={paper?.sections} scoreCap={paper?.score_cap} />
       <ExamQuestionList
         questions={questions}
+        sections={paper?.sections}
         answers={store.answers}
         textAnswers={store.textAnswers}
         practice={false}
         onSingle={store.setSingle}
         onToggle={store.toggleMultiple}
         onText={store.setOpenText}
+        onClear={store.clear}
       />
       <ExamSubmitBar
-        unanswered={unansweredCount(questions.length, state.answeredCount)}
+        unanswered={unansweredCount(state.requiredCount, state.answeredCount)}
         submitting={actions.submitting}
         autoSubmitted={autoSubmitted}
         onSubmit={() => actions.submit()}

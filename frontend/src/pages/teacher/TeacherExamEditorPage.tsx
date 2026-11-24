@@ -61,6 +61,7 @@ function EditorDialogs({ editor, examId }: { editor: ExamEditor; examId: number 
     <>
       <QuestionEditDialog
         examId={examId}
+        sections={data.exam?.sections ?? []}
         question={dialog.question}
         open={dialog.open}
         onClose={dialog.close}

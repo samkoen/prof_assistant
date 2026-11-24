@@ -289,7 +289,21 @@ export interface Exam extends CatalogItemScope {
   question_count: number;
   can_delete?: boolean;
   hidden_from_students?: boolean;
+  /** Plafond de la note finale (ex. 102 points possibles, note limitée à 100). */
+  score_cap?: number | null;
 }
+
+/** Partie d'un examen (חלק א', חלק ב'…) : consigne et règle « répondre à N questions ». */
+export interface ExamSection {
+  id: number;
+  title: string;
+  instructions: string | null;
+  order_index: number;
+  /** null = toutes les questions ; N = seules N réponses sont notées. */
+  required_count: number | null;
+}
+
+export type ExamSectionInput = Pick<ExamSection, "title" | "instructions" | "required_count">;
 
 export interface ExamSession {
   id: number;
@@ -326,6 +340,7 @@ export interface Question {
   question_type: "single" | "multiple" | "open";
   order_index: number;
   points: number;
+  section_id?: number | null;
   multiple_scoring_mode: string | null;
   model_answer?: string | null;
   model_answer_source?: "teacher" | "ai" | null;
@@ -335,6 +350,7 @@ export interface Question {
 export interface ExamDetail extends Exam {
   catalog_course_name?: string;
   questions: Question[];
+  sections?: ExamSection[];
   is_editable: boolean;
 }
 
@@ -352,6 +368,7 @@ export interface StudentQuestion {
   question_type: "single" | "multiple" | "open";
   order_index: number;
   points: number;
+  section_id?: number | null;
   options: StudentQuestionOption[];
 }
 
@@ -440,6 +457,8 @@ export interface ExamTake {
   kind?: "official" | "tirgoul" | "task";
   attempt: ExamAttempt;
   questions: StudentQuestion[];
+  sections?: ExamSection[];
+  score_cap?: number | null;
   saved_answers?: { question_id: number; selected_option_ids: number[]; text_answer?: string | null }[];
 }
 
@@ -463,6 +482,9 @@ export interface ExamReviewQuestion {
   appreciation?: string | null;
   earned_points?: number | null;
   evaluation_pending?: boolean;
+  section_id?: number | null;
+  /** false : question hors des N réponses notées d'une partie à choix. */
+  counted?: boolean;
 }
 
 export interface ExamReview {
@@ -473,6 +495,7 @@ export interface ExamReview {
   questions_language?: "he" | "fr" | "en" | "ru";
   attempt: ExamAttempt;
   questions: ExamReviewQuestion[];
+  sections?: ExamSection[];
   for_practice?: boolean;
   ai_tutor_enabled?: boolean;
 }

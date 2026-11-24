@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Box, Button, Chip, IconButton, Tooltip, Typography } from "@mui/material";
+import { Box, Button, Chip, IconButton, MenuItem, TextField, Tooltip, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -8,7 +8,9 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { ExamQuestionReadView } from "./ExamQuestionReadView";
 import { examQuestionLtrSx } from "./examQuestionLtrStyles";
 import DisabledActionTooltip from "./DisabledActionTooltip";
-import type { ExamDetail, Question } from "../api/client";
+import ExamSectionHeader from "./student/exam/ExamSectionHeader";
+import type { ExamDetail, ExamSection, Question } from "../api/client";
+import { effectiveRequired, groupMaxPoints, groupQuestionsBySection, type QuestionGroup } from "../utils/examSections";
 import { contentDirForExam } from "../utils/examQuestionsLanguage";
 import { questionsFingerprint } from "../utils/examEditorChanges";
 import { he } from "../i18n/he";
@@ -17,10 +19,89 @@ interface ExamEditorQuestionsSectionProps {
   exam: ExamDetail;
   reordering: boolean;
   deletingQuestionId: number | null;
-  onMove: (index: number, direction: -1 | 1) => void;
+  onMove: (questionId: number, direction: -1 | 1) => void;
   onEdit: (q: Question) => void;
   onDelete: (q: Question) => void;
+  /** Change la partie d'une question (null = hors partie). */
+  onAssign?: (questionId: number, sectionId: number | null) => void;
   onAdd?: () => void;
+}
+
+const NO_SECTION = "none";
+
+/** Choix rapide de la partie d'une question, sans ouvrir le dialogue d'édition. */
+function SectionPicker({ question, sections, onAssign }: { question: Question; sections: ExamSection[]; onAssign: (questionId: number, sectionId: number | null) => void }) {
+  return (
+    <Box dir="rtl" sx={{ mt: 1, textAlign: "right" }}>
+      <TextField
+        select
+        size="small"
+        label={he.examSectionField}
+        value={question.section_id ?? NO_SECTION}
+        onChange={(e) => onAssign(question.id, e.target.value === NO_SECTION ? null : Number(e.target.value))}
+        sx={{ minWidth: 180 }}
+      >
+        <MenuItem value={NO_SECTION}>{he.examSectionNone}</MenuItem>
+        {sections.map((s) => (
+          <MenuItem key={s.id} value={s.id}>{s.title}</MenuItem>
+        ))}
+      </TextField>
+    </Box>
+  );
+}
+
+type GroupBlockProps = Omit<ExamEditorQuestionsSectionProps, "onAdd"> & {
+  group: QuestionGroup<Question>;
+  contentDir: "ltr" | "rtl";
+};
+
+/** Une partie du sujet : en-tête (titre, règle, points) puis ses questions, réordonnables entre elles. */
+function QuestionGroupBlock({ exam, group, contentDir, reordering, deletingQuestionId, onMove, onEdit, onDelete, onAssign }: GroupBlockProps) {
+  const sections = exam.sections ?? [];
+  return (
+    <>
+      {group.section && (
+        <ExamSectionHeader
+          section={group.section}
+          questionCount={group.items.length}
+          required={effectiveRequired(group.section, group.items.length)}
+          points={groupMaxPoints(group)}
+        />
+      )}
+      {group.items.map(({ question: q, index }, position) => (
+        <QuestionRow
+          key={`${q.id}-${questionsFingerprint([q])}`}
+          contentDir={contentDir}
+          actions={
+            exam.is_editable ? (
+              <QuestionActions
+                index={position}
+                total={group.items.length}
+                reordering={reordering}
+                deleting={deletingQuestionId === q.id}
+                onMove={(_position, direction) => onMove(q.id, direction)}
+                onEdit={() => onEdit(q)}
+                onDelete={() => onDelete(q)}
+              />
+            ) : null
+          }
+        >
+          <ExamQuestionReadView
+            index={index}
+            text={q.text}
+            imageUrl={q.image_url}
+            questionType={q.question_type}
+            points={q.points}
+            options={q.options}
+            contentDir={contentDir}
+          />
+          {exam.is_editable && onAssign && sections.length > 0 && (
+            <SectionPicker question={q} sections={sections} onAssign={onAssign} />
+          )}
+        </QuestionRow>
+      ))}
+    </>
+  );
 }
 
 export default function ExamEditorQuestionsSection({
@@ -30,6 +111,7 @@ export default function ExamEditorQuestionsSection({
   onMove,
   onEdit,
   onDelete,
+  onAssign,
   onAdd,
 }: ExamEditorQuestionsSectionProps) {
   const contentDir = contentDirForExam(exam.questions, exam.questions_language);
@@ -68,34 +150,19 @@ export default function ExamEditorQuestionsSection({
           {he.reorderQuestionsHint}
         </Typography>
       )}
-      {exam.questions.map((q, i) => (
-        <QuestionRow
-          key={`${q.id}-${questionsFingerprint([q])}`}
+      {groupQuestionsBySection(exam.questions, exam.sections ?? []).map((group) => (
+        <QuestionGroupBlock
+          key={group.section?.id ?? NO_SECTION}
+          exam={exam}
+          group={group}
           contentDir={contentDir}
-          actions={
-            exam.is_editable ? (
-              <QuestionActions
-                index={i}
-                total={exam.questions.length}
-                reordering={reordering}
-                deleting={deletingQuestionId === q.id}
-                onMove={onMove}
-                onEdit={() => onEdit(q)}
-                onDelete={() => onDelete(q)}
-              />
-            ) : null
-          }
-        >
-          <ExamQuestionReadView
-            index={i + 1}
-            text={q.text}
-            imageUrl={q.image_url}
-            questionType={q.question_type}
-            points={q.points}
-            options={q.options}
-            contentDir={contentDir}
-          />
-        </QuestionRow>
+          reordering={reordering}
+          deletingQuestionId={deletingQuestionId}
+          onMove={onMove}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onAssign={onAssign}
+        />
       ))}
     </Box>
   );

@@ -6,6 +6,7 @@ from app.models.enums import ExamStatus, ModelAnswerSource, QuestionType
 from app.models.exam import Exam, ExamSession, Question, QuestionOption, StudentExamAttempt
 from app.schemas.exam import QuestionCreate, QuestionUpdate
 from app.services.exam_kind import is_task, is_tirgoul
+from app.services.exam_sections import resolve_section_id
 
 _TRIM_EDGES = "\n\r\t"
 
@@ -119,6 +120,7 @@ async def persist_question(
         question_type=body.question_type,
         order_index=order_index,
         points=body.points,
+        section_id=await resolve_section_id(exam_id, body.section_id, db),
         multiple_scoring_mode=body.multiple_scoring_mode,
         model_answer=_normalized_model_answer(body.model_answer),
         model_answer_source=_model_answer_source(
@@ -193,6 +195,8 @@ async def update_question(
         options=body.options,
     )
     validate_question_body(create_body, 0)
+    if "section_id" in body.model_fields_set:
+        question.section_id = await resolve_section_id(exam_id, body.section_id, db)
     before = answer_signature(question.text, [(o.text, o.is_correct) for o in question.options])
     _apply_question_fields(question, body)
     await _replace_options(question, body, db)

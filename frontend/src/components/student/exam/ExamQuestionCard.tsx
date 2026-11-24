@@ -1,5 +1,6 @@
-import { Box, Card, CardContent, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Typography } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import BackspaceOutlinedIcon from "@mui/icons-material/BackspaceOutlined";
 import type { StudentQuestion } from "../../../api/client";
 import { he } from "../../../i18n/he";
 import { examQuestionScrollMarginTop } from "../../../styles/layoutOffsets";
@@ -18,9 +19,16 @@ export type ExamQuestionCardProps = {
   selected: number[];
   textValue?: string;
   answered?: boolean;
+  /** Quota de la partie atteint : la question reste lisible mais on ne peut plus y répondre. */
+  locked?: boolean;
+  /** Nombre de réponses autorisées dans la partie (pour le message de verrouillage). */
+  lockedHint?: number;
+  /** Partie à choix : l'élève peut retirer sa réponse pour en donner une autre. */
+  clearable?: boolean;
   onSingle: (questionId: number, optionId: number) => void;
   onToggle: (questionId: number, optionId: number, checked: boolean) => void;
   onText: (questionId: number, value: string) => void;
+  onClear?: (questionId: number) => void;
 };
 
 function questionHint(question: StudentQuestion): string {
@@ -49,7 +57,7 @@ function QuestionMeta({ question, dir, answered }: { question: StudentQuestion; 
 }
 
 function QuestionOptions(props: ExamQuestionCardProps & { ltr: boolean }) {
-  const { question, selected, ltr, onSingle, onToggle } = props;
+  const { question, selected, ltr, locked = false, onSingle, onToggle } = props;
   const multiple = question.question_type === "multiple";
   return (
     <Box role={multiple ? "group" : "radiogroup"}>
@@ -60,6 +68,7 @@ function QuestionOptions(props: ExamQuestionCardProps & { ltr: boolean }) {
           questionText={question.text}
           multiple={multiple}
           ltr={ltr}
+          disabled={locked}
           checked={selected.includes(o.id)}
           onChange={(checked) => (multiple ? onToggle(question.id, o.id, checked) : onSingle(question.id, o.id))}
         />
@@ -68,9 +77,28 @@ function QuestionOptions(props: ExamQuestionCardProps & { ltr: boolean }) {
   );
 }
 
+function LockedNotice({ required }: { required?: number }) {
+  if (required == null) return null;
+  return (
+    <Alert severity="info" dir="rtl" sx={{ mb: 1.5 }}>
+      {he.examSectionQuotaReached(required)}
+    </Alert>
+  );
+}
+
+function ClearAnswerButton({ onClear }: { onClear: () => void }) {
+  return (
+    <Box dir="rtl" sx={{ mt: 1, textAlign: "right" }}>
+      <Button size="small" color="inherit" startIcon={<BackspaceOutlinedIcon />} onClick={onClear}>
+        {he.examClearAnswer}
+      </Button>
+    </Box>
+  );
+}
+
 /** Carte d'une question : numéro, points, consigne, énoncé et zone de réponse. */
 export default function ExamQuestionCard(props: ExamQuestionCardProps) {
-  const { elementId, index, question, textValue = "", answered = false, onText } = props;
+  const { elementId, index, question, textValue = "", answered = false, locked = false, clearable = false, onText, onClear } = props;
   const dir = contentDirForQuestionText(question.text);
   const ltr = dir === "ltr";
   return (
@@ -78,6 +106,7 @@ export default function ExamQuestionCard(props: ExamQuestionCardProps) {
       id={elementId}
       sx={{
         mb: 2,
+        opacity: locked ? 0.65 : 1,
         scrollMarginTop: examQuestionScrollMarginTop,
         boxShadow: softCardShadow,
         borderInlineStart: `4px solid ${answered ? statusTones.success.fg : brand.slate200}`,
@@ -86,6 +115,7 @@ export default function ExamQuestionCard(props: ExamQuestionCardProps) {
     >
       <CardContent dir={dir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
         <QuestionMeta question={question} dir={dir} answered={answered} />
+        {locked && <LockedNotice required={props.lockedHint} />}
         <QuestionTextWithIndex index={index} text={question.text} gutterBottom />
         <QuestionImageDisplay url={question.image_url} />
         {question.question_type === "open" ? (
@@ -94,6 +124,7 @@ export default function ExamQuestionCard(props: ExamQuestionCardProps) {
             label={he.openStudentAnswerLabel}
             value={textValue}
             onChange={(value) => onText(question.id, value)}
+            disabled={locked}
             minRows={4}
             maxRows={12}
             placeholder={he.openAnswerPlaceholder}
@@ -101,6 +132,7 @@ export default function ExamQuestionCard(props: ExamQuestionCardProps) {
         ) : (
           <QuestionOptions {...props} ltr={ltr} />
         )}
+        {clearable && answered && onClear && <ClearAnswerButton onClear={() => onClear(question.id)} />}
       </CardContent>
     </Card>
   );

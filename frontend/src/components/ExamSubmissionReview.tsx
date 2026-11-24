@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -15,6 +16,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import type { ExamReview, ExamReviewCorrectOption, ExamReviewQuestion, ExplanationLanguage } from "../api/client";
 import { formatExamPointsLabel } from "../utils/examQuestionsLanguage";
+import { effectiveRequired, groupMaxPoints, groupQuestionsBySection } from "../utils/examSections";
+import ExamSectionHeader from "./student/exam/ExamSectionHeader";
 import { he } from "../i18n/he";
 
 interface ExamSubmissionReviewProps {
@@ -57,6 +60,12 @@ function ReviewOptions({
       ))}
     </>
   );
+}
+
+/** Question d'une partie « N sur M » que l'élève a traitée en trop : affichée, mais sans points. */
+function NotCountedChip({ q }: { q: ExamReviewQuestion }) {
+  if (q.counted !== false) return null;
+  return <Chip size="small" variant="outlined" color="warning" label={he.examReviewNotCounted} sx={{ mb: 1, marginInlineStart: 1 }} />;
 }
 
 function ReviewQuestionCard({
@@ -117,6 +126,7 @@ function ReviewQuestionCard({
               },
             }}
           />
+          <NotCountedChip q={q} />
         </Box>
         <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
           {" "}
@@ -194,6 +204,7 @@ function OpenReviewQuestionCard({
     <Card sx={{ mb: 2, border: "1px solid", borderColor: "divider" }}>
       <CardContent dir={qDir} sx={ltr ? examQuestionLtrSx : { textAlign: "right" }}>
         <Chip size="small" label={chip.label} color={chip.color} sx={{ mb: 1 }} />
+        <NotCountedChip q={q} />
         <QuestionTextWithIndex index={index + 1} text={q.text} sx={{ mb: 1.5 }}>
           {" "}
           <Typography component="span" variant="body2" color="text.secondary">
@@ -245,17 +256,29 @@ export default function ExamSubmissionReview({
       <Typography variant="h6" fontWeight={600} gutterBottom>
         {he.examReviewTitle}
       </Typography>
-      {review.questions.map((q, i) => (
-        <ReviewQuestionCard
-          key={q.id}
-          q={q}
-          index={i}
-          sessionId={review.session_id}
-          language={language}
-          forPractice={review.for_practice}
-          tutorEnabled={Boolean(review.ai_tutor_enabled)}
-          onAttemptScore={onAttemptScore}
-        />
+      {groupQuestionsBySection(review.questions, review.sections ?? []).map((group) => (
+        <Fragment key={group.section?.id ?? "none"}>
+          {group.section && (
+            <ExamSectionHeader
+              section={group.section}
+              questionCount={group.items.length}
+              required={effectiveRequired(group.section, group.items.length)}
+              points={groupMaxPoints(group)}
+            />
+          )}
+          {group.items.map(({ question: q, index }) => (
+            <ReviewQuestionCard
+              key={q.id}
+              q={q}
+              index={index - 1}
+              sessionId={review.session_id}
+              language={language}
+              forPractice={review.for_practice}
+              tutorEnabled={Boolean(review.ai_tutor_enabled)}
+              onAttemptScore={onAttemptScore}
+            />
+          ))}
+        </Fragment>
       ))}
     </Box>
   );

@@ -26,12 +26,41 @@ class QuestionOptionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ExamSectionBody(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    instructions: str | None = None
+    # None = répondre à toutes les questions ; N = seules N réponses sont notées.
+    required_count: int | None = Field(default=None, ge=1, le=500)
+
+
+class ExamSectionResponse(BaseModel):
+    id: int
+    title: str
+    instructions: str | None = None
+    order_index: int
+    required_count: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ExamSectionsReorderRequest(BaseModel):
+    section_ids: list[int] = Field(min_length=1)
+
+
+class ExamSectionAssignRequest(BaseModel):
+    """Rattache des questions à une partie (section_id nul = hors partie)."""
+
+    question_ids: list[int] = Field(min_length=1)
+    section_id: int | None = None
+
+
 class QuestionCreate(BaseModel):
     text: str = ""
     image_url: str | None = None
     question_type: QuestionType
     order_index: int = 0
     points: float = 1.0
+    section_id: int | None = None
     multiple_scoring_mode: MultipleScoringMode | None = None
     model_answer: str | None = None
     model_answer_source: ModelAnswerSource | None = None
@@ -43,6 +72,7 @@ class QuestionUpdate(BaseModel):
     image_url: str | None = None
     question_type: QuestionType
     points: float = 1.0
+    section_id: int | None = None
     multiple_scoring_mode: MultipleScoringMode | None = None
     model_answer: str | None = None
     model_answer_source: ModelAnswerSource | None = None
@@ -56,6 +86,7 @@ class QuestionResponse(BaseModel):
     question_type: QuestionType
     order_index: int
     points: float
+    section_id: int | None = None
     multiple_scoring_mode: MultipleScoringMode | None
     model_answer: str | None = None
     model_answer_source: ModelAnswerSource | None = None
@@ -92,6 +123,7 @@ class ExamUpdate(BaseModel):
     warning_minutes: int | None = None
     auto_submit_on_timeout: bool | None = None
     default_multiple_scoring: MultipleScoringMode | None = None
+    score_cap: float | None = Field(default=None, gt=0, le=100000)
     scope_teacher_id: int | None = None
     scope_academic_year: int | None = Field(default=None, ge=2000, le=2100)
     scope_semester: int | None = Field(default=None, ge=1, le=3)
@@ -125,6 +157,7 @@ class ExamResponse(CatalogItemScopeResponse):
     question_count: int = 0
     can_delete: bool = True
     hidden_from_students: bool = False
+    score_cap: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -303,6 +336,7 @@ class AnswerKeyUpdateResponse(BaseModel):
 class ExamDetailResponse(ExamResponse):
     catalog_course_name: str = ""
     questions: list[QuestionResponse] = []
+    sections: list[ExamSectionResponse] = []
     is_editable: bool = True
 
 
@@ -322,6 +356,7 @@ class StudentQuestionResponse(BaseModel):
     question_type: QuestionType
     order_index: int
     points: float
+    section_id: int | None = None
     options: list[StudentQuestionOptionResponse]
 
 
@@ -341,6 +376,8 @@ class ExamTakeResponse(BaseModel):
     kind: ExamKind = ExamKind.OFFICIAL
     attempt: AttemptResponse
     questions: list[StudentQuestionResponse]
+    sections: list[ExamSectionResponse] = []
+    score_cap: float | None = None
     saved_answers: list[SavedAnswerDraft] = []
 
 
@@ -364,6 +401,9 @@ class ExamReviewQuestion(BaseModel):
     appreciation: str | None = None
     earned_points: float | None = None
     evaluation_pending: bool = False
+    section_id: int | None = None
+    # Faux : question hors des N réponses notées d'une partie à choix.
+    counted: bool = True
 
 
 class ExamReviewResponse(BaseModel):
@@ -374,6 +414,7 @@ class ExamReviewResponse(BaseModel):
     questions_language: Literal["he", "fr", "en", "ru"] = "he"
     attempt: AttemptResponse
     questions: list[ExamReviewQuestion]
+    sections: list[ExamSectionResponse] = []
     for_practice: bool = False
     ai_tutor_enabled: bool = False
 

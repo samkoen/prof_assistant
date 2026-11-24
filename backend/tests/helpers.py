@@ -15,6 +15,8 @@ def make_question(
     mode: MultipleScoringMode = MultipleScoringMode.ALL_OR_NOTHING,
     correct_ids: list[int] | None = None,
     option_ids: list[int] | None = None,
+    section_id: int | None = None,
+    order_index: int | None = None,
 ):
     correct = set(correct_ids or [])
     ids = option_ids or sorted(correct | {1, 2, 3, 4})
@@ -25,6 +27,8 @@ def make_question(
         question_type=question_type,
         multiple_scoring_mode=mode,
         options=options,
+        section_id=section_id,
+        order_index=question_id if order_index is None else order_index,
     )
 
 

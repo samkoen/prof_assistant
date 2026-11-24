@@ -51,6 +51,8 @@ class Exam(Base):
     hidden_from_students: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # Plafond de la note finale (ex. 102 points possibles, note limitée à 100).
+    score_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -96,11 +98,28 @@ class ExamOfferingExclusion(Base):
     offering_id: Mapped[int] = mapped_column(ForeignKey("course_offerings.id", ondelete="CASCADE"), index=True)
 
 
+class ExamSection(Base):
+    """Partie d'un examen (חלק א', חלק ב'…) : consigne propre et règle « répondre à N questions »."""
+
+    __tablename__ = "exam_sections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    # None = toutes les questions de la partie comptent ; N = seules N réponses sont notées.
+    required_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     exam_id: Mapped[int] = mapped_column(ForeignKey("exams.id"), index=True)
+    section_id: Mapped[int | None] = mapped_column(
+        ForeignKey("exam_sections.id"), nullable=True, index=True
+    )
     text: Mapped[str] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     question_type: Mapped[QuestionType] = mapped_column(String(20))

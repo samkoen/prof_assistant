@@ -16,7 +16,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        // API_PROXY_TARGET : pointer le front vers un autre backend local (second serveur de dev).
+        target: process.env.API_PROXY_TARGET ?? "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },

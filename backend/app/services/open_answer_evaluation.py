@@ -11,6 +11,7 @@ from app.models.course import CourseEnrollment
 from app.models.enums import EnrollmentStatus, ModelAnswerSource, QuestionType
 from app.models.exam import (
     Answer,
+    Exam,
     ExamPracticeResult,
     ExamSession,
     OpenAnswerEvaluation,
@@ -25,6 +26,7 @@ from app.services.exam_visibility import ensure_student_can_see_exam
 from app.services.billing.constants import STUDENT_AI, TEACHER_GENERATION
 from app.services.billing.context import bill_ai, unbilled
 from app.services.exam_kind import is_tirgoul
+from app.services.exam_sections import load_scoring_rules
 from app.services.open_answer_parse import parse_open_evaluation_json
 from app.services.open_answer_prompt import (
     build_evaluation_prompt,
@@ -116,10 +118,13 @@ async def recalculate_attempt_score(
 ) -> tuple[float, float]:
     questions = await _questions_by_id(exam_id, db)
     rows = await _load_answer_rows(attempt.id, db, for_practice=for_practice)
-    selected_by_q, _texts = maps_from_answer_rows(rows)
+    selected_by_q, texts = maps_from_answer_rows(rows)
     evals = await load_evaluations_map(attempt.id, db, for_practice=for_practice)
     open_earned = {qid: ev.suggested_score for qid, ev in evals.items()}
-    total, max_total, _ = score_exam_answers(questions, selected_by_q, open_earned)
+    rules = await load_scoring_rules(await db.get(Exam, exam_id), db)
+    total, max_total, _ = score_exam_answers(
+        questions, selected_by_q, open_earned, rules=rules, text_by_q=texts
+    )
     if for_practice:
         attempt.practice_score = total
         attempt.practice_max_score = max_total

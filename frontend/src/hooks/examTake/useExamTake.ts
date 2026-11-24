@@ -1,6 +1,7 @@
 import { useExamIntegrity } from "../useExamIntegrity";
 import { useExamQuestionScrollSpy } from "../useExamQuestionScrollSpy";
-import { countAnsweredQuestions, findNextUnansweredIndex, scrollToExamQuestion } from "../../utils/studentExamQuestionNav";
+import { answerProgress, findNextAnswerableIndex } from "../../utils/examSections";
+import { scrollToExamQuestion } from "../../utils/studentExamQuestionNav";
 import { useExamActions } from "./useExamActions";
 import { useExamAnswers } from "./useExamAnswers";
 import { useExamAutosave } from "./useExamAutosave";
@@ -28,18 +29,23 @@ export function useExamTake(id: number) {
   const questions = paper?.questions ?? [];
   const showNav = phase === "exam" && !rulesPending && questions.length > 0;
   const activeIndex = useExamQuestionScrollSpy(questions.length, showNav);
-  const answeredCount = paper ? countAnsweredQuestions(questions, store.answers, store.textAnswers) : 0;
-  const allAnswered = questions.length > 0 && answeredCount >= questions.length;
+  const sections = paper?.sections ?? [];
+  const maps = { answers: store.answers, textAnswers: store.textAnswers };
+  // Dans une partie « N sur M », seules N réponses sont attendues : la progression se compte sur ce total.
+  const progress = answerProgress(questions, sections, maps);
+  const answeredCount = progress.answered;
+  const requiredCount = progress.required;
+  const allAnswered = questions.length > 0 && answeredCount >= requiredCount;
 
   const goNextUnanswered = () => {
-    const next = findNextUnansweredIndex(questions, store.answers, activeIndex, store.textAnswers);
+    const next = findNextAnswerableIndex(questions, sections, maps, activeIndex);
     if (next != null) scrollToExamQuestion(next);
   };
 
   return {
     store, loader, actions, timer,
     integrityActive, rulesPending, submitted, examInProgress, tabHidden,
-    showNav, activeIndex, answeredCount, allAnswered, goNextUnanswered,
+    showNav, activeIndex, answeredCount, requiredCount, allAnswered, goNextUnanswered,
   };
 }
 

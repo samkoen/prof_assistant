@@ -24,6 +24,7 @@ from app.models.enums import QuestionType
 from app.schemas.exam import SubmitAnswerItem
 from app.services.ai_tutor_store import delete_tutor_rows
 from app.services.exam_kind import is_task, is_tirgoul
+from app.services.exam_sections import load_scoring_rules
 from app.services.practice_release import should_record_score, write_official_score
 from app.services.scoring import score_exam_answers
 from app.services.utc_time import as_utc
@@ -164,7 +165,12 @@ async def finalize_exam_submission(
         if item.question_id in questions
     }
     items_by_q = {item.question_id: item for item in answer_items if item.question_id in questions}
-    total, max_total, normalized = score_exam_answers(questions, selected_by_q)
+    total, max_total, normalized = score_exam_answers(
+        questions,
+        selected_by_q,
+        rules=await load_scoring_rules(exam, db),
+        text_by_q={qid: item.text_answer for qid, item in items_by_q.items()},
+    )
     record = should_record_score(session)
     for qid, selected in normalized.items():
         item = items_by_q.get(qid) or SubmitAnswerItem(question_id=qid, selected_option_ids=selected)

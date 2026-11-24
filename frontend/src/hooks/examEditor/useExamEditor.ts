@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Question } from "../../api/client";
 import { useEditorFeedback } from "./useEditorFeedback";
 import { useExamData } from "./useExamData";
+import { useExamStructure } from "./useExamStructure";
 import { useExamTitle } from "./useExamTitle";
 import { useQcmImport } from "./useQcmImport";
 import { useQuestionOps } from "./useQuestionOps";
@@ -36,8 +37,9 @@ export function useExamEditor(id: number, offeringId: number | null) {
   const ops = useQuestionOps(id, data, fb);
   const importer = useQcmImport(id, data.load, fb);
   const dialog = useQuestionDialog();
+  const structure = useExamStructure(id, data, fb);
 
-  return { fb, data, title, ops, importer, dialog };
+  return { fb, data, title, ops, importer, dialog, structure };
 }
 
 export type ExamEditor = ReturnType<typeof useExamEditor>;

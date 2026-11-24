@@ -9,6 +9,7 @@ function normalizeQuestions(questions: Question[]) {
       image_url: q.image_url ?? null,
       question_type: q.question_type,
       points: q.points,
+      section_id: q.section_id ?? null,
       order_index: q.order_index,
       model_answer: q.model_answer ?? null,
       options: [...q.options]
