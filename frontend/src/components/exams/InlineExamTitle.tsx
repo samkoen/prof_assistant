@@ -1,3 +1,4 @@
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { InputBase } from "@mui/material";
 import { he } from "../../i18n/he";
 
@@ -19,6 +20,12 @@ export default function InlineExamTitle({ value, editable, saving, onChange, onC
       placeholder={he.newExamDefaultTitle}
       title={editable ? he.examTitleInlineHint : undefined}
       inputProps={{ maxLength: 255, "aria-label": he.examTitle, dir: "auto" }}
+      // Crayon collé au début du titre (à droite en RTL) : signale que le nom se modifie en place.
+      startAdornment={
+        editable ? (
+          <EditOutlinedIcon aria-hidden fontSize="small" sx={{ ml: 1, flexShrink: 0, color: "text.secondary", cursor: "text" }} />
+        ) : undefined
+      }
       onChange={(e) => onChange(e.target.value)}
       onBlur={onCommit}
       onKeyDown={(e) => {
@@ -34,7 +41,11 @@ export default function InlineExamTitle({ value, editable, saving, onChange, onC
         borderRadius: 1,
         px: 0.5,
         mx: -0.5,
-        ...(editable && { "&:hover, &.Mui-focused": { bgcolor: "action.hover" } }),
+        ...(editable && {
+          "&:hover input": { textDecoration: "underline dotted", textUnderlineOffset: "0.2em" },
+          "&:hover .MuiSvgIcon-root": { color: "primary.main" },
+          "&.Mui-focused": { bgcolor: "action.hover" },
+        }),
       }}
     />
   );
