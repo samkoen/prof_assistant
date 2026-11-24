@@ -8,6 +8,7 @@ import { STUDENT_AI_PRODUCT } from "../utils/aiCredits";
 import { he } from "../i18n/he";
 import type { ExplanationLanguage } from "../api/client";
 import Spinner from "./ui/Spinner";
+import { shareInFlight } from "../utils/inFlight";
 
 interface QuestionOpenEvaluationProps {
   sessionId: number;
@@ -48,13 +49,10 @@ export default function QuestionOpenEvaluation({
     setLoading(true);
     setError("");
     try {
-      const res = await api<OpenEvaluation>(
-        `/api/exams/sessions/${sessionId}/questions/${question.id}/open-evaluate`,
-        {
-          method: "POST",
-          body: JSON.stringify({ regenerate, for_practice: forPractice }),
-        },
-      );
+      const path = `/api/exams/sessions/${sessionId}/questions/${question.id}/open-evaluate`;
+      const body = JSON.stringify({ regenerate, for_practice: forPractice });
+      // Une seule requête par demande identique en cours (le double montage React en lançait deux).
+      const res = await shareInFlight(`${path}:${body}`, () => api<OpenEvaluation>(path, { method: "POST", body }));
       setResult(res);
       onAttemptScore?.(res.attempt_score ?? null, res.attempt_max_score ?? null);
       if (!res.from_cache) notifyBillingChanged();
